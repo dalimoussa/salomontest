@@ -24,6 +24,7 @@ const config: Config = {
         sans: ['"Noto Sans JP"', '"Inter"', 'sans-serif'],
       },
       backgroundImage: {
+        'mountain': "url('https://salomon-next.vercel.app/mountain-photo.jpeg')",
         'hero-gradient': 'linear-gradient(180deg, rgba(5,10,25,0.30) 0%, rgba(5,10,25,0.80) 100%)',
         'glow-cyan': 'radial-gradient(ellipse at center, rgba(0,200,255,0.15) 0%, transparent 70%)',
       },
