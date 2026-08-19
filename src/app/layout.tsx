@@ -8,12 +8,16 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: '#0A0E1A',
+  // Prevent auto-zoom on input focus on iOS, but preserve user pinch-zoom
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ja">
-      <body className="overflow-hidden bg-salomon-black">{children}</body>
+      <body className="bg-salomon-black">{children}</body>
     </html>
   );
 }
