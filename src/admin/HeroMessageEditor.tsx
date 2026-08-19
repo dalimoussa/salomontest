@@ -158,7 +158,7 @@ export function HeroMessageEditor() {
           }`}
         >
           <Save className="w-4 h-4" />
-          {saved ? '保存しました ✓' : '保存して反映'}
+          {saved ? '更新' : '更新'}
         </button>
       </div>
 
