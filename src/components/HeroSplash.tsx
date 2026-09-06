@@ -8,8 +8,10 @@ interface Props {
 
 export function HeroSplash({ onComplete }: Props) {
   const [fadeOut, setFadeOut] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const timer = setTimeout(() => {
       setFadeOut(true);
       setTimeout(onComplete, 800);
@@ -26,21 +28,23 @@ export function HeroSplash({ onComplete }: Props) {
       {/* Dark overlay with gradient */}
       <div className="absolute inset-0 bg-hero-gradient" />
 
-      {/* Animated particles */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {[...Array(20)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute w-1 h-1 bg-salomon-teal rounded-full animate-particle"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${80 + Math.random() * 20}%`,
-              animationDelay: `${Math.random() * 3}s`,
-              animationDuration: `${4 + Math.random() * 3}s`,
-            }}
-          />
-        ))}
-      </div>
+      {/* Animated particles — rendered only on client to avoid SSR hydration mismatch */}
+      {mounted && (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {[...Array(20)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute w-1 h-1 bg-salomon-teal rounded-full animate-particle"
+              style={{
+                left: `${((i * 17) % 100)}%`,
+                top: `${80 + ((i * 7) % 20)}%`,
+                animationDelay: `${((i * 0.3) % 3)}s`,
+                animationDuration: `${4 + ((i * 0.5) % 3)}s`,
+              }}
+            />
+          ))}
+        </div>
+      )}
 
       {/* Content */}
       <div className="relative z-10 text-center px-6 animate-fadeInUp">

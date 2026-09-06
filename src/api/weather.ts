@@ -33,7 +33,12 @@ function mapWmoToLabel(wmo: number): string {
 
 interface OpenMeteoResponse {
   current: { temperature_2m: number; weathercode: number; windspeed_10m: number };
-  hourly:  { precipitation_probability: number[]; uv_index: number[]; visibility: number[] };
+  hourly:  {
+    precipitation: number[];
+    precipitation_probability: number[];
+    uv_index: number[];
+    visibility: number[];
+  };
 }
 
 export async function fetchWeather(): Promise<WeatherData> {
@@ -41,7 +46,7 @@ export async function fetchWeather(): Promise<WeatherData> {
   url.searchParams.set('latitude', String(LAT));
   url.searchParams.set('longitude', String(LON));
   url.searchParams.set('current', 'temperature_2m,weathercode,windspeed_10m');
-  url.searchParams.set('hourly', 'precipitation_probability,uv_index,visibility');
+  url.searchParams.set('hourly', 'precipitation,precipitation_probability,uv_index,visibility');
   url.searchParams.set('forecast_days', '1');
   url.searchParams.set('timezone', 'Asia/Tokyo');
 
@@ -50,13 +55,15 @@ export async function fetchWeather(): Promise<WeatherData> {
 
   const data: OpenMeteoResponse = await response.json();
   return {
-    temp_c:          Math.round(data.current.temperature_2m),
-    weather:         mapWmoToLabel(data.current.weathercode),
-    weatherCode:     mapWmoToWeatherCode(data.current.weathercode),
-    windSpeed:       Math.round(data.current.windspeed_10m * 10) / 10,
-    rainProbability: data.hourly.precipitation_probability?.[0] ?? 0,
-    uvIndex:         Math.round(data.hourly.uv_index?.[0] ?? 0),
-    visibility:      Math.round((data.hourly.visibility?.[0] ?? 10000) / 1000),
-    updatedAt:       new Date().toISOString(),
+    temp_c:           Math.round(data.current.temperature_2m),
+    weather:          mapWmoToLabel(data.current.weathercode),
+    weatherCode:      mapWmoToWeatherCode(data.current.weathercode),
+    windSpeed:        Math.round(data.current.windspeed_10m * 10) / 10,
+    rainProbability:  data.hourly.precipitation_probability?.[0] ?? 0,
+    // Open-Meteo returns hourly mm; treat as mm/h for the current hour
+    precipitationMmh: data.hourly.precipitation?.[0] ?? 0,
+    uvIndex:          Math.round(data.hourly.uv_index?.[0] ?? 0),
+    visibility:       Math.round((data.hourly.visibility?.[0] ?? 10000) / 1000),
+    updatedAt:        new Date().toISOString(),
   };
 }

@@ -1,70 +1,601 @@
-import type { WeatherData, Route, Difficulty, AdviceResponse } from '@/types';
+/**
+ * Client-side LLM helper.
+ *
+ * - Calls /api/chat (server-side) which holds the OpenAI key.
+ * - Falls back to buildFallbackAdvice() if the server is unreachable or
+ *   the key is missing — the kiosk always shows something useful.
+ */
+import type { WeatherData, Route, Difficulty, AdviceResponse, TrailStatus, Facility } from '@/types';
+import { buildUserPrompt, type AIContext } from '@/lib/prompts';
+import { ROUTES } from '@/data/routes';
+import type { Language } from '@/lib/i18n';
 
-const LEVEL_LABEL: Record<Difficulty, string> = {
-  beginner:     '初心者（ハイキング経験1年未満、体力普通）',
-  intermediate: '中級者（ハイキング経験3年程度、体力あり）',
-  advanced:     '上級者（登山・トレイルラン経験豊富、体力高い）',
-};
-
-function buildSystemPrompt(): string {
-  return `あなたは「山守（やまもり）」、サロモン高尾店のAIマウンテンコンシェルジュです。
-安全を最優先に、山の魅力を伝えることが使命です。丁寧で親しみやすい口調で話してください。
-必ず以下のJSON形式のみで返答してください。
-{
-  "advice_text": "メインアドバイス（150〜250文字）",
-  "advice_short": "短縮版（80文字以内）",
-  "safety_flags": [],
-  "recommended_gear": [],
-  "mood": "good | caution | warning"
-}
-利用可能なgear slugs: trail_shoes_beginner, trail_shoes_intermediate, trail_shoes_advanced, waterproof_shoes, rain_jacket, rain_pants, windshell, hat, trekking_poles, energy_gel, headlamp, gloves`;
+export function findRouteByQuery(query: string): Route | null {
+  const s = query.toLowerCase();
+  if (/\b(?:trail|route|course|no\.?|number)\s*6\b|6号路|びわ|biwa|waterfall/i.test(s)) {
+    return ROUTES.find(r => r.id === 'route_6') || null;
+  }
+  if (/\b(?:trail|route|course|no\.?|number)\s*2\b|2号路|霞台|kasumidai|2\.cas/i.test(s)) {
+    return ROUTES.find(r => r.id === 'route_2') || null;
+  }
+  if (/\b(?:trail|route|course|no\.?|number)\s*3\b|3号路|かつら|katsura/i.test(s)) {
+    return ROUTES.find(r => r.id === 'route_3') || null;
+  }
+  if (/\b(?:trail|route|course|no\.?|number)\s*4\b|4号路|吊り橋|suspension|miyama|tsuribashi/i.test(s)) {
+    return ROUTES.find(r => r.id === 'route_4') || null;
+  }
+  if (/\b(?:trail|route|course|no\.?|number)\s*5\b|5号路|山頂ループ|summit loop/i.test(s)) {
+    return ROUTES.find(r => r.id === 'route_5') || null;
+  }
+  if (/\b(?:trail|route|course|no\.?|number)\s*1\b|1号路|表参道|omotesando/i.test(s)) {
+    return ROUTES.find(r => r.id === 'route_1') || null;
+  }
+  if (/稲荷山|inariyama/i.test(s)) {
+    return ROUTES.find(r => r.id === 'route_inariyama') || null;
+  }
+  if (/城山|天狗|tengu|shiroyama/i.test(s)) {
+    return ROUTES.find(r => r.id === 'trail_tengu') || null;
+  }
+  if (/権現|gongen/i.test(s)) {
+    return ROUTES.find(r => r.id === 'trail_gongen') || null;
+  }
+  if (/三沢|misawa/i.test(s)) {
+    return ROUTES.find(r => r.id === 'trail_misawa') || null;
+  }
+  if (/南高尾|minami/i.test(s)) {
+    return ROUTES.find(r => r.id === 'trail_minamitakao') || null;
+  }
+  if (/小下沢|koge/i.test(s)) {
+    return ROUTES.find(r => r.id === 'trail_kogezawa') || null;
+  }
+  if (/太鼓|taiko/i.test(s)) {
+    return ROUTES.find(r => r.id === 'trail_taiko') || null;
+  }
+  if (/北高尾|kita/i.test(s)) {
+    return ROUTES.find(r => r.id === 'trail_kitaapproach') || null;
+  }
+  if (/明王|相模湖|meio|sagami/i.test(s)) {
+    return ROUTES.find(r => r.id === 'trail_meio') || null;
+  }
+  if (/景信|kagenobu/i.test(s)) {
+    return ROUTES.find(r => r.id === 'route_kagenobu') || null;
+  }
+  if (/陣馬|jinba/i.test(s)) {
+    return ROUTES.find(r => r.id === 'route_jinba') || null;
+  }
+  return null;
 }
 
 export async function getAIAdvice(
   weather: WeatherData,
   route: Route,
-  userLevel: Difficulty
+  userLevel: Difficulty,
+  trailStatus?: TrailStatus,
+  facilities?: Facility[],
+  userQuery?: string,
+  language: Language = 'ja'
 ): Promise<AdviceResponse> {
-  // In Next.js, call our own API route to keep the key server-side
+  const matchedRoute = userQuery ? findRouteByQuery(userQuery) : null;
+  const effectiveRoute = matchedRoute || route;
+  const effectiveLevel = matchedRoute ? matchedRoute.difficulty : userLevel;
+
+  const ctx: AIContext = {
+    weather,
+    route: effectiveRoute,
+    userLevel: effectiveLevel,
+    trailStatus,
+    facilities,
+    userQuery,
+    language,
+  };
   try {
     const res = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ weather, route, userLevel }),
+      body: JSON.stringify(ctx),
     });
     if (res.ok) {
       const data = await res.json() as AdviceResponse;
       return data;
     }
   } catch {
-    // fall through to fallback
+    // fall through to deterministic fallback
   }
-  return buildFallbackAdvice(weather, route, userLevel);
+  return buildFallbackAdvice(weather, effectiveRoute, effectiveLevel, userQuery, language);
 }
 
-function buildFallbackAdvice(weather: WeatherData, route: Route, userLevel: Difficulty): AdviceResponse {
-  const safety_flags: string[] = [];
+function buildFallbackAdvice(
+  weather: WeatherData,
+  route: Route,
+  userLevel: Difficulty,
+  userQuery?: string,
+  language: Language = 'ja'
+): AdviceResponse {
+  const safety_flags: string[]     = [];
   const recommended_gear: string[] = [];
-  if (weather.uvIndex >= 6) safety_flags.push('high_uv');
-  if (weather.temp_c >= 27) safety_flags.push('heat_caution');
+
+  if (weather.uvIndex >= 6)          safety_flags.push('high_uv');
+  if (weather.temp_c >= 27)          safety_flags.push('heat_caution');
   if (weather.rainProbability >= 60) safety_flags.push('rain_gear_required');
   if (weather.rainProbability >= 40) safety_flags.push('slippery_trail');
-  if (weather.windSpeed >= 7) safety_flags.push('strong_wind');
-  if (route.distanceKm >= 15) safety_flags.push('long_distance_caution');
+  if (weather.windSpeed >= 7)        safety_flags.push('strong_wind');
+  if (route.distanceKm >= 15)        safety_flags.push('long_distance_caution');
+
   recommended_gear.push(`trail_shoes_${userLevel}`);
   if (weather.rainProbability >= 60) recommended_gear.push('rain_jacket', 'waterproof_shoes');
-  if (weather.windSpeed >= 7) recommended_gear.push('windshell');
-  if (weather.uvIndex >= 6) recommended_gear.push('hat');
-  if (route.distanceKm >= 10) recommended_gear.push('trekking_poles', 'energy_gel');
-  const mood = weather.rainProbability >= 90 ? 'warning' : weather.rainProbability >= 40 || weather.windSpeed >= 7 ? 'caution' : 'good';
-  const weatherDesc = weather.weatherCode === 'sunny' ? `晴れて気温${weather.temp_c}℃` : weather.weatherCode === 'rainy' ? `雨模様で気温${weather.temp_c}℃` : `曇りで気温${weather.temp_c}℃`;
+  if (weather.windSpeed >= 7)        recommended_gear.push('windshell');
+  if (weather.uvIndex >= 6)          recommended_gear.push('hat');
+  if (route.distanceKm >= 10)        recommended_gear.push('trekking_poles', 'energy_gel');
+
+  const mood =
+    weather.rainProbability >= 90 ? 'warning' :
+    weather.rainProbability >= 40 || weather.windSpeed >= 7 ? 'caution' : 'good';
+
+  const routeName = language === 'en' ? (route.name_en || route.name) : language === 'zh' ? (route.name_zh || route.name) : route.name;
+  const q = (userQuery || '').toLowerCase();
+
+  // ── Specific Trail Query Responses ──
+  // Trail 2: Kasumidai Loop
+  if (route.id === 'route_2' || /\b(?:trail|route|course|no\.?|number)\s*2\b|2号路|霞台|kasumidai|2\.cas/i.test(q)) {
+    recommended_gear.push('trail_shoes_beginner', 'hat');
+    if (language === 'en') {
+      return {
+        advice_text: `You asked about Trail 2 (Kasumidai Loop)! This is a 0.9km scenic nature loop around Takaosan Station (+50m elevation gain, ~40 min). It circles the Monkey Park & Wild Plant Garden, highlighting the unique contrast between southern warm-temperate evergreen and northern cool-temperate deciduous forests. It has gentle slopes and is wonderful for a relaxing nature walk!`,
+        advice_short: `Trail 2 (Kasumidai Loop): 0.9km gentle nature loop around Takaosan Station (40 min).`,
+        safety_flags,
+        recommended_gear,
+        mood: 'good',
+      };
+    }
+    if (language === 'zh') {
+      return {
+        advice_text: `关于“2号路（霞台环形路）”：这是环绕高尾山缆车站一周的自然生态环线，全长0.9公里（爬升约+50米，耗时约40分钟）。途经猴园与野草园，南坡暖温带与北坡温带森林交汇，植被丰富且路面平缓，老少咸宜！`,
+        advice_short: `2号路（霞台环线）：全长0.9公里（约40分钟），平缓环绕高尾山站。`,
+        safety_flags,
+        recommended_gear,
+        mood: 'good',
+      };
+    }
+    return {
+      advice_text: `「2号路（霞台ループ）」ですね！高尾山駅の周囲をぐるりと一周する全長0.9kmの環状コースです（標高差+50m、所要約40分）。さる園・野草園を通り、南斜面の暖帯林と北斜面の温帯林の豊かな植生を観察できます。平坦で歩きやすく、気軽な森林浴散策にぴったりです！`,
+      advice_short: `2号路（霞台ループ）：全長0.9km（約40分）。高尾山駅周辺の平坦な自然観察路です。`,
+      safety_flags,
+      recommended_gear,
+      mood: 'good',
+    };
+  }
+
+  // Trail 6: Biwa Waterfall Trail
+  if (route.id === 'route_6' || /\b(?:trail|route|course|no\.?|number)\s*6\b|6号路|びわ|biwa|waterfall/i.test(q)) {
+    recommended_gear.push('trail_shoes_intermediate', 'waterproof_shoes', 'rain_jacket');
+    if (language === 'en') {
+      return {
+        advice_text: `You asked about Trail 6 (Biwa Waterfall Trail)! This 3.3km route (+360m elevation gain, ~90 min) ascends along the mountain stream. You will pass the sacred Biwa Waterfall and hike directly over stepping stones in the brook. The trail can be wet and slippery, so waterproof shoes with aggressive grip like Salomon X Ultra 4 GORE-TEX or Speedcross 6 are strongly recommended!`,
+        advice_short: `Trail 6 (Biwa Waterfall): 3.3km refreshing stream hike (90 min). Waterproof high-grip shoes advised!`,
+        safety_flags: [...safety_flags, 'slippery_trail'],
+        recommended_gear,
+        mood: 'caution',
+      };
+    }
+    if (language === 'zh') {
+      return {
+        advice_text: `关于“6号路（琵琶瀑布路线）”：这是沿山涧溪流而上的清幽探险步道，全长3.3公里（爬升+360米，约需90分钟）。沿途经过古老的琵琶瀑布修行地，中上段还可踩着溪中岩石溯溪而行。水汽重、石头湿滑，强烈建议穿着防滑防水的Salomon X Ultra 4 GORE-TEX越野鞋！`,
+        advice_short: `6号路（琵琶瀑布）：3.3公里溪谷步道（90分钟），路面湿滑需穿防水防滑鞋！`,
+        safety_flags: [...safety_flags, 'slippery_trail'],
+        recommended_gear,
+        mood: 'caution',
+      };
+    }
+    return {
+      advice_text: `「6号路（びわ滝コース）」ですね！清滝駅横から沢沿いを登る全長3.3kmの人気コースです（標高差+360m、所要約90分）。途中に修験道の場である「びわ滝」があり、上流部ではせせらぎの中の飛び石を歩く爽快な沢歩きが楽しめます。足元が濡れて滑りやすいため、防水性と強力グリップを備えた「サロモン X ULTRA 4 GORE-TEX」が最適です！`,
+      advice_short: `6号路（びわ滝コース）：全長3.3km（約90分）。沢沿い飛び石歩きが魅力、滑り止め靴推奨！`,
+      safety_flags: [...safety_flags, 'slippery_trail'],
+      recommended_gear,
+      mood: 'caution',
+    };
+  }
+
+  // Trail 3: Katsura Forest Trail
+  if (route.id === 'route_3' || /\b(?:trail|route|course|no\.?|number)\s*3\b|3号路|かつら|katsura/i.test(q)) {
+    recommended_gear.push('trail_shoes_beginner', 'windshell');
+    if (language === 'en') {
+      return {
+        advice_text: `Trail 3 (Katsura Forest Trail) covers 2.4km (+180m gain, ~60 min). Branching off left from Joshinmon Gate, it meanders through quiet evergreen and giant katsura forests on natural soil paths. It is peaceful and far less crowded than the paved main trail!`,
+        advice_short: `Trail 3 (Katsura Forest): 2.4km tranquil woodland dirt path (60 min). Avoids summit crowds.`,
+        safety_flags,
+        recommended_gear,
+        mood: 'good',
+      };
+    }
+    if (language === 'zh') {
+      return {
+        advice_text: `“3号路（连香树林路线）”全长2.4公里（爬升+180米，约60分钟）。从净心门左侧分岔，穿越连香树与常绿阔叶森林的原生态泥土小路。远离主峰喧嚣，聆听清幽鸟鸣的静心之选！`,
+        advice_short: `3号路（连香树林）：2.4公里静谧林间土路（60分钟），避开人潮。`,
+        safety_flags,
+        recommended_gear,
+        mood: 'good',
+      };
+    }
+    return {
+      advice_text: `「3号路（かつら林コース）」は全長2.4km（標高差+180m、所要約60分）の静かな自然道です。浄心門の左手から分岐し、カツラや照葉樹の森を抜ける土の小道。メインコースの混雑を避けて野鳥のさえずりを楽しみながら歩けます！`,
+      advice_short: `3号路（かつら林コース）：全長2.4km（約60分）。混雑の少ない静かな森林土道です。`,
+      safety_flags,
+      recommended_gear,
+      mood: 'good',
+    };
+  }
+
+  // Trail 4: Suspension Bridge Trail
+  if (route.id === 'route_4' || /\b(?:trail|route|course|no\.?|number)\s*4\b|4号路|吊り橋|suspension|miyama|tsuribashi/i.test(q)) {
+    recommended_gear.push('trail_shoes_intermediate', 'windshell');
+    if (language === 'en') {
+      return {
+        advice_text: `Trail 4 (Suspension Bridge Trail) is 1.5km long (+150m gain, ~50 min). Its highlight is crossing Miyama Bridge—the only suspension bridge on Mt. Takao—nestled deep in primeval beech and maple forests. An unforgettable forest walk for nature and photo lovers!`,
+        advice_short: `Trail 4 (Suspension Bridge): 1.5km scenic trail crossing Miyama suspension bridge (50 min).`,
+        safety_flags,
+        recommended_gear,
+        mood: 'good',
+      };
+    }
+    if (language === 'zh') {
+      return {
+        advice_text: `“4号路（吊桥步道）”全长1.5公里（爬升+150米，约50分钟）。途经高尾山唯一的吊桥“深山桥”，被茂密的山毛榉与红枫环抱。谷风习习，景致优美，是拍照打卡与亲近自然的绝佳路线！`,
+        advice_short: `4号路（吊桥步道）：1.5公里穿越深山吊桥（50分钟），景色秀丽。`,
+        safety_flags,
+        recommended_gear,
+        mood: 'good',
+      };
+    }
+    return {
+      advice_text: `「4号路（吊り橋コース）」は全長1.5km（標高差+150m、所要約50分）。高尾山で唯一の吊り橋「みやま橋」を渡る大人気ルートです。ブナやカエデの原生林に包まれ、四季折々の絶景が楽しめます。足元はトレイルシューズが安心です！`,
+      advice_short: `4号路（吊り橋コース）：全長1.5km（約50分）。みやま吊り橋とブナ林が魅力！`,
+      safety_flags,
+      recommended_gear,
+      mood: 'good',
+    };
+  }
+
+  // Trail 5: Summit Loop
+  if (route.id === 'route_5' || /\b(?:trail|route|course|no\.?|number)\s*5\b|5号路|山頂ループ|summit loop/i.test(q)) {
+    recommended_gear.push('trail_shoes_beginner', 'hat');
+    if (language === 'en') {
+      return {
+        advice_text: `Trail 5 (Summit Loop Trail) is an easy 0.9km loop (+30m gain, ~30 min) circling just below the peak of Mt. Takao. It intersects all major trails and features educational botanical markers along an almost level, relaxing forest walk.`,
+        advice_short: `Trail 5 (Summit Loop): 0.9km easy, nearly level walk circling the summit area (30 min).`,
+        safety_flags,
+        recommended_gear,
+        mood: 'good',
+      };
+    }
+    if (language === 'zh') {
+      return {
+        advice_text: `“5号路（山顶环形路）”全长0.9公里（爬升仅+30米，耗时约30分钟），平缓环绕高尾山顶。连接所有主要登山道，沿途设有丰富的植物解说牌，适合全家轻松漫步！`,
+        advice_short: `5号路（山顶环形路）：0.9公里近乎平坦的环顶步道（30分钟）。`,
+        safety_flags,
+        recommended_gear,
+        mood: 'good',
+      };
+    }
+    return {
+      advice_text: `「5号路（山頂ループ）」は山頂の周囲をめぐる全長0.9km（標高差+30m、所要約30分）の平坦な散策路です。全登山道が合流するポイントでもあり、様々な高山植物のプレートを観察しながら手軽に一周できます！`,
+      advice_short: `5号路（山頂ループ）：全長0.9km（約30分）。山頂直下の平坦な植物観察路です。`,
+      safety_flags,
+      recommended_gear,
+      mood: 'good',
+    };
+  }
+
+  // Inariyama Course
+  if (route.id === 'route_inariyama' || /稲荷山|inariyama/i.test(q)) {
+    recommended_gear.push('trail_shoes_intermediate', 'trekking_poles');
+    if (language === 'en') {
+      return {
+        advice_text: `Inariyama Course (Ridge Trail) is 3.1km long with +399m elevation gain (~90 min). Ascending the south ridge directly from Kiyotaki Station, it offers observation gazebos with sweeping panoramas and wooden ridge steps. A true hiking trail requiring sturdy trail footwear!`,
+        advice_short: `Inariyama Ridge Trail: 3.1km natural ridge ascent with scenic gazebos (90 min).`,
+        safety_flags,
+        recommended_gear,
+        mood: 'good',
+      };
+    }
+    if (language === 'zh') {
+      return {
+        advice_text: `“稻荷山步道（山脊路线）”全长3.1公里（爬升+399米，约90分钟）。沿清泷站南侧山脊直上，途经视野开阔的观景凉亭。山脊土路多树根与木阶梯，推荐穿着专业徒步鞋！`,
+        advice_short: `稻荷山步道：3.1公里山脊经典直登线（90分钟），视野开阔。`,
+        safety_flags,
+        recommended_gear,
+        mood: 'good',
+      };
+    }
+    return {
+      advice_text: `「稲荷山コース（尾根道）」は清滝駅から山頂へ南側の尾根を直登する全長3.1km（標高差+399m、所要約90分）の本格登山道です。途中にあずまや（展望台）があり、明るい尾根歩きが魅力。木の根や木段が多いため、しっかりしたトレイルシューズでお出かけください！`,
+      advice_short: `稲荷山コース：全長3.1km（約90分）。見晴らしの良い南尾根の本格登山道です。`,
+      safety_flags,
+      recommended_gear,
+      mood: 'good',
+    };
+  }
+
+  // Shiroyama Tengu Trail
+  if (route.id === 'trail_tengu' || /天狗|tengu|城山/i.test(q)) {
+    recommended_gear.push('trail_shoes_advanced', 'energy_gel', 'trekking_poles', 'windshell');
+    if (language === 'en') {
+      return {
+        advice_text: `Shiroyama Tengu Trail is an advanced 16.0km mountain endurance route (+900m elevation gain, ~320 min) from Takao Trail Manners. Traversing multiple steep ridgelines to Shiroyama, it demands trail running gear, hydration flasks, energy gels, and technical shoes like Salomon Speedcross 6!`,
+        advice_short: `Shiroyama Tengu Trail: Advanced 16km technical ridge run/trek (+900m). High endurance required.`,
+        safety_flags: [...safety_flags, 'long_distance_caution'],
+        recommended_gear,
+        mood: 'caution',
+      };
+    }
+    if (language === 'zh') {
+      return {
+        advice_text: `“城山天狗越野路线（高尾Manners认证）”全长16.0公里，累计爬升约900米（预计5小时20分钟）。多次往返于城山险峻山脊，起伏剧烈。必须配备Salomon越野背包、充足饮水及Speedcross 6高抓地力越野跑鞋！`,
+        advice_short: `城山天狗越野路线：16公里进阶越野长距离挑战（5小时20分）。`,
+        safety_flags: [...safety_flags, 'long_distance_caution'],
+        recommended_gear,
+        mood: 'caution',
+      };
+    }
+    return {
+      advice_text: `「城山天狗トレイル（高尾マナーズ）」は全長16.0km・獲得標高約900m（所要約5時間20分）の本格ロングトレイルです！城山を中心に幾度もアップダウンを繰り返すタフなルート。サロモン SPEEDCROSS 6 やハイドレーションベストなどの本格装備をご準備ください！`,
+      advice_short: `城山天狗トレイル：全長16km（約5時間20分）。高尾マナーズ推奨の上級ロングコースです。`,
+      safety_flags: [...safety_flags, 'long_distance_caution'],
+      recommended_gear,
+      mood: 'caution',
+    };
+  }
+
+  // Surrounding Trails (Takao Trail Manners)
+  if (route.category === 'surrounding_trail') {
+    recommended_gear.push('trail_shoes_intermediate', 'energy_gel', 'windshell');
+    if (language === 'en') {
+      return {
+        advice_text: `You selected "${routeName}" (${route.distanceKm}km, gain +${route.elevationM}m, ~${route.durationMin} min). Sourced from Takao Trail Manners, this route takes you away from tourist crowds into peaceful, rugged nature. Features include: ${route.features.join(', ')}. Carry sufficient water and energy snacks!`,
+        advice_short: `${routeName}: ${route.distanceKm}km, +${route.elevationM}m (~${route.durationMin} min). Takao Manners trail.`,
+        safety_flags: route.distanceKm >= 10 ? [...safety_flags, 'long_distance_caution'] : safety_flags,
+        recommended_gear,
+        mood: 'good',
+      };
+    }
+    if (language === 'zh') {
+      return {
+        advice_text: `您选择了“${routeName}”（全长${route.distanceKm}公里，爬升+${route.elevationM}米，预计${route.durationMin}分钟）。源自高尾Manners推荐，远离游客喧嚣，尽享静谧纯粹的山林之美。特色包含：${route.features.join('、')}。请备足补给与饮水！`,
+        advice_short: `${routeName}：全长${route.distanceKm}公里（约${route.durationMin}分钟），高尾Manners推荐。`,
+        safety_flags: route.distanceKm >= 10 ? [...safety_flags, 'long_distance_caution'] : safety_flags,
+        recommended_gear,
+        mood: 'good',
+      };
+    }
+    return {
+      advice_text: `「${routeName}」（全長${route.distanceKm}km、獲得標高+${route.elevationM}m、所要約${route.durationMin}分）ですね！高尾マナーズ推奨の静かな山道で、観光地の喧騒を離れて豊かな自然を堪能できます。特徴：${route.features.join('・')}。十分な水分と補給食をご用意ください！`,
+      advice_short: `${routeName}：全長${route.distanceKm}km（約${route.durationMin}分）。高尾マナーズ推奨トレイルです。`,
+      safety_flags: route.distanceKm >= 10 ? [...safety_flags, 'long_distance_caution'] : safety_flags,
+      recommended_gear,
+      mood: 'good',
+    };
+  }
+
+  // ── General Question Intent Responses ──
+  // 1. Beginner Route Question
+  if (q.includes('初心者') || q.includes('beginner') || q.includes('easy') || q.includes('初級') || q.includes('おすすめのルート')) {
+    recommended_gear.push('footwear', 'apparel');
+    if (language === 'en') {
+      return {
+        advice_text: `For beginners, I highly recommend Trail 1 (Omotesando Trail)! It is 3.8km long, fully paved, and takes about 90 minutes. You will pass scenic tea houses, Yakuo-in Temple, and can also take the cable car halfway up if you get tired. Salomon X Ultra 4 GTX shoes are ideal for comfortable grip.`,
+        advice_short: `Trail 1 (Omotesando) is the best choice for beginners! Paved and scenic (90 min).`,
+        safety_flags,
+        recommended_gear,
+        mood: 'good',
+      };
+    }
+    if (language === 'zh') {
+      return {
+        advice_text: `对于初学者，首推“高尾山1号路（表参道）”！全长3.8公里，全程铺装路面，约需90分钟。途经药王院与传统茶屋，体力不足时还可搭乘缆车轻松上山。推荐穿着抓地防滑的Salomon越野鞋。`,
+        advice_short: `初学者首选1号路（表参道）！路况优良平稳，约90分钟登顶。`,
+        safety_flags,
+        recommended_gear,
+        mood: 'good',
+      };
+    }
+    return {
+      advice_text: `初心者の方には、舗装路で歩きやすい「1号路（表参道コース）」が最もおすすめです！全長3.8km、約90分で薬王院や茶屋を巡りながら安心して山頂へ行けます。疲れたらケーブルカーも利用可能です。足元は安定感抜群のサロモン X ULTRA 4 GORE-TEX がぴったりです。`,
+      advice_short: `初心者には1号路（表参道）が一番おすすめ！舗装路で安心です。`,
+      safety_flags,
+      recommended_gear,
+      mood: 'good',
+    };
+  }
+
+  // 2. Shoes / Footwear Question
+  if (q.includes('靴') || q.includes('シューズ') || q.includes('shoe') || q.includes('footwear') || q.includes('登山靴')) {
+    recommended_gear.push('footwear');
+    if (language === 'en') {
+      return {
+        advice_text: `For Mt. Takao, Salomon X Ultra 4 GORE-TEX is the best recommendation. It combines waterproof GORE-TEX protection with Contagrip outsoles that grip firmly on wet rocks and exposed tree roots. For fast trail running, check out the Sense Ride 5.`,
+        advice_short: `Salomon X Ultra 4 GORE-TEX is recommended for Takao's rocky trails.`,
+        safety_flags,
+        recommended_gear,
+        mood: 'good',
+      };
+    }
+    if (language === 'zh') {
+      return {
+        advice_text: `在高尾山徒步，最推荐 Salomon X ULTRA 4 GORE-TEX 徒步鞋！搭载GTX防水薄膜与Contagrip耐磨大底，湿滑台阶与裸露树根路段抓地力极佳。如果喜欢轻量越野跑，推荐 Sense Ride 5。`,
+        advice_short: `推荐 Salomon X ULTRA 4 GORE-TEX，防水防滑性能卓越。`,
+        safety_flags,
+        recommended_gear,
+        mood: 'good',
+      };
+    }
+    return {
+      advice_text: `高尾山の登山には「サロモン X ULTRA 4 GORE-TEX」が一番おすすめです！防水GORE-TEXと強力なContagripソールで、濡れた石段や木の根でも滑りにくく快適です。軽快に走りたいトレラン派には SENSE RIDE 5 も人気です。店頭で試着できます！`,
+      advice_short: `おすすめはサロモン X ULTRA 4 GORE-TEX！安定したグリップ力です。`,
+      safety_flags,
+      recommended_gear,
+      mood: 'good',
+    };
+  }
+
+  // 3. Weather / Rain Question
+  if (q.includes('天気') || q.includes('雨') || q.includes('weather') || q.includes('rain') || q.includes('気温') || q.includes('temp')) {
+    if (language === 'en') {
+      return {
+        advice_text: `Current Mt. Takao conditions: ${weather.weather}, temperature is ${weather.temp_c}°C with rain probability at ${weather.rainProbability}%. Wind is ${weather.windSpeed}m/s. Bring a lightweight windshell or Bonatti waterproof jacket for temperature changes at the summit.`,
+        advice_short: `Currently ${weather.weather}, ${weather.temp_c}°C, rain probability ${weather.rainProbability}%.`,
+        safety_flags,
+        recommended_gear,
+        mood,
+      };
+    }
+    if (language === 'zh') {
+      return {
+        advice_text: `高尾山当前天气：${weather.weather}，气温约${weather.temp_c}℃，降水概率为${weather.rainProbability}%，风速${weather.windSpeed}米/秒。山顶风大体感温度较低，建议携带轻量防风外套或Bonatti防水夹克。`,
+        advice_short: `当前天气${weather.weather}，气温${weather.temp_c}℃，降水率${weather.rainProbability}%。`,
+        safety_flags,
+        recommended_gear,
+        mood,
+      };
+    }
+    return {
+      advice_text: `現在の高尾山は【${weather.weather}】、気温は${weather.temp_c}℃、降水確率は${weather.rainProbability}%です（風速${weather.windSpeed}m/s）。山頂は風が抜けやすいため、羽織れるボナッティ防水ジャケットやウィンドシェルがあると安心です。`,
+      advice_short: `現在${weather.weather}、気温${weather.temp_c}℃、降水確率${weather.rainProbability}%です。`,
+      safety_flags,
+      recommended_gear,
+      mood,
+    };
+  }
+
+  // 4. Live Camera / Summit View Question
+  if (q.includes('カメラ') || q.includes('camera') || q.includes('山頂') || q.includes('summit') || q.includes('富士山') || q.includes('景色') || q.includes('view')) {
+    if (language === 'en') {
+      return {
+        advice_text: `Mt. Takao summit stands at 599m. From the Omiharidai observation deck on clear days, you can enjoy stunning panoramic views of Mt. Fuji and the Tanzawa mountain range. Tap the camera button below to view the summit camera status!`,
+        advice_short: `Summit elevation is 599m with great Mt. Fuji views on clear days.`,
+        safety_flags,
+        recommended_gear,
+        mood: 'good',
+      };
+    }
+    if (language === 'zh') {
+      return {
+        advice_text: `高尾山山顶海拔599米，在大见晴台观景台上，晴天可以清晰远眺富士山及丹泽连峰壮丽全景。您可以点击下方的相机按钮查看山顶实时画面状态！`,
+        advice_short: `山顶海拔599米，大见晴台可远眺富士山壮丽景色。`,
+        safety_flags,
+        recommended_gear,
+        mood: 'good',
+      };
+    }
+    return {
+      advice_text: `高尾山山頂は標高599mです。山頂の大見晴台からは、天気の良い日には富士山や丹沢の山並みが美しく一望できます。下の「山頂のライブカメラを見たい」ボタンから現地の様子をご確認いただけます！`,
+      advice_short: `標高599mの山頂大見晴台からは富士山の絶景が望めます！`,
+      safety_flags,
+      recommended_gear,
+      mood: 'good',
+    };
+  }
+
+  // 5. Cable Car / Ropeway Question
+  if (q.includes('ケーブルカー') || q.includes('cable') || q.includes('リフト') || q.includes('lift') || q.includes('時間') || q.includes('運行')) {
+    if (language === 'en') {
+      return {
+        advice_text: `Takao Tozan Railway cable car operates between Kiyotaki Station and Takaosan Station every 15 minutes. It ascends 271 meters in about 6 minutes, with Japan's steepest railway incline of 31°18′! Fares are ¥490 one-way / ¥950 round-trip.`,
+        advice_short: `Cable car runs every 15 min (Kiyotaki ⇄ Takaosan, 6 min).`,
+        safety_flags,
+        recommended_gear,
+        mood: 'good',
+      };
+    }
+    if (language === 'zh') {
+      return {
+        advice_text: `高尾登山电铁缆车往返于清泷站与高尾山站之间，每15分钟一班，单程仅需约6分钟（高低差271米，最大坡度达31度18分，为日本第一！）。单程票价490日元，往返950日元。`,
+        advice_short: `缆车每15分钟一班，清泷站至高尾山站单程约6分钟。`,
+        safety_flags,
+        recommended_gear,
+        mood: 'good',
+      };
+    }
+    return {
+      advice_text: `高尾登山電鉄のケーブルカーは清滝駅〜高尾山駅間を約15分間隔で運行しています。片道約6分、最急勾配31度18分は日本一の急勾配です！運賃は大人片道490円・往復950円です。画面右上の電車アイコンから時刻表を確認できます。`,
+      advice_short: `ケーブルカーは約15分間隔で運行中（片道約6分、大人490円）。`,
+      safety_flags,
+      recommended_gear,
+      mood: 'good',
+    };
+  }
+
+  // 6. Parking / Staff Call Question
+  if (q.includes('駐車場') || q.includes('parking') || q.includes('車') || q.includes('park') || q.includes('スタッフ') || q.includes('staff')) {
+    if (language === 'en') {
+      return {
+        advice_text: `Parking is available near Kiyotaki Station at the base of Mt. Takao. It gets crowded quickly between 11:00 and 14:00 on weekends and holidays. If you need in-person assistance, store staff can assist you immediately.`,
+        advice_short: `Parking is located at Kiyotaki base; fills quickly on weekends (11:00-14:00).`,
+        safety_flags,
+        recommended_gear,
+        mood: 'caution',
+      };
+    }
+    if (language === 'zh') {
+      return {
+        advice_text: `高尾山山脚清泷站周边设有停车场，周末及节假日上午11点至下午2点极易拥堵饱和，建议提早到达或搭乘京王线前往。如需店内协助，工作人员随时为您服务。`,
+        advice_short: `停车场位于清泷站周边，周末11:00-14:00易满位。`,
+        safety_flags,
+        recommended_gear,
+        mood: 'caution',
+      };
+    }
+    return {
+      advice_text: `駐車場は山麓の清滝駅周辺にございます。土日祝日の11時〜14時は満車になりやすいため、混雑時は公共交通機関のご利用が便利です。ご不明点があれば、サロモン高尾店のスタッフが詳しくご案内いたします！`,
+      advice_short: `清滝駅周辺に駐車場あり。土日祝の11時〜14時は混雑します。`,
+      safety_flags,
+      recommended_gear,
+      mood: 'caution',
+    };
+  }
+
+  // ── Default Contextual Answer ──
+  if (language === 'en') {
+    const queryPart = userQuery ? `Regarding your request ("${userQuery}"): ` : '';
+    const rainTip = weather.rainProbability >= 50 ? 'Pack reliable rain gear and watch for slippery rock stairs.' : 'Conditions are pleasant for hiking today.';
+    return {
+      advice_text: `${queryPart}Welcome to Mt. Takao! Today is ${weather.weather} with temperatures around ${weather.temp_c}°C. You are viewing ${routeName}, which covers ${route.distanceKm}km with +${route.elevationM}m elevation gain (approx. ${route.durationMin} min). ${rainTip} Stay hydrated and enjoy your time on the mountain!`,
+      advice_short: `${routeName}: ${route.distanceKm}km, +${route.elevationM}m (${route.durationMin} min). Today is ${weather.weather}, ${weather.temp_c}°C.`,
+      safety_flags,
+      recommended_gear,
+      mood,
+    };
+  }
+
+  if (language === 'zh') {
+    const queryPart = userQuery ? `关于您的咨询（“${userQuery}”）：` : '';
+    const rainTip = weather.rainProbability >= 50 ? '请务必携带雨具并注意湿滑石阶。' : '步道天气舒适，非常适合徒步。';
+    return {
+      advice_text: `${queryPart}欢迎来到高尾山！今日天气${weather.weather}，气温${weather.temp_c}℃。当前路线为「${routeName}」，全长${route.distanceKm}公里（爬升+${route.elevationM}米，约需${route.durationMin}分钟）。${rainTip}请注意适时补水，祝您登山愉快！`,
+      advice_short: `${routeName}：全长${route.distanceKm}公里（约${route.durationMin}分钟）。今日${weather.weather}，气温${weather.temp_c}℃。`,
+      safety_flags,
+      recommended_gear,
+      mood,
+    };
+  }
+
+  const weatherDesc =
+    weather.weatherCode === 'sunny' ? `晴れて気温${weather.temp_c}℃` :
+    weather.weatherCode === 'rainy' ? `雨模様で気温${weather.temp_c}℃` :
+    `曇りで気温${weather.temp_c}℃`;
+
+  const safetyTip =
+    safety_flags.includes('rain_gear_required') ? '雨具は必ず持参してください。' :
+    safety_flags.includes('high_uv')            ? '紫外線が強いので帽子と日焼け止めをお忘れなく。' :
+    'コンディションを確認しながら楽しく歩きましょう。';
+
+  const queryIntro = userQuery ? `「${userQuery}」についてのご案内です。` : '';
+
   return {
-    advice_text: `今日の高尾山は${weatherDesc}です。${route.name}は${route.distanceKm}kmのコース。${safety_flags.includes('rain_gear_required') ? '雨具は必ず持参してください。' : safety_flags.includes('high_uv') ? '紫外線が強いので帽子と日焼け止めをお忘れなく。' : 'コンディションを確認しながら楽しく歩きましょう。'}水分補給はこまめに行い、無理のないペースで楽しんでください。`,
-    advice_short: `${weatherDesc}。${route.name}を楽しんで。`,
+    advice_text:     `${queryIntro}今日の高尾山は${weatherDesc}です。「${routeName}」は全長${route.distanceKm}km、獲得標高+${route.elevationM}m（所要約${route.durationMin}分）のコースです。${safetyTip}水分補給はこまめに行い、無理のないペースで楽しんでください。`,
+    advice_short:    `${routeName}（${route.distanceKm}km、約${route.durationMin}分）。${weatherDesc}。`,
     safety_flags,
     recommended_gear,
     mood,
   };
 }
 
-export { buildSystemPrompt, LEVEL_LABEL };
+export { buildUserPrompt };

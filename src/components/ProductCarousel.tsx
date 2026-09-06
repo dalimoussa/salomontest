@@ -4,29 +4,37 @@ import { useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { useAdminStore } from '@/store/useAdminStore';
-
-const CATEGORY_FILTERS = [
-  { label: 'シーズン',      value: 'all' },
-  { label: 'ベースレイヤー', value: 'base' },
-  { label: 'ミッドレイヤー', value: 'mid' },
-  { label: 'アウター',      value: 'apparel' },
-  { label: 'ボトムス',      value: 'bottoms' },
-  { label: 'ソックス',      value: 'socks' },
-  { label: 'アクセサリー',  value: 'gear' },
-];
-
-const CATEGORY_LABEL: Record<string, string> = {
-  footwear: 'シューズ',
-  apparel:  'ジャケット',
-  gear:     'アクセサリー',
-};
+import { getLocalizedProduct } from '@/data/products';
+import { useT } from '@/lib/i18n';
 
 export function ProductCarousel() {
   const [activeFilter, setActiveFilter] = useState('all');
   const scrollRef = useRef<HTMLDivElement>(null);
   const recommendedProducts = useStore(s => s.recommendedProducts);
   const adminProducts       = useAdminStore(s => s.products);
-  const displayProducts     = recommendedProducts.length > 0 ? recommendedProducts : adminProducts;
+  const { t, language }     = useT();
+
+  const CATEGORY_FILTERS = [
+    { label: t('products.filterAll'),     value: 'all' },
+    { label: t('products.filterBase'),    value: 'base' },
+    { label: t('products.filterMid'),     value: 'mid' },
+    { label: t('products.filterApparel'), value: 'apparel' },
+    { label: t('products.filterBottoms'), value: 'bottoms' },
+    { label: t('products.filterSocks'),   value: 'socks' },
+    { label: t('products.filterGear'),    value: 'gear' },
+  ];
+
+  const getCategoryLabel = (category: string) => {
+    switch (category) {
+      case 'footwear': return t('products.categoryFootwear');
+      case 'apparel':  return t('products.categoryApparel');
+      case 'gear':     return t('products.categoryGear');
+      default:         return category;
+    }
+  };
+
+  const rawDisplayProducts = recommendedProducts.length > 0 ? recommendedProducts : adminProducts;
+  const displayProducts = rawDisplayProducts.map(p => getLocalizedProduct(p, language));
 
   const filtered = activeFilter === 'all'
     ? displayProducts
@@ -47,11 +55,11 @@ export function ProductCarousel() {
 
       {/* Header */}
       <div className="flex items-center justify-between mb-2.5">
-        <p className="section-label">おすすめ装備・アイテム（SALOMON）</p>
+        <p className="section-label">{t('products.title')}</p>
         <div className="flex gap-1">
           {(['left','right'] as const).map(dir => (
             <button key={dir} onClick={() => scroll(dir)}
-              aria-label={dir === 'left' ? '前へ' : '次へ'}
+              aria-label={dir === 'left' ? t('products.prev') : t('products.next')}
               className="w-7 h-7 rounded-full bg-white/8 border border-salomon-border
                          flex items-center justify-center hover:bg-white/15
                          transition-colors active:scale-90">
@@ -65,24 +73,24 @@ export function ProductCarousel() {
 
       {/* Scrollable product cards */}
       <div ref={scrollRef}
-        className="flex gap-3 overflow-x-auto pb-2 scroll-smooth"
+        className="flex gap-3.5 overflow-x-auto pb-2 scroll-smooth"
         style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
         {filtered.map((product, i) => (
           <div key={product.sku}
-            className="flex-shrink-0 w-[120px] md:w-[110px] glass-card-hover p-2
-                       flex flex-col items-center gap-1.5
-                       animate-fadeInUp opacity-0-start"
+            className="flex-shrink-0 w-[145px] md:w-[140px] glass-card-hover p-2.5
+                       flex flex-col items-center gap-2 cursor-pointer
+                       animate-fadeInUp opacity-0-start active:scale-95 transition-transform"
             style={{ animationFillMode: 'forwards', animationDelay: `${0.4 + i * 0.07}s` }}>
-            <div className="w-full h-20 md:h-16 rounded-lg overflow-hidden bg-white/5">
+            <div className="w-full h-24 md:h-20 rounded-lg overflow-hidden bg-white/5">
               <img src={product.imageUrl} alt={product.name}
                 className="w-full h-full object-cover hover:scale-110 transition-transform duration-300"
-                onError={e => { (e.target as HTMLImageElement).src = 'https://placehold.co/120x80/0D1529/7B8DB0?text=S'; }}
+                onError={e => { (e.target as HTMLImageElement).src = 'https://placehold.co/135x90/0D1529/7B8DB0?text=S'; }}
               />
             </div>
             <div className="text-center w-full">
-              <p className="text-salomon-text text-[10px] font-bold leading-tight line-clamp-2">{product.name}</p>
-              <p className="text-salomon-muted text-[9px] mt-0.5">{CATEGORY_LABEL[product.category] ?? product.category}</p>
-              <p className="text-salomon-cyan text-[10px] font-bold mt-0.5">¥{product.price.toLocaleString('ja-JP')}</p>
+              <p className="text-salomon-text text-xs font-bold leading-tight line-clamp-2">{product.name}</p>
+              <p className="text-salomon-muted text-[10px] mt-0.5">{getCategoryLabel(product.category)}</p>
+              <p className="text-salomon-cyan text-xs font-bold mt-1">¥{product.price.toLocaleString('ja-JP')}</p>
             </div>
           </div>
         ))}

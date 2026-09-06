@@ -7,13 +7,19 @@ import type {
   Product,
   ActiveModal,
 } from '@/types';
+import { ROUTES } from '@/data/routes';
 
 interface AppState {
   // Weather
   weather: WeatherData | null;
   weatherLoading: boolean;
+  weatherError: string | null;
   setWeather: (weather: WeatherData | null) => void;
   setWeatherLoading: (loading: boolean) => void;
+  setWeatherError: (error: string | null) => void;
+  /** Incremented to trigger a re-fetch of weather from ConciergeApp */
+  weatherRefreshTick: number;
+  refreshWeather: () => void;
 
   // Route Selection
   selectedRoute: Route | null;
@@ -32,7 +38,9 @@ interface AppState {
   recommendedProducts: Product[];
   setRecommendedProducts: (products: Product[]) => void;
 
-  // UI
+  // UI & Localization
+  language: 'ja' | 'en' | 'zh';
+  setLanguage: (language: 'ja' | 'en' | 'zh') => void;
   activeModal: ActiveModal;
   setActiveModal: (modal: ActiveModal) => void;
 }
@@ -41,12 +49,16 @@ export const useStore = create<AppState>((set) => ({
   // Weather
   weather: null,
   weatherLoading: false,
+  weatherError: null,
+  weatherRefreshTick: 0,
   setWeather: (weather) => set({ weather }),
   setWeatherLoading: (weatherLoading) => set({ weatherLoading }),
+  setWeatherError: (weatherError) => set({ weatherError }),
+  refreshWeather: () => set(s => ({ weatherRefreshTick: s.weatherRefreshTick + 1 })),
 
-  // Route Selection
-  selectedRoute: null,
-  selectedDifficulty: null,
+  // Route Selection (default to 1号路 beginner for kiosk signage display)
+  selectedRoute: ROUTES[0],
+  selectedDifficulty: 'beginner',
   setSelectedRoute: (selectedRoute) => set({ selectedRoute }),
   setSelectedDifficulty: (selectedDifficulty) => set({ selectedDifficulty }),
 
@@ -62,7 +74,9 @@ export const useStore = create<AppState>((set) => ({
   recommendedProducts: [],
   setRecommendedProducts: (recommendedProducts) => set({ recommendedProducts }),
 
-  // UI
+  // UI & Localization
+  language: 'ja',
+  setLanguage: (language) => set({ language }),
   activeModal: null,
   setActiveModal: (activeModal) => set({ activeModal }),
 }));

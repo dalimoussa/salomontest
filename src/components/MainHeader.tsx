@@ -21,8 +21,24 @@ function WeatherIcon({ code, size = 'sm' }: { code: WeatherCode; size?: 'sm' | '
 
 export function MainHeader() {
   const weather      = useStore(s => s.weather);
+  const language     = useStore(s => s.language);
   const heroMessages = useAdminStore(s => s.heroMessages);
   const [time, setTime] = useState(new Date());
+
+  const currentHero = heroMessages?.[language] || heroMessages?.ja || {
+    greeting: (heroMessages as any)?.greeting || 'こんにちは！今日はどの山の情報が知りたいですか？',
+    subtitle: (heroMessages as any)?.subtitle || '高尾山の最新情報をAIがご案内します。',
+  };
+
+  const badgeText =
+    language === 'en' ? 'Multilingual: Japanese / English / Chinese' :
+    language === 'zh' ? '多语言切换・日语・英语・中文' :
+    '多言語切り替え・日本語・英語・中国語';
+
+  const locationText =
+    language === 'en' ? 'Hachioji, Tokyo' :
+    language === 'zh' ? '东京都八王子市' :
+    '東京都八王子市';
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000);
@@ -64,47 +80,47 @@ export function MainHeader() {
       </div>
 
       {/* ── Desktop header (≥ lg) ────────────────────────────────────── */}
-      <div className="hidden lg:flex items-start justify-between px-6 pt-4 pb-2">
+      <div className="hidden lg:grid grid-cols-[290px_1fr_290px] xl:grid-cols-[320px_1fr_320px] items-center px-6 pt-3 pb-1 gap-4">
         {/* Left: SALOMON brand */}
-        <div className="animate-fadeInLeft opacity-0-start flex-shrink-0" style={{ animationFillMode: 'forwards' }}>
+        <div className="animate-fadeInLeft opacity-0-start flex flex-col justify-center" style={{ animationFillMode: 'forwards' }}>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-salomon-red shadow-glow-red animate-pulse-slow" />
             <span className="text-xl font-black tracking-[0.15em] text-white">SALOMON</span>
           </div>
-          <p className="text-salomon-cyan text-[10px] tracking-[0.2em] uppercase mt-0.5 font-medium">
+          <p className="text-salomon-cyan text-[10px] tracking-[0.2em] uppercase mt-0.5 font-semibold">
             Mountain AI Concierge
           </p>
-          <p className="text-salomon-muted text-[9px] tracking-widest mt-0.5">
-            多言語切り替え・JYAN・英語・中国語
+          <p className="text-salomon-muted text-[9px] tracking-wider mt-0.5 truncate">
+            {badgeText}
           </p>
         </div>
 
         {/* Center: Hero title */}
-        <div className="absolute left-1/2 -translate-x-1/2 top-3 text-center animate-fadeInUp opacity-0-start max-w-2xl px-4"
+        <div className="text-center animate-fadeInUp opacity-0-start px-2 min-w-0"
           style={{ animationFillMode: 'forwards' }}>
-          <h1 className="text-2xl xl:text-3xl font-bold text-white leading-tight">
-            {heroMessages.greeting}
+          <h1 className="text-lg xl:text-2xl font-bold text-white leading-tight line-clamp-1" title={currentHero.greeting}>
+            {currentHero.greeting}
           </h1>
-          <p className="text-salomon-muted text-sm mt-1 tracking-wide">
-            {heroMessages.subtitle}
+          <p className="text-salomon-muted text-xs xl:text-sm mt-0.5 tracking-wide line-clamp-1">
+            {currentHero.subtitle}
           </p>
         </div>
 
         {/* Right: clock + weather */}
-        <div className="animate-fadeInRight opacity-0-start text-right flex-shrink-0"
+        <div className="animate-fadeInRight opacity-0-start text-right flex flex-col items-end justify-center"
           style={{ animationFillMode: 'forwards' }}>
-          <div className="text-4xl font-bold text-white tabular-nums leading-none">
-            {hh}:{mm}
+          <div className="flex items-baseline justify-end gap-2.5">
+            <span className="text-2xl xl:text-3xl font-bold text-white tabular-nums leading-none">
+              {hh}:{mm}
+            </span>
+            {weather && (
+              <div className="flex items-center gap-1">
+                <WeatherIcon code={weather.weatherCode} size="sm" />
+                <span className="text-base xl:text-lg font-semibold text-white tabular-nums">{weather.temp_c}°C</span>
+              </div>
+            )}
           </div>
-          {weather ? (
-            <div className="flex items-center justify-end gap-1.5 mt-1">
-              <WeatherIcon code={weather.weatherCode} />
-              <span className="text-xl font-semibold text-white">{weather.temp_c}°C</span>
-            </div>
-          ) : (
-            <div className="w-16 h-5 bg-white/10 rounded animate-pulse mt-1 ml-auto" />
-          )}
-          <p className="text-salomon-muted text-[10px] mt-0.5">東京都八王子市</p>
+          <p className="text-salomon-muted text-[10px] mt-0.5">{locationText}</p>
         </div>
       </div>
 
@@ -113,10 +129,10 @@ export function MainHeader() {
         style={{ animationFillMode: 'forwards', animationDelay: '0.1s' }}>
         <div className="text-center">
           <p className="text-sm font-bold text-white leading-tight line-clamp-1">
-            {heroMessages.greeting}
+            {currentHero.greeting}
           </p>
           <p className="text-salomon-muted text-[10px] mt-0.5 leading-tight line-clamp-1">
-            {heroMessages.subtitle}
+            {currentHero.subtitle}
           </p>
         </div>
       </div>

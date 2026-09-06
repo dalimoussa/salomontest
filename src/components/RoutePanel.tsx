@@ -1,58 +1,111 @@
 'use client';
 
-import { ChevronRight, MapPin, Clock, TrendingUp } from 'lucide-react';
-import { ROUTES } from '@/data/routes';
+import { useState } from 'react';
+import { MapPin, Clock, TrendingUp, Sparkles, Mountain, Users, Star } from 'lucide-react';
+import { ROUTES, getLocalizedRoute } from '@/data/routes';
 import { useStore } from '@/store/useStore';
-import type { Difficulty } from '@/types';
+import { ElevationProfileChart } from '@/components/ElevationProfileChart';
+import { getElevationProfile } from '@/data/elevationProfiles';
+import { useT } from '@/lib/i18n';
+import type { Difficulty, Route, RouteCategory } from '@/types';
 
-const DIFFICULTY_TABS: { value: Difficulty; label: string }[] = [
-  { value: 'beginner',     label: '初心者' },
-  { value: 'intermediate', label: '中級者' },
-  { value: 'advanced',     label: '上級者' },
-];
-
-// Demo timeline for the selected route (1号路)
-const TIMELINE = [
-  { time: '08:00', event: '清滝駅 出発' },
-  { time: '08:45', event: '1号路 登山開始' },
-  { time: '10:15', event: '高尾山山頂 到着' },
-  { time: '11:30', event: '山頂 出発' },
-  { time: '13:00', event: '清滝駅 下山完了' },
-];
+function renderStars(rating: number = 1) {
+  return (
+    <span className="flex items-center gap-0.5 text-amber-400">
+      {Array.from({ length: 3 }).map((_, i) => (
+        <Star
+          key={i}
+          className={`w-2.5 h-2.5 ${i < rating ? 'fill-amber-400 text-amber-400' : 'text-white/20'}`}
+        />
+      ))}
+    </span>
+  );
+}
 
 export function RoutePanel() {
-  const selectedRoute     = useStore(s => s.selectedRoute);
-  const selectedDifficulty = useStore(s => s.selectedDifficulty);
-  const setSelectedRoute      = useStore(s => s.setSelectedRoute);
+  const selectedRoute        = useStore(s => s.selectedRoute);
+  const setSelectedRoute     = useStore(s => s.setSelectedRoute);
   const setSelectedDifficulty = useStore(s => s.setSelectedDifficulty);
+  const { t, language } = useT();
 
-  const filteredRoutes = selectedDifficulty
-    ? ROUTES.filter(r => r.difficulty === selectedDifficulty)
-    : ROUTES;
+  const CATEGORY_TABS: { value: RouteCategory; label: string }[] = [
+    { value: 'takao_course',      label: t('route.tabTakao') },
+    { value: 'surrounding_trail', label: t('route.tabSurrounding') },
+  ];
 
-  // Hoist outside conditional branches to avoid TypeScript narrowing to `never`
-  const activeRouteId: string | null = selectedRoute ? selectedRoute.id : null;
+  const DIFFICULTY_TABS: { value: Difficulty | 'all'; label: string }[] = [
+    { value: 'all',          label: t('route.all') },
+    { value: 'beginner',     label: t('route.beginner') },
+    { value: 'intermediate', label: t('route.intermediate') },
+    { value: 'advanced',     label: t('route.advanced') },
+  ];
+
+  const [activeCategory, setActiveCategory] = useState<RouteCategory>(
+    selectedRoute?.category ?? 'takao_course'
+  );
+  const [activeDifficultyFilter, setActiveDifficultyFilter] = useState<Difficulty | 'all'>('all');
+
+  const categoryRoutes = ROUTES.filter(r => r.category === activeCategory);
+  const filteredRoutes = activeDifficultyFilter === 'all'
+    ? categoryRoutes
+    : categoryRoutes.filter(r => r.difficulty === activeDifficultyFilter);
+
+  const handleSelectRoute = (route: Route) => {
+    setSelectedRoute(route);
+    setSelectedDifficulty(route.difficulty);
+  };
+
+  const handleCategoryChange = (cat: RouteCategory) => {
+    setActiveCategory(cat);
+    const first = ROUTES.find(r => r.category === cat);
+    if (first) {
+      setSelectedRoute(first);
+      setSelectedDifficulty(first.difficulty);
+    }
+  };
 
   return (
-    <div className="glass-card p-4 flex flex-col gap-3 animate-fadeInLeft opacity-0-start" style={{ animationFillMode: 'forwards', animationDelay: '0.25s' }}>
+    <div className="glass-card p-3 flex flex-col gap-2 animate-fadeInLeft opacity-0-start h-full min-h-0"
+         style={{ animationFillMode: 'forwards', animationDelay: '0.25s' }}>
+      
+      {/* Header with Title & Route Counter */}
       <div className="flex items-center justify-between">
-        <p className="section-label">ルート案内</p>
+        <p className="section-label">{t('route.title')}</p>
+        <span className="text-[10px] text-salomon-cyan font-mono font-bold">
+          {t('route.coursesShowing', { count: filteredRoutes.length })}
+        </span>
       </div>
 
-      {/* Difficulty tabs */}
-      <div className="flex gap-1.5">
+      {/* Primary Category Tabs */}
+      <div className="grid grid-cols-2 gap-1 p-1 bg-black/40 rounded-xl border border-white/8">
+        {CATEGORY_TABS.map(tab => {
+          const isActive = activeCategory === tab.value;
+          return (
+            <button
+              key={tab.value}
+              onClick={() => handleCategoryChange(tab.value)}
+              className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all duration-200 min-h-[36px] flex items-center justify-center text-center leading-tight ${
+                isActive
+                  ? 'bg-salomon-cyan text-salomon-black shadow-glow-cyan font-black'
+                  : 'text-salomon-muted hover:text-white hover:bg-white/5'
+              }`}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Difficulty Sub-filter Tabs */}
+      <div className="flex gap-1">
         {DIFFICULTY_TABS.map(tab => (
           <button
             key={tab.value}
-            onClick={() => {
-              setSelectedDifficulty(tab.value);
-              const first = ROUTES.find(r => r.difficulty === tab.value);
-              if (first) setSelectedRoute(first);
-            }}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 ${
-              selectedDifficulty === tab.value
-                ? 'bg-salomon-cyan text-salomon-black shadow-glow-cyan'
-                : 'bg-white/8 text-salomon-muted hover:text-white hover:bg-white/15 border border-salomon-border'
+            onClick={() => setActiveDifficultyFilter(tab.value)}
+            className={`flex-1 py-1 rounded-lg text-[10px] font-bold transition-all duration-200 min-h-[30px] ${
+              activeDifficultyFilter === tab.value
+                ? 'bg-salomon-cyan/20 text-salomon-cyan border border-salomon-cyan/60 shadow-glow-cyan/20'
+                : 'bg-white/5 text-salomon-muted hover:text-white border border-salomon-border'
             }`}
           >
             {tab.label}
@@ -60,83 +113,112 @@ export function RoutePanel() {
         ))}
       </div>
 
-      {/* Route list or timeline */}
-      {selectedRoute ? (
-        <div className="flex-1 space-y-0">
-          {TIMELINE.map((item, i) => (
-            <div key={i} className="flex items-start gap-3 group" style={{ animationDelay: `${i * 0.08}s` }}>
-              {/* Dot + line */}
-              <div className="flex flex-col items-center pt-0.5">
-                <div className={`w-2.5 h-2.5 rounded-full border-2 flex-shrink-0 ${
-                  i === 2 ? 'border-salomon-cyan bg-salomon-cyan shadow-glow-cyan' : 'border-salomon-muted bg-transparent'
-                }`} />
-                {i < TIMELINE.length - 1 && (
-                  <div className="w-px flex-1 bg-gradient-to-b from-salomon-muted/40 to-transparent mt-0.5" style={{ height: '28px' }} />
+      {/* Route list */}
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 pr-1 space-y-0.5">
+        {filteredRoutes.map((rawRoute) => {
+          const route = getLocalizedRoute(rawRoute, language);
+          const isSelected = selectedRoute?.id === route.id;
+          const isPopular = route.id === 'route_1';
+
+          return (
+            <div
+              key={route.id}
+              onClick={() => handleSelectRoute(rawRoute)}
+              className={`p-2.5 rounded-xl border transition-all duration-200 cursor-pointer ${
+                isSelected
+                  ? 'bg-salomon-cyan/15 border-salomon-cyan shadow-glow-cyan/40 ring-1 ring-salomon-cyan/50'
+                  : 'bg-white/5 border-salomon-border hover:border-salomon-cyan/40 hover:bg-white/8 active:scale-[0.99]'
+              }`}
+            >
+              {/* Route Title & Badges */}
+              <div className="flex items-start justify-between gap-1.5 mb-1">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span
+                    className={`w-2 h-2 rounded-full shrink-0 ${
+                      isSelected ? 'bg-salomon-cyan animate-pulse ring-2 ring-salomon-cyan/40' : 'bg-salomon-muted'
+                    }`}
+                  />
+                  <span className={`text-xs font-bold leading-snug ${isSelected ? 'text-white' : 'text-salomon-text'}`}>
+                    {route.name}
+                  </span>
+                </div>
+                {isPopular && (
+                  <span className="text-[9px] font-bold text-amber-300 bg-amber-400/20 px-1.5 py-0.5 rounded-full border border-amber-400/30 flex items-center gap-0.5 shrink-0">
+                    <Sparkles className="w-2.5 h-2.5" /> {t('route.popular')}
+                  </span>
                 )}
               </div>
-              <div className="pb-2">
-                <span className="text-salomon-cyan text-xs font-mono font-bold">{item.time}</span>
-                <p className="text-salomon-text text-xs leading-tight">{item.event}</p>
+
+              {/* Specs: Distance, Duration, Cumulative Gain, Max Elevation */}
+              <div className="flex items-center gap-2 text-[10px] text-salomon-muted pl-3.5 flex-wrap">
+                <span className="flex items-center gap-0.5">
+                  <MapPin className="w-3 h-3 text-salomon-cyan" />
+                  {route.distanceKm}km
+                </span>
+                <span className="flex items-center gap-0.5">
+                  <Clock className="w-3 h-3 text-salomon-cyan" />
+                  {route.durationMin}{t('route.min')}
+                </span>
+                <span className="flex items-center gap-0.5">
+                  <TrendingUp className="w-3 h-3 text-salomon-cyan" />
+                  ↑{route.elevationM}m
+                </span>
+                <span className="flex items-center gap-0.5 text-white/80">
+                  <Mountain className="w-3 h-3 text-amber-300" />
+                  {t('route.highest')}:{route.maxElevationM}m
+                </span>
               </div>
-            </div>
-          ))}
 
-          {/* Stats */}
-          <div className="divider my-2" />
-          <div className="flex items-center gap-3 text-xs text-salomon-muted">
-            <span className="flex items-center gap-1">
-              <MapPin className="w-3 h-3 text-salomon-cyan" />
-              {selectedRoute.distanceKm}km
-            </span>
-            <span className="flex items-center gap-1">
-              <Clock className="w-3 h-3 text-salomon-cyan" />
-              約{selectedRoute.durationMin}分
-            </span>
-            <span className="flex items-center gap-1">
-              <TrendingUp className="w-3 h-3 text-salomon-cyan" />
-              {selectedRoute.elevationM}m
-            </span>
-          </div>
-
-          {/* Detail button */}
-          <button
-            onClick={() => setSelectedRoute(null)}
-            className="mt-2 w-full flex items-center justify-between px-3 py-2 rounded-xl border border-salomon-border hover:border-salomon-cyan/60 text-xs text-salomon-muted hover:text-salomon-cyan transition-all duration-200 group"
-          >
-            <span>全ルート一覧を見る</span>
-            <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-2 flex-1">
-          {filteredRoutes.map((route, i) => {
-            const currentRouteId = activeRouteId;
-            const isSelected = currentRouteId === route.id;
-            return (
-              <button
-                key={route.id}
-                onClick={() => setSelectedRoute(route)}
-                className={`w-full text-left p-2.5 rounded-xl border transition-all duration-200 ${
-                  isSelected
-                    ? 'border-salomon-cyan/60 bg-salomon-cyan/10'
-                    : 'border-salomon-border hover:border-salomon-cyan/40 hover:bg-white/5'
-                }`}
-                style={{ animationDelay: `${i * 0.05}s` }}
-              >
+              {/* Ratings Row: Difficulty & Crowding */}
+              <div className="flex items-center justify-between text-[10px] pl-3.5 mt-1.5 pt-1.5 border-t border-white/5">
+                <div className="flex items-center gap-1">
+                  <span className="text-white/60">{t('route.difficulty')}:</span>
+                  {renderStars(route.difficultyRating ?? (route.difficulty === 'beginner' ? 1 : route.difficulty === 'intermediate' ? 2 : 3))}
+                </div>
                 <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${isSelected ? 'bg-salomon-cyan shadow-glow-cyan' : 'bg-salomon-muted'}`} />
-                  <span className={`text-xs font-bold ${isSelected ? 'text-salomon-cyan' : 'text-salomon-text'}`}>{route.name}</span>
+                  <span className="flex items-center gap-1 text-white/60">
+                    <Users className="w-3 h-3 text-salomon-cyan" /> {t('route.weekday')}:
+                    {renderStars(route.crowdWeekday ?? 1)}
+                  </span>
+                  <span className="flex items-center gap-1 text-white/60">
+                    {t('route.weekend')}:
+                    {renderStars(route.crowdWeekend ?? 2)}
+                  </span>
                 </div>
-                <div className="flex gap-3 mt-1 ml-4 text-xs text-salomon-muted">
-                  <span>{route.distanceKm}km</span>
-                  <span>{route.durationMin}分</span>
-                  <span>↑{route.elevationM}m</span>
+              </div>
+
+              {/* Expanded Route Description & Elevation Profile */}
+              {isSelected && (
+                <div className="mt-2 pt-2 border-t border-white/10 text-[11px] text-slate-300 leading-relaxed space-y-2">
+                  <p className="pl-3.5">{route.description}</p>
+                  
+                  {/* Feature Pills */}
+                  <div className="flex flex-wrap gap-1 pl-3.5">
+                    {route.features.map((f, i) => (
+                      <span
+                        key={i}
+                        className="text-[9px] bg-white/10 text-salomon-cyan px-1.5 py-0.5 rounded-md border border-salomon-cyan/20"
+                      >
+                        ✓ {f}
+                      </span>
+                    ))}
+                  </div>
+
+                  {/* Elevation Profile Area Chart */}
+                  <div className="pt-1">
+                    <ElevationProfileChart profile={getElevationProfile(route.id)} />
+                  </div>
                 </div>
-              </button>
-            );
-          })}
-        </div>
-      )}
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Attribution Footer */}
+      <div className="pt-1.5 border-t border-white/8 text-[9px] text-white/40 text-center flex items-center justify-center gap-1 shrink-0">
+        <span>{t('route.attribution')}</span>
+      </div>
     </div>
   );
 }

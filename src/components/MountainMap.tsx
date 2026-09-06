@@ -1,253 +1,168 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { useCallback, useRef } from 'react';
+import { ZoomIn, ZoomOut, Maximize2, Video, TrainFront } from 'lucide-react';
+import type { Map } from 'maplibre-gl';
 import { useStore } from '@/store/useStore';
+import { useMapStore } from '@/store/mapStore';
+import { RainOverlay } from './map/RainOverlay';
 
-const ROUTE_PATH_1 = "M 600 720 C 585 650 555 580 832 520 C 832 520 650 370 567 295 C 567 295 640 270 618 205";
-const ROUTE_PATH_2 = "M 600 720 C 630 670 660 600 675 530 C 690 460 683 390 660 320 C 638 250 600 190 570 150";
+import { ErrorBoundary } from './ErrorBoundary';
 
-const LABELS = [
-  { x: 618, y: 205, text: '高山端', sub: '599m', dot: true, highlight: true },
-  { x: 567, y: 295, text: '薬王院', sub: '', dot: true, highlight: false },
-  { x: 690, y: 300, text: '1号路', sub: '', dot: false, highlight: false },
-  { x: 832, y: 520, text: 'ケーブルカー\n清滝駅', sub: '', dot: true, highlight: false },
-];
-const ICON_TOILET = { x: 630, y: 460 };
+// Mt. Takao summit — used by "re-centre" reset button
+const TAKAO_SUMMIT: [number, number] = [139.2485, 35.6275];
+const DEFAULT_ZOOM  = 13.7;
+const DEFAULT_PITCH = 58;
+const DEFAULT_BEARING = -22;
+
+// MapLibre requires window/WebGL — never SSR this subtree
+const MountainMapGL = dynamic(
+  () => import('./map/MountainMapGL').then((m) => ({ default: m.MountainMapGL })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="absolute inset-0 flex items-center justify-center bg-salomon-black">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 rounded-full border-2 border-salomon-cyan border-t-transparent animate-spin" />
+          <p className="text-salomon-muted text-xs">3Dマップ読み込み中…</p>
+        </div>
+      </div>
+    ),
+  }
+);
+
+/**
+ * Photorealistic Fallback / Video Slot for 3D Map Hand-off.
+ * When the dedicated 3D engineer provides a 4K drone video flyover or WebGL model,
+ * it drops directly into this slot.
+ */
+function MountainVisualSlot() {
+  return (
+    <div className="absolute inset-0 w-full h-full overflow-hidden bg-salomon-black">
+      <img
+        src="/mountain-photo.jpeg"
+        alt="高尾山 全景"
+        className="w-full h-full object-cover opacity-90 scale-105 transition-transform duration-1000"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-salomon-dark/80 via-transparent to-salomon-dark/60 pointer-events-none" />
+    </div>
+  );
+}
 
 export function MountainMap() {
-  const selectedRoute = useStore(s => s.selectedRoute);
-  const [drawn, setDrawn] = useState(false);
-  const [scale, setScale] = useState(1);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const dragRef  = useRef({ mx: 0, my: 0, px: 0, py: 0 });
-  const pinchRef = useRef({ dist: 0, scale: 1 });
-  const containerRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<Map | null>(null);
+  const setUserMovedCamera = useMapStore((s) => s.setUserMovedCamera);
+  const setActiveModal = useStore((s) => s.setActiveModal);
 
-  useEffect(() => {
-    setDrawn(false);
-    const t = setTimeout(() => setDrawn(true), 100);
-    return () => clearTimeout(t);
-  }, [selectedRoute?.id]);
-
-  /* ── Mouse wheel zoom ─────────────────────────────────────────────── */
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      const delta = e.deltaY < 0 ? 0.12 : -0.12;
-      setScale(s => Math.min(Math.max(s + delta, 0.5), 3.0));
-    };
-    el.addEventListener('wheel', onWheel, { passive: false });
-    return () => el.removeEventListener('wheel', onWheel);
+  const handleMapReady = useCallback((map: Map) => {
+    mapInstanceRef.current = map;
   }, []);
 
-  /* ── Touch: pan + pinch-zoom ─────────────────────────────────────── */
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    const dist = (a: Touch, b: Touch) =>
-      Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-
-    const onTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 1) {
-        dragRef.current = {
-          mx: e.touches[0].clientX, my: e.touches[0].clientY,
-          px: position.x,           py: position.y,
-        };
-      } else if (e.touches.length === 2) {
-        pinchRef.current = { dist: dist(e.touches[0], e.touches[1]), scale };
-      }
-    };
-
-    const onTouchMove = (e: TouchEvent) => {
-      e.preventDefault();
-      if (e.touches.length === 1) {
-        const dx = e.touches[0].clientX - dragRef.current.mx;
-        const dy = e.touches[0].clientY - dragRef.current.my;
-        setPosition({ x: dragRef.current.px + dx, y: dragRef.current.py + dy });
-      } else if (e.touches.length === 2) {
-        const newDist = dist(e.touches[0], e.touches[1]);
-        const ratio   = newDist / pinchRef.current.dist;
-        setScale(Math.min(Math.max(pinchRef.current.scale * ratio, 0.5), 3.0));
-      }
-    };
-
-    el.addEventListener('touchstart', onTouchStart, { passive: true });
-    el.addEventListener('touchmove',  onTouchMove,  { passive: false });
-    return () => {
-      el.removeEventListener('touchstart', onTouchStart);
-      el.removeEventListener('touchmove',  onTouchMove);
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [position.x, position.y, scale]);
-
-  const activePath = selectedRoute?.id === 'route_2' ? ROUTE_PATH_2 : ROUTE_PATH_1;
-
-  const handleZoomIn  = () => setScale(s => Math.min(s + 0.25, 3.0));
-  const handleZoomOut = () => setScale(s => Math.max(s - 0.25, 0.5));
-  const handleReset   = () => { setScale(1); setPosition({ x: 0, y: 0 }); };
-
-  /* Mouse drag */
-  const onMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-    dragRef.current = { mx: e.clientX, my: e.clientY, px: position.x, py: position.y };
+  const handleZoomIn  = () => mapInstanceRef.current?.zoomIn({ duration: 250 });
+  const handleZoomOut = () => mapInstanceRef.current?.zoomOut({ duration: 250 });
+  const handleReset   = () => {
+    setUserMovedCamera(false);
+    mapInstanceRef.current?.flyTo({
+      center: TAKAO_SUMMIT,
+      zoom: DEFAULT_ZOOM,
+      pitch: DEFAULT_PITCH,
+      bearing: DEFAULT_BEARING,
+      duration: 1200,
+      essential: true,
+    });
   };
-  const onMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return;
-    setPosition({ x: dragRef.current.px + e.clientX - dragRef.current.mx,
-                  y: dragRef.current.py + e.clientY - dragRef.current.my });
-  };
-  const onMouseUp = () => setIsDragging(false);
 
   return (
-    <div ref={containerRef} className="absolute inset-0 overflow-hidden touch-none">
-      {/* Pannable / zoomable layer */}
+    <div
+      className="absolute inset-0 w-full h-full overflow-hidden"
+      style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+      role="main"
+      id="mountain-visual-container"
+    >
+      {/* 
+        3D Terrain / Video Slot:
+        Decoupled slot for the scheduled 3D map engineer.
+        If WebGL or MapLibre fails, smoothly falls back to photorealistic visual/video slot.
+      */}
+      <ErrorBoundary fallback={<MountainVisualSlot />}>
+        <MountainMapGL onMapReady={handleMapReady} />
+      </ErrorBoundary>
+
+      {/* Rain particle overlay — above map canvas, below UI controls */}
+      <RainOverlay />
+
+      {/* Map Action Controls (Floating within the central mountain viewport) */}
       <div
-        className="absolute inset-0"
-        style={{
-          transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
-          transformOrigin: 'center center',
-          cursor: isDragging ? 'grabbing' : 'grab',
-          transition: isDragging ? 'none' : 'transform 0.15s ease-out',
-        }}
-        onMouseDown={onMouseDown}
-        onMouseMove={onMouseMove}
-        onMouseUp={onMouseUp}
-        onMouseLeave={onMouseUp}
+        className="absolute top-16 right-3 lg:right-[315px] xl:right-[345px] z-20 flex flex-col gap-2
+                   animate-fadeIn opacity-0-start pointer-events-auto"
+        style={{ animationFillMode: 'forwards', animationDelay: '0.6s' }}
       >
-        <img
-          src="/course.jpg"
-          alt="高尾山ルートマップ"
-          className="w-full h-full object-cover object-center pointer-events-none select-none"
-          draggable={false}
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-salomon-dark/30 via-transparent to-salomon-dark/50 pointer-events-none" />
-
-        {/* Trail SVG */}
-        <svg
-          className="absolute inset-0 w-full h-full pointer-events-none"
-          viewBox="0 0 1200 800"
-          preserveAspectRatio="xMidYMid slice"
+        {/* Summit Live Camera Shortcut Button */}
+        <button
+          onClick={() => setActiveModal('camera')}
+          aria-label="山頂ライブカメラを見る"
+          title="山頂ライブカメラを見る"
+          className="w-9 h-9 rounded-xl bg-salomon-card/90 backdrop-blur-md
+                     border border-salomon-border hover:border-salomon-cyan/60
+                     flex items-center justify-center transition-all duration-200
+                     shadow-glass active:scale-95 group relative"
         >
-          <defs>
-            <linearGradient id="trailGrad" x1="0" y1="1" x2="0" y2="0">
-              <stop offset="0%"   stopColor="#0AFFE0" stopOpacity="0" />
-              <stop offset="40%"  stopColor="#00C8FF" stopOpacity="0.9" />
-              <stop offset="100%" stopColor="#00C8FF" stopOpacity="1" />
-            </linearGradient>
-            <filter id="trailGlow">
-              <feGaussianBlur stdDeviation="4" result="blur" />
-              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-            </filter>
-            <filter id="whiteGlow">
-              <feGaussianBlur stdDeviation="3" result="blur" />
-              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-            </filter>
-          </defs>
+          <Video className="w-4 h-4 text-salomon-cyan" />
+          <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500 animate-ping" />
+          <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500" />
+        </button>
 
-          {/* Inactive route */}
-          <path d={selectedRoute?.id === 'route_2' ? ROUTE_PATH_1 : ROUTE_PATH_2}
-            fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="3" strokeDasharray="8 5" />
+        {/* Cable Car Info Shortcut Button */}
+        <button
+          onClick={() => setActiveModal('cablecar')}
+          aria-label="ケーブルカー運行情報"
+          title="ケーブルカー運行情報"
+          className="w-9 h-9 rounded-xl bg-salomon-card/90 backdrop-blur-md
+                     border border-salomon-border hover:border-salomon-cyan/60
+                     flex items-center justify-center transition-all duration-200
+                     shadow-glass active:scale-95 group"
+        >
+          <TrainFront className="w-4 h-4 text-salomon-muted group-hover:text-salomon-cyan transition-colors" />
+        </button>
 
-          {/* Glow halo */}
-          <path d={activePath} fill="none" stroke="rgba(0,200,255,0.25)"
-            strokeWidth="14" strokeLinecap="round" filter="url(#trailGlow)" />
-
-          {/* Animated draw */}
-          <path
-            key={`trail-${selectedRoute?.id ?? 'default'}-${drawn}`}
-            d={activePath} fill="none" stroke="url(#trailGrad)"
-            strokeWidth="5" strokeLinecap="round"
-            strokeDasharray="1200" strokeDashoffset={drawn ? 0 : 1200}
-            filter="url(#trailGlow)"
-            style={{ transition: drawn ? 'stroke-dashoffset 2.6s cubic-bezier(0.4,0,0.2,1)' : 'none' }}
-          />
-
-          {/* Animated dot */}
-          {drawn && (
-            <circle r="7" fill="#0AFFE0" filter="url(#trailGlow)">
-              <animateMotion dur="5s" repeatCount="indefinite" path={activePath} />
-            </circle>
-          )}
-
-          {/* Labels */}
-          {LABELS.map((label, i) => (
-            <g key={i}>
-              {label.dot && (
-                <>
-                  <circle cx={label.x} cy={label.y} r="18"
-                    fill={label.highlight ? 'rgba(0,200,255,0.2)' : 'rgba(255,255,255,0.08)'}
-                    stroke={label.highlight ? '#00C8FF' : 'rgba(255,255,255,0.4)'} strokeWidth="2" />
-                  {label.highlight && (
-                    <circle cx={label.x} cy={label.y} r="18" fill="none"
-                      stroke="#00C8FF" strokeWidth="1.5" opacity="0.5">
-                      <animate attributeName="r" values="18;30;18" dur="2.5s" repeatCount="indefinite" />
-                      <animate attributeName="opacity" values="0.5;0;0.5" dur="2.5s" repeatCount="indefinite" />
-                    </circle>
-                  )}
-                </>
-              )}
-              {label.text.split('\n').map((line, li) => (
-                <text key={li}
-                  x={label.x + (label.dot ? 24 : 0)}
-                  y={label.y + (label.dot ? li * 18 - 6 : li * 18)}
-                  fontSize={label.highlight ? '17' : '14'} fontWeight={label.highlight ? '700' : '600'}
-                  fill={label.highlight ? '#00C8FF' : 'white'} filter="url(#whiteGlow)"
-                  fontFamily="Noto Sans JP, sans-serif">{line}</text>
-              ))}
-              {label.sub && (
-                <text x={label.x + 24} y={label.y + 14} fontSize="13" fill="#7B8DB0"
-                  fontFamily="Noto Sans JP, sans-serif">{label.sub}</text>
-              )}
-            </g>
+        {/* Zoom & Reset Controls */}
+        <div className="flex flex-col gap-1 pt-1 border-t border-white/10">
+          {[
+            { fn: handleZoomIn,  Icon: ZoomIn,    label: 'ズームイン' },
+            { fn: handleZoomOut, Icon: ZoomOut,   label: 'ズームアウト' },
+            { fn: handleReset,   Icon: Maximize2, label: '3D視点をリセット' },
+          ].map(({ fn, Icon, label }) => (
+            <button
+              key={label}
+              onClick={fn}
+              aria-label={label}
+              title={label}
+              className="w-9 h-9 rounded-xl bg-salomon-card/90 backdrop-blur-md
+                         border border-salomon-border hover:border-salomon-cyan/60
+                         flex items-center justify-center transition-all duration-200
+                         shadow-glass active:scale-95 group"
+            >
+              <Icon className="w-4 h-4 text-salomon-muted group-hover:text-salomon-cyan transition-colors" />
+            </button>
           ))}
-
-          {/* Toilet icon */}
-          <g transform={`translate(${ICON_TOILET.x},${ICON_TOILET.y})`}>
-            <rect x="-18" y="-18" width="36" height="36" rx="8"
-              fill="rgba(20,60,80,0.85)" stroke="rgba(0,200,255,0.5)" strokeWidth="1.5" />
-            <text x="0" y="8" fontSize="18" textAnchor="middle" fill="white">🚻</text>
-          </g>
-        </svg>
-      </div>
-
-      {/* Zoom controls */}
-      <div className="absolute bottom-20 md:bottom-4 right-3 z-30 flex flex-col gap-1.5
-                      animate-fadeIn opacity-0-start"
-        style={{ animationFillMode: 'forwards', animationDelay: '0.6s' }}>
-        {[
-          { fn: handleZoomIn,  Icon: ZoomIn,   label: 'ズームイン' },
-          { fn: handleZoomOut, Icon: ZoomOut,  label: 'ズームアウト' },
-          { fn: handleReset,   Icon: Maximize2,label: 'リセット' },
-        ].map(({ fn, Icon, label }) => (
-          <button key={label} onClick={fn} aria-label={label}
-            className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-salomon-card/90 backdrop-blur-sm
-                       border border-salomon-border hover:border-salomon-cyan/60
-                       flex items-center justify-center transition-all duration-200
-                       shadow-glass active:scale-95 group">
-            <Icon className="w-4 h-4 md:w-5 md:h-5 text-salomon-muted group-hover:text-salomon-cyan transition-colors" />
-          </button>
-        ))}
-        <div className="text-center text-[9px] text-salomon-muted font-mono
-                        bg-salomon-card/80 backdrop-blur-sm rounded-lg px-1.5 py-0.5
-                        border border-salomon-border">
-          {Math.round(scale * 100)}%
         </div>
       </div>
 
-      {/* Hint — hidden on mobile to save space */}
-      <div className="hidden md:block absolute bottom-4 left-1/2 -translate-x-1/2 z-20
-                      animate-fadeIn opacity-0-start"
-        style={{ animationFillMode: 'forwards', animationDelay: '1s' }}>
-        <div className="bg-salomon-card/80 backdrop-blur-sm border border-salomon-border
-                        rounded-full px-4 py-1.5 shadow-glass">
-          <p className="text-salomon-muted text-[10px] tracking-wide">
-            🖱️ ドラッグで移動 · ズームで拡大縮小
+      {/* 3D Interaction hint — centered in upper mountain view on desktop */}
+      <div
+        className="hidden lg:block absolute top-16 left-1/2 -translate-x-1/2 z-10
+                   animate-fadeIn opacity-0-start pointer-events-none"
+        style={{ animationFillMode: 'forwards', animationDelay: '1s' }}
+      >
+        <div className="bg-salomon-dark/75 backdrop-blur-md border border-white/10
+                        rounded-full px-4 py-1 shadow-glass">
+          <p className="text-salomon-text text-[11px] tracking-wide flex items-center gap-2">
+            <span>🖱️ ドラッグで移動</span>
+            <span className="text-salomon-muted">·</span>
+            <span>スクロールで拡大縮小</span>
+            <span className="text-salomon-muted">·</span>
+            <span className="text-salomon-cyan font-medium">右ドラッグで3D回転</span>
           </p>
         </div>
       </div>

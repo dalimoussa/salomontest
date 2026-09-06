@@ -3,3 +3,18 @@ node_modules
 .env
 .env.local
 dist
+
+# Build & cache artifacts
+*.tsbuildinfo
+.chrome-temp/
+.edge-temp/
+*.log
+
+# Test & verification screenshots
+kiosk_screen.png
+kiosk_webgl.png
+public/kiosk_*.png
+public/mobile_*.png
+public/m_*.png
+public/audit_kiosk.png
+public/admin_gate.png

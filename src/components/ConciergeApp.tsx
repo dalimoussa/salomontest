@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Map, CloudSun, Navigation, ShoppingBag, Sparkles } from 'lucide-react';
 import { MainHeader } from './MainHeader';
 import { WeatherPanel } from './WeatherPanel';
 import { RoutePanel } from './RoutePanel';
@@ -9,69 +8,89 @@ import { MountainMap } from './MountainMap';
 import { RightPanel } from './RightPanel';
 import { ProductCarousel } from './ProductCarousel';
 import { QuickActions } from './QuickActions';
-import { QRModal } from './modals/QRModal';
+import { Footer } from './Footer';
 import { EquipmentModal } from './modals/EquipmentModal';
 import { StaffModal } from './modals/StaffModal';
+import { LiveCameraModal } from './modals/LiveCameraModal';
+import { CableCarModal } from './modals/CableCarModal';
 import { HeroSplash } from './HeroSplash';
+import { KioskWatchdog } from './KioskWatchdog';
 import { useStore } from '@/store/useStore';
-import { fetchWeather } from '@/api/weather';
+import { useMapStore } from '@/store/mapStore';
 import { getAIAdvice } from '@/api/llm';
 import { getRecommendedProducts } from '@/data/products';
 import { getCurrentSeason } from '@/lib/season';
+import { getTrailStatus } from '@/data/trailStatus';
+import { getFacilities } from '@/data/facilities';
+import type { WeatherData } from '@/types';
 
-/* ── Types ────────────────────────────────────────────────────────────── */
-type MobileTab = 'map' | 'weather' | 'route' | 'gear' | 'ai';
-
-const MOBILE_TABS: { id: MobileTab; label: string; Icon: typeof Map }[] = [
-  { id: 'map',     label: 'マップ',  Icon: Map },
-  { id: 'weather', label: '天気',    Icon: CloudSun },
-  { id: 'route',   label: 'ルート',  Icon: Navigation },
-  { id: 'gear',    label: '装備',    Icon: ShoppingBag },
-  { id: 'ai',      label: 'AIアドバイス', Icon: Sparkles },
-];
-
-/* ── Data-loading logic (shared between layouts) ──────────────────────── */
-function makeKey(routeId: string, difficulty: string) {
-  return `${routeId}__${difficulty}`;
+function makeKey(routeId: string, difficulty: string, lang: string) {
+  return `${routeId}__${difficulty}__${lang}`;
 }
 
 function useAppData() {
   const weather             = useStore(s => s.weather);
   const selectedRoute       = useStore(s => s.selectedRoute);
   const selectedDifficulty  = useStore(s => s.selectedDifficulty);
+  const language            = useStore(s => s.language);
   const setWeather          = useStore(s => s.setWeather);
   const setWeatherLoading   = useStore(s => s.setWeatherLoading);
+  const setWeatherError     = useStore(s => s.setWeatherError);
+  const weatherRefreshTick  = useStore(s => s.weatherRefreshTick);
   const addMessage          = useStore(s => s.addMessage);
   const clearMessages       = useStore(s => s.clearMessages);
   const setIsGenerating     = useStore(s => s.setIsGenerating);
   const setRecommendedProducts = useStore(s => s.setRecommendedProducts);
+  const setRainOverlay      = useMapStore(s => s.setRainOverlay);
+  const setHighlightedRouteId = useMapStore(s => s.setHighlightedRouteId);
   const [lastKey, setLastKey] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
       setWeatherLoading(true);
-      try { setWeather(await fetchWeather()); }
-      catch (e) { console.error('Weather fetch error:', e); }
-      finally { setWeatherLoading(false); }
+      setWeatherError(null);
+      try {
+        const res  = await fetch('/api/weather');
+        const data = await res.json() as WeatherData & { _isFallback?: boolean };
+        setWeather(data);
+        const isRaining    = data.precipitationMmh > 0 || data.weatherCode === 'rainy' || data.weatherCode === 'snowy';
+        const intensityMmh = data.precipitationMmh > 0 ? data.precipitationMmh : (isRaining ? 2 : 0);
+        setRainOverlay(isRaining, intensityMmh);
+        if (!res.ok || data._isFallback) {
+          setWeatherError('fallback');
+        }
+      } catch (e) {
+        console.error('Weather fetch error:', e);
+        setWeatherError(e instanceof Error ? e.message : 'fetch_failed');
+      } finally {
+        setWeatherLoading(false);
+      }
     };
     load();
     const iv = setInterval(load, 10 * 60 * 1000);
     return () => clearInterval(iv);
-  }, [setWeather, setWeatherLoading]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setWeather, setWeatherLoading, setWeatherError, setRainOverlay, weatherRefreshTick]);
+
+  useEffect(() => {
+    setHighlightedRouteId(selectedRoute?.id ?? null);
+  }, [selectedRoute?.id, setHighlightedRouteId]);
 
   useEffect(() => {
     if (!selectedRoute || !selectedDifficulty || !weather) return;
-    const key = makeKey(selectedRoute.id, selectedDifficulty);
+    const key = makeKey(selectedRoute.id, selectedDifficulty, language);
     if (key === lastKey) return;
     const go = async () => {
       clearMessages();
       setIsGenerating(true);
       setLastKey(key);
       try {
-        const advice   = await getAIAdvice(weather, selectedRoute, selectedDifficulty);
+        const trailStatus = getTrailStatus(language);
+        const facilities  = getFacilities(language);
+        const advice   = await getAIAdvice(weather, selectedRoute, selectedDifficulty, trailStatus, facilities, undefined, language);
         const season   = getCurrentSeason();
         const products = getRecommendedProducts(
-          selectedDifficulty, weather.weatherCode, season, advice.recommended_gear, 6
+          selectedDifficulty, weather.weatherCode, season, advice.recommended_gear, 6, selectedRoute.category, language
         );
         setRecommendedProducts(products);
         addMessage({
@@ -80,9 +99,14 @@ function useAppData() {
         });
       } catch (e) {
         console.error('Advice error:', e);
+        const errText = language === 'en'
+          ? 'Failed to load AI guidance.'
+          : language === 'zh'
+          ? '获取AI向导建议失败。'
+          : 'AIアドバイスの取得に失敗しました。';
         addMessage({
           id: crypto.randomUUID(), role: 'system',
-          text: 'AIアドバイスの取得に失敗しました。', timestamp: new Date(),
+          text: errText, timestamp: new Date(),
         });
       } finally {
         setIsGenerating(false);
@@ -90,94 +114,7 @@ function useAppData() {
     };
     go();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedRoute?.id, selectedDifficulty, weather?.weatherCode]);
-}
-
-/* ── Mobile drawer panel ───────────────────────────────────────────────── */
-function MobileDrawer({ tab, open }: { tab: MobileTab; open: boolean }) {
-  return (
-    <div className={`mobile-drawer ${open ? 'open' : 'closed'}`}>
-      {/* Drag handle */}
-      <div className="flex justify-center pt-3 pb-1">
-        <div className="w-10 h-1 rounded-full bg-white/20" />
-      </div>
-
-      <div className="px-4 pb-4 space-y-4" style={{ paddingBottom: 'calc(60px + env(safe-area-inset-bottom, 0px))' }}>
-        {tab === 'weather' && <WeatherPanel />}
-        {tab === 'route'   && <RoutePanel />}
-        {tab === 'gear'    && (
-          <div className="space-y-4">
-            <ProductCarousel />
-            <QuickActions />
-          </div>
-        )}
-        {tab === 'ai' && <RightPanel />}
-      </div>
-    </div>
-  );
-}
-
-/* ── Mobile bottom tab bar ─────────────────────────────────────────────── */
-function MobileTabBar({
-  active, onSelect,
-}: {
-  active: MobileTab;
-  onSelect: (t: MobileTab) => void;
-}) {
-  return (
-    <div
-      className="fixed bottom-0 left-0 right-0 z-40 flex items-end"
-      style={{
-        background: 'rgba(8,14,32,0.97)',
-        backdropFilter: 'blur(20px)',
-        borderTop: '1px solid rgba(255,255,255,0.08)',
-        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-      }}
-    >
-      {MOBILE_TABS.map(({ id, label, Icon }) => {
-        const isActive = active === id;
-        return (
-          <button
-            key={id}
-            onClick={() => onSelect(id)}
-            className="flex-1 flex flex-col items-center gap-0.5 py-2.5 transition-colors active:opacity-70"
-            aria-label={label}
-            aria-pressed={isActive}
-          >
-            <Icon
-              className={`w-5 h-5 transition-all duration-200 ${
-                isActive ? 'text-salomon-cyan scale-110' : 'text-salomon-muted'
-              }`}
-              strokeWidth={isActive ? 2.5 : 1.5}
-            />
-            <span
-              className={`text-[9px] font-semibold tracking-wide transition-colors leading-none ${
-                isActive ? 'text-salomon-cyan' : 'text-salomon-muted'
-              }`}
-            >
-              {label}
-            </span>
-            {/* Active indicator dot */}
-            {isActive && (
-              <span className="w-1 h-1 rounded-full bg-salomon-cyan shadow-glow-cyan mt-0.5" />
-            )}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-/* ── Mobile overlay backdrop ───────────────────────────────────────────── */
-function Backdrop({ visible, onClick }: { visible: boolean; onClick: () => void }) {
-  if (!visible) return null;
-  return (
-    <div
-      className="fixed inset-0 z-20 bg-black/40"
-      onClick={onClick}
-      aria-hidden="true"
-    />
-  );
+  }, [selectedRoute?.id, selectedDifficulty, weather?.weatherCode, language]);
 }
 
 /* ── Main App ──────────────────────────────────────────────────────────── */
@@ -185,110 +122,68 @@ function MainApp() {
   useAppData();
 
   const activeModal = useStore(s => s.activeModal);
-  const [mobileTab,     setMobileTab]     = useState<MobileTab>('map');
-  const [drawerOpen,    setDrawerOpen]    = useState(false);
-
-  const handleTabSelect = (tab: MobileTab) => {
-    if (tab === 'map') {
-      setDrawerOpen(false);
-      setMobileTab('map');
-    } else if (mobileTab === tab && drawerOpen) {
-      // Tap same tab twice → close drawer
-      setDrawerOpen(false);
-    } else {
-      setMobileTab(tab);
-      setDrawerOpen(true);
-    }
-  };
 
   return (
-    <div className="relative bg-salomon-black" style={{ height: '100dvh', overflow: 'hidden' }}>
+    <div className="relative bg-salomon-black flex flex-col" style={{ height: '100dvh', overflow: 'hidden' }}>
 
-      {/* ── Full-screen map (always behind everything) ─────────────── */}
+      {/* ── Mountain Map / Video Visual Background ── */}
       <MountainMap />
 
-      {/* Gradient overlay */}
+      {/* Unattended kiosk reliability watchdog (inactivity reset + daily purge) */}
+      <KioskWatchdog />
+
+      {/* Subtle vignette gradient that lets the central mountain aerial visual pop */}
       <div
-        className="absolute inset-0 bg-gradient-to-b from-salomon-dark/25 via-transparent to-salomon-dark/40 pointer-events-none"
+        className="absolute inset-0 bg-gradient-to-b from-salomon-dark/40 via-transparent to-salomon-dark/50 pointer-events-none"
         style={{ zIndex: 5 }}
       />
 
-      {/* ── DESKTOP layout (≥ lg) ───────────────────────────────────── */}
-      <div className="hidden lg:flex absolute inset-0 flex-col" style={{ zIndex: 10 }}>
-        {/* Header */}
+      {/* ── RETAIL SIGNAGE KIOSK INTERFACE (Dedicated 110" Store Display) ── */}
+      <div className="flex flex-col flex-1 min-h-0 relative" style={{ zIndex: 10 }}>
+        {/* Header (LOGO, Greeting, Clock, Weather) */}
         <MainHeader />
 
-        {/* 3-column grid */}
+        {/* 3-Column Signage Work Area matching refined kiosk ergonomics */}
         <div
-          className="flex-1 grid gap-3 px-4 pb-2 min-h-0"
-          style={{ gridTemplateColumns: '220px 1fr 220px' }}
+          className="flex-1 grid gap-3.5 px-4 lg:px-6 pb-2 min-h-0 overflow-y-auto lg:overflow-visible"
+          style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}
         >
-          {/* Left */}
-          <div className="flex flex-col gap-3 min-h-0 overflow-y-auto">
+          {/* Left Column: Zone ① Weather + Zone ② Routes */}
+          <div className="flex flex-col gap-2.5 min-h-0 lg:max-w-[320px]">
             <WeatherPanel />
-            <div className="flex-1 min-h-0 overflow-y-auto">
+            <div className="flex-1 min-h-0">
               <RoutePanel />
             </div>
           </div>
 
-          {/* Center — transparent (shows map), product carousel floats at bottom */}
-          <div className="flex flex-col justify-end gap-3 min-h-0 overflow-hidden pointer-events-none">
-            <div className="space-y-2.5 pointer-events-auto">
+          {/* Center Column: Unobstructed Mountain View + Floating Gear Guide */}
+          <div className="flex flex-col justify-end gap-2 min-h-0 overflow-hidden pointer-events-none order-last lg:order-none">
+            <div className="pointer-events-auto">
+              {/* Zone ④ Gear Guide */}
               <ProductCarousel />
             </div>
           </div>
 
-          {/* Right */}
-          <div className="min-h-0 overflow-y-auto">
+          {/* Right Column: Zone ⑤ Trail Status + Zone ⑥ Facilities + Zone ⑦ AI Advice */}
+          <div className="min-h-0 flex flex-col lg:max-w-[320px]">
             <RightPanel />
           </div>
         </div>
 
-        {/* Quick actions bar */}
-        <div className="px-4 pb-3">
+        {/* Bottom Conversation Bar: Zone ⑧ AI Conversation + Voice Core */}
+        <div className="px-4 lg:px-6 pb-2">
           <QuickActions />
         </div>
+
+        {/* Kiosk Footer: 利用規約・言語切替・店舗情報 */}
+        <Footer />
       </div>
 
-      {/* ── MOBILE / TABLET layout (< lg) ──────────────────────────── */}
-      <div className="lg:hidden absolute inset-0 flex flex-col" style={{ zIndex: 10 }}>
-        {/* Compact header */}
-        <MainHeader />
-
-        {/* Map tap area shows quick hint when no drawer open */}
-        {!drawerOpen && (
-          <div className="flex-1 flex items-end justify-center pb-24 pointer-events-none">
-            <div className="bg-black/50 backdrop-blur-sm border border-white/10 rounded-full
-                            px-4 py-1.5 animate-fadeInUp opacity-0-start"
-              style={{ animationFillMode: 'forwards', animationDelay: '0.8s' }}>
-              <p className="text-white/60 text-[10px] tracking-wide text-center">
-                👆 下のタブでルート・天気・装備を確認
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* ── Mobile drawer backdrop ──────────────────────────────────── */}
-      <Backdrop
-        visible={drawerOpen}
-        onClick={() => setDrawerOpen(false)}
-      />
-
-      {/* ── Mobile drawer content ───────────────────────────────────── */}
-      <div className="lg:hidden" style={{ zIndex: 30 }}>
-        <MobileDrawer tab={mobileTab} open={drawerOpen} />
-      </div>
-
-      {/* ── Mobile bottom tab bar ──────────────────────────────────── */}
-      <div className="lg:hidden">
-        <MobileTabBar active={mobileTab} onSelect={handleTabSelect} />
-      </div>
-
-      {/* ── Modals (all breakpoints) ────────────────────────────────── */}
-      {activeModal === 'qr'        && <QRModal />}
+      {/* ── Modals ──────────────────────────────────────────────────── */}
       {activeModal === 'equipment' && <EquipmentModal />}
       {activeModal === 'staff'     && <StaffModal />}
+      {activeModal === 'camera'    && <LiveCameraModal />}
+      {activeModal === 'cablecar'  && <CableCarModal />}
     </div>
   );
 }

@@ -66,16 +66,23 @@ function Dashboard() {
       <div className="rounded-2xl border border-white/10 bg-white/3 p-5">
         <div className="flex items-center gap-2 mb-3">
           <MessageSquare className="w-4 h-4 text-cyan-400" />
-          <span className="text-sm font-semibold text-white">現在のヒーローメッセージ</span>
+          <span className="text-sm font-semibold text-white">現在のヒーローメッセージ（日本語 / English / 中文）</span>
         </div>
-        <div className="space-y-2">
-          <div className="flex gap-3">
-            <span className="text-xs text-slate-500 w-20 flex-shrink-0 pt-0.5">メインタイトル</span>
-            <p className="text-sm text-white font-medium">{heroMessages.greeting}</p>
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <span className="text-xs text-cyan-400 font-bold">日本語 (JA):</span>
+            <p className="text-sm text-white font-medium pl-2">{heroMessages.ja?.greeting || (heroMessages as any).greeting}</p>
+            <p className="text-xs text-slate-400 pl-2">{heroMessages.ja?.subtitle || (heroMessages as any).subtitle}</p>
           </div>
-          <div className="flex gap-3">
-            <span className="text-xs text-slate-500 w-20 flex-shrink-0 pt-0.5">サブタイトル</span>
-            <p className="text-sm text-slate-300">{heroMessages.subtitle}</p>
+          <div className="space-y-1 pt-2 border-t border-white/5">
+            <span className="text-xs text-cyan-400 font-bold">English (EN):</span>
+            <p className="text-sm text-white font-medium pl-2">{heroMessages.en?.greeting}</p>
+            <p className="text-xs text-slate-400 pl-2">{heroMessages.en?.subtitle}</p>
+          </div>
+          <div className="space-y-1 pt-2 border-t border-white/5">
+            <span className="text-xs text-cyan-400 font-bold">中文 (ZH):</span>
+            <p className="text-sm text-white font-medium pl-2">{heroMessages.zh?.greeting}</p>
+            <p className="text-xs text-slate-400 pl-2">{heroMessages.zh?.subtitle}</p>
           </div>
         </div>
       </div>

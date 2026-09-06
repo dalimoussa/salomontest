@@ -3,22 +3,29 @@
 import { X, CheckCircle2 } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { useAdminStore } from '@/store/useAdminStore';
-
-const CATEGORY_LABEL: Record<string, string> = {
-  footwear: 'フットウェア',
-  apparel:  'アパレル',
-  gear:     'ギア',
-};
+import { getLocalizedProduct } from '@/data/products';
+import { getLocalizedRoute } from '@/data/routes';
+import { useT } from '@/lib/i18n';
 
 export function EquipmentModal() {
   const messages       = useStore(s => s.messages);
-  const selectedRoute  = useStore(s => s.selectedRoute);
+  const rawRoute       = useStore(s => s.selectedRoute);
   const weather        = useStore(s => s.weather);
   const setActiveModal = useStore(s => s.setActiveModal);
   const allProducts    = useAdminStore(s => s.products);
+  const { t, language } = useT();
+
+  const selectedRoute = rawRoute ? getLocalizedRoute(rawRoute, language) : null;
+
+  const CATEGORY_LABEL: Record<string, string> = {
+    footwear: t('products.categoryFootwear'),
+    apparel:  t('products.categoryApparel'),
+    gear:     t('products.categoryGear'),
+  };
 
   const lastMessage  = messages[messages.length - 1];
-  const recommended  = lastMessage?.products ?? [];
+  const rawRecommended = lastMessage?.products ?? [];
+  const recommended  = rawRecommended.map(p => getLocalizedProduct(p, language));
   const recSkus      = new Set(recommended.map(p => p.sku));
   const gearSlugs    = lastMessage?.advice?.recommended_gear ?? [];
 
@@ -28,11 +35,13 @@ export function EquipmentModal() {
     return acc;
   }, {});
 
-  const extras = allProducts.filter(p => p.tags.some(t => gearSlugs.includes(t)) && !recSkus.has(p.sku));
+  const extras = allProducts
+    .filter(p => p.tags.some(t => gearSlugs.includes(t)) && !recSkus.has(p.sku))
+    .map(p => getLocalizedProduct(p, language));
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
-      role="dialog" aria-modal="true" aria-label="装備リスト">
+      role="dialog" aria-modal="true" aria-label={t('modal.equipmentTitle')}>
       <div className="bg-[#0D1529] border border-white/10 rounded-t-3xl sm:rounded-2xl shadow-2xl
                       w-full sm:max-w-xl flex flex-col"
         style={{ maxHeight: '85dvh' }}>
@@ -45,7 +54,7 @@ export function EquipmentModal() {
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-white/10 flex-shrink-0">
           <div>
-            <h2 className="text-base font-bold text-white">装備リスト</h2>
+            <h2 className="text-base font-bold text-white">{t('modal.equipmentTitle')}</h2>
             {selectedRoute && (
               <p className="text-xs text-salomon-muted mt-0.5">
                 {selectedRoute.name}
@@ -56,7 +65,7 @@ export function EquipmentModal() {
           <button onClick={() => setActiveModal(null)}
             className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10
                        transition-colors min-h-[44px] min-w-[44px]"
-            aria-label="閉じる">
+            aria-label={t('modal.close')}>
             <X className="w-5 h-5 text-salomon-muted" />
           </button>
         </div>
@@ -87,7 +96,7 @@ export function EquipmentModal() {
                           </p>
                           <div className="flex items-center gap-1 mt-1 justify-end">
                             <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
-                            <span className="text-xs text-green-400 font-medium">推薦</span>
+                            <span className="text-xs text-green-400 font-medium">{t('modal.recommended')}</span>
                           </div>
                         </div>
                       </div>
@@ -98,7 +107,7 @@ export function EquipmentModal() {
 
               {extras.length > 0 && (
                 <div>
-                  <h3 className="section-label mb-3">その他おすすめ</h3>
+                  <h3 className="section-label mb-3">{t('modal.otherRecommended')}</h3>
                   <div className="space-y-2">
                     {extras.map(p => (
                       <div key={p.sku}
@@ -115,24 +124,17 @@ export function EquipmentModal() {
             </div>
           ) : (
             <div className="text-center py-10 text-salomon-muted">
-              <p className="text-sm">ルートを選択すると装備リストが表示されます</p>
+              <p className="text-sm">{t('modal.emptyList')}</p>
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-4 border-t border-white/10 flex gap-3 flex-shrink-0"
-          style={{ paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))' }}>
-          <button onClick={() => setActiveModal('qr')}
-            className="flex-1 border-2 border-salomon-black text-salomon-text py-3 rounded-xl
-                       text-sm font-bold hover:border-salomon-cyan/60 hover:text-white
-                       active:scale-98 transition-all min-h-[50px]">
-            QRで受け取る
-          </button>
+        <div className="p-4 border-t border-white/10 flex-shrink-0">
           <button onClick={() => setActiveModal(null)}
-            className="flex-1 bg-salomon-black text-white py-3 rounded-xl text-sm font-bold
-                       hover:bg-gray-800 active:scale-98 transition-all min-h-[50px]">
-            閉じる
+            className="w-full py-2.5 rounded-xl bg-salomon-cyan text-salomon-black font-bold text-sm
+                       hover:bg-salomon-cyan/90 transition-colors min-h-[44px]">
+            {t('modal.close')}
           </button>
         </div>
       </div>
