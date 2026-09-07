@@ -31,7 +31,7 @@ export interface Route {
   name_zh?: string;
   category: RouteCategory;
   difficulty: Difficulty;
-  difficultyRating?: number; // 1-3 stars
+  difficultyRating?: number; // 1-6 stars
   crowdWeekday?: number;     // 1-3 stars
   crowdWeekend?: number;     // 1-3 stars
   distanceKm: number;
@@ -45,6 +45,13 @@ export interface Route {
   description_en?: string;
   description_zh?: string;
   sourceAttribution?: string;
+  adminComment?: string;
+}
+
+export interface RouteAdminSetting {
+  difficulty: Difficulty;
+  stars: number; // 1 to 6
+  comment?: string;
 }
 
 // ─── Products ─────────────────────────────────────────────────────────────────

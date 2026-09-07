@@ -4,13 +4,14 @@ import { useState } from 'react';
 import {
   LayoutDashboard, MessageSquare, Package, Settings,
   ExternalLink, ChevronRight, Clock, Database,
-  Menu, X, PanelLeftClose, PanelLeftOpen,
+  Menu, X, PanelLeftClose, PanelLeftOpen, Mountain,
 } from 'lucide-react';
 import { HeroMessageEditor } from '@/admin/HeroMessageEditor';
 import { ProductEditor } from '@/admin/ProductEditor';
+import { RouteEditor } from '@/admin/RouteEditor';
 import { useAdminStore } from '@/store/useAdminStore';
 
-type Section = 'dashboard' | 'messages' | 'products';
+type Section = 'dashboard' | 'messages' | 'products' | 'routes';
 
 const NAV: {
   id: Section;
@@ -22,6 +23,7 @@ const NAV: {
   { id: 'dashboard', label: 'ダッシュボード',    labelEn: 'Dashboard',     icon: LayoutDashboard },
   { id: 'messages',  label: 'ヒーローメッセージ', labelEn: 'Hero Messages', icon: MessageSquare, badge: '変更可' },
   { id: 'products',  label: '商品マスター',       labelEn: 'Products',      icon: Package,       badge: '変更可' },
+  { id: 'routes',    label: 'コース・難易度管理', labelEn: 'Route Settings', icon: Mountain,      badge: '設定可' },
 ];
 
 /* ── Dashboard content ─────────────────────────────────────────────────── */
@@ -113,6 +115,7 @@ function Dashboard() {
         <ul className="space-y-1.5 text-xs text-slate-300">
           <li className="flex items-center gap-2"><ChevronRight className="w-3 h-3 text-cyan-400 flex-shrink-0" />ヒーローメッセージ（挨拶文・サブタイトル）の変更</li>
           <li className="flex items-center gap-2"><ChevronRight className="w-3 h-3 text-cyan-400 flex-shrink-0" />おすすめ商品の追加・編集・削除・表示順変更</li>
+          <li className="flex items-center gap-2"><ChevronRight className="w-3 h-3 text-cyan-400 flex-shrink-0" />コース難易度（初級・中級・上級）・6段階星評価・スタッフコメント編集</li>
           <li className="flex items-center gap-2"><ChevronRight className="w-3 h-3 text-cyan-400 flex-shrink-0" />商品在庫状況の手動更新</li>
           <li className="flex items-center gap-2 opacity-50"><ChevronRight className="w-3 h-3 flex-shrink-0" />（本番）AIプロンプト調整、天気API設定、ログ分析</li>
         </ul>
@@ -225,6 +228,7 @@ export function AdminApp() {
       case 'dashboard': return <Dashboard />;
       case 'messages':  return <HeroMessageEditor />;
       case 'products':  return <ProductEditor />;
+      case 'routes':    return <RouteEditor />;
     }
   };
 

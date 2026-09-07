@@ -1,15 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { MapPin, Clock, TrendingUp, Sparkles, Mountain, Users, Star } from 'lucide-react';
+import { MapPin, Clock, TrendingUp, Sparkles, Mountain, Users, Star, MessageSquare } from 'lucide-react';
 import { ROUTES, getLocalizedRoute } from '@/data/routes';
 import { useStore } from '@/store/useStore';
+import { useAdminStore } from '@/store/useAdminStore';
 import { ElevationProfileChart } from '@/components/ElevationProfileChart';
 import { getElevationProfile } from '@/data/elevationProfiles';
 import { useT } from '@/lib/i18n';
 import type { Difficulty, Route, RouteCategory } from '@/types';
 
-function renderStars(rating: number = 1) {
+function renderCrowdStars(rating: number = 1) {
   return (
     <span className="flex items-center gap-0.5 text-amber-400">
       {Array.from({ length: 3 }).map((_, i) => (
@@ -22,10 +23,28 @@ function renderStars(rating: number = 1) {
   );
 }
 
+function renderDifficultyStars(rating: number = 1, maxStars: number = 6) {
+  return (
+    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-400/90 shadow-sm">
+      {Array.from({ length: maxStars }).map((_, i) => (
+        <Star
+          key={i}
+          className={`w-2 h-2 ${
+            i < rating
+              ? 'fill-black text-black stroke-black'
+              : 'fill-transparent text-black/35 stroke-black/35'
+          }`}
+        />
+      ))}
+    </span>
+  );
+}
+
 export function RoutePanel() {
   const selectedRoute        = useStore(s => s.selectedRoute);
   const setSelectedRoute     = useStore(s => s.setSelectedRoute);
   const setSelectedDifficulty = useStore(s => s.setSelectedDifficulty);
+  const routeSettings        = useAdminStore(s => s.routeSettings);
   const { t, language } = useT();
 
   const CATEGORY_TABS: { value: RouteCategory; label: string }[] = [
@@ -48,11 +67,15 @@ export function RoutePanel() {
   const categoryRoutes = ROUTES.filter(r => r.category === activeCategory);
   const filteredRoutes = activeDifficultyFilter === 'all'
     ? categoryRoutes
-    : categoryRoutes.filter(r => r.difficulty === activeDifficultyFilter);
+    : categoryRoutes.filter(r => {
+        const effDiff = routeSettings[r.id]?.difficulty ?? r.difficulty;
+        return effDiff === activeDifficultyFilter;
+      });
 
   const handleSelectRoute = (route: Route) => {
     setSelectedRoute(route);
-    setSelectedDifficulty(route.difficulty);
+    const effDiff = routeSettings[route.id]?.difficulty ?? route.difficulty;
+    setSelectedDifficulty(effDiff);
   };
 
   const handleCategoryChange = (cat: RouteCategory) => {
@@ -60,7 +83,8 @@ export function RoutePanel() {
     const first = ROUTES.find(r => r.category === cat);
     if (first) {
       setSelectedRoute(first);
-      setSelectedDifficulty(first.difficulty);
+      const effDiff = routeSettings[first.id]?.difficulty ?? first.difficulty;
+      setSelectedDifficulty(effDiff);
     }
   };
 
@@ -120,6 +144,18 @@ export function RoutePanel() {
           const isSelected = selectedRoute?.id === route.id;
           const isPopular = route.id === 'route_1';
 
+          const adminSetting = routeSettings[rawRoute.id];
+          const effDifficulty: Difficulty = adminSetting?.difficulty ?? rawRoute.difficulty;
+          const effStars: number = adminSetting?.stars ?? rawRoute.difficultyRating ?? (effDifficulty === 'beginner' ? 1 : effDifficulty === 'intermediate' ? 4 : 6);
+          const effComment: string | undefined = adminSetting?.comment ?? rawRoute.adminComment;
+
+          const diffBadge =
+            effDifficulty === 'beginner'
+              ? { label: t('route.beginner'), bg: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' }
+              : effDifficulty === 'intermediate'
+              ? { label: t('route.intermediate'), bg: 'bg-amber-500/20 text-amber-300 border-amber-500/30' }
+              : { label: t('route.advanced'), bg: 'bg-rose-500/20 text-rose-300 border-rose-500/30' };
+
           return (
             <div
               key={route.id}
@@ -171,25 +207,41 @@ export function RoutePanel() {
 
               {/* Ratings Row: Difficulty & Crowding */}
               <div className="flex items-center justify-between text-[10px] pl-3.5 mt-1.5 pt-1.5 border-t border-white/5">
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
                   <span className="text-white/60">{t('route.difficulty')}:</span>
-                  {renderStars(route.difficultyRating ?? (route.difficulty === 'beginner' ? 1 : route.difficulty === 'intermediate' ? 2 : 3))}
+                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${diffBadge.bg}`}>
+                    {diffBadge.label}
+                  </span>
+                  {renderDifficultyStars(effStars, 6)}
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="flex items-center gap-1 text-white/60">
                     <Users className="w-3 h-3 text-salomon-cyan" /> {t('route.weekday')}:
-                    {renderStars(route.crowdWeekday ?? 1)}
+                    {renderCrowdStars(route.crowdWeekday ?? 1)}
                   </span>
                   <span className="flex items-center gap-1 text-white/60">
                     {t('route.weekend')}:
-                    {renderStars(route.crowdWeekend ?? 2)}
+                    {renderCrowdStars(route.crowdWeekend ?? 2)}
                   </span>
                 </div>
               </div>
 
               {/* Expanded Route Description & Elevation Profile */}
               {isSelected && (
-                <div className="mt-2 pt-2 border-t border-white/10 text-[11px] text-slate-300 leading-relaxed space-y-2">
+                <div className="mt-2 pt-2 border-t border-white/10 text-[11px] text-slate-300 leading-relaxed space-y-2.5">
+                  {/* Staff Advice Card (Client Requirement) */}
+                  {effComment && (
+                    <div className="ml-3.5 mr-1 p-2.5 rounded-xl bg-gradient-to-r from-cyan-500/15 to-blue-500/10 border border-cyan-500/30 shadow-glow-cyan/15 space-y-1">
+                      <div className="flex items-center gap-1.5 text-[10px] font-bold text-cyan-300">
+                        <MessageSquare className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
+                        <span>SALOMONスタッフのアドバイス</span>
+                      </div>
+                      <p className="text-[11px] text-slate-200 leading-relaxed pl-5">
+                        {effComment}
+                      </p>
+                    </div>
+                  )}
+
                   <p className="pl-3.5">{route.description}</p>
                   
                   {/* Feature Pills */}
