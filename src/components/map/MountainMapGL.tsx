@@ -169,6 +169,11 @@ export function MountainMapGL({ onMapReady }: MountainMapGLProps) {
         zoom: 13.7,
         pitch: 58,
         bearing: -22,
+        maxPitch: 85,
+        dragRotate: true,
+        pitchWithRotate: true,
+        touchPitch: true,
+        touchZoomRotate: true,
         attributionControl: false,
       });
     } catch (err) {
@@ -182,6 +187,11 @@ export function MountainMapGL({ onMapReady }: MountainMapGLProps) {
       console.error('MapLibre init error:', err);
       return;
     }
+
+    // Prevent default context menu on right-click drag so 3D rotation is completely smooth
+    const canvas = map.getCanvas();
+    const handleContextMenu = (e: MouseEvent) => e.preventDefault();
+    canvas.addEventListener('contextmenu', handleContextMenu);
 
     map.addControl(new AttributionControl({ compact: true }), 'bottom-right');
 
@@ -541,6 +551,7 @@ export function MountainMapGL({ onMapReady }: MountainMapGLProps) {
     setTimeout(handleResize, 200);
 
     return () => {
+      canvas.removeEventListener('contextmenu', handleContextMenu);
       window.removeEventListener('resize', handleResize);
       if (popupRef.current) popupRef.current.remove();
       map.remove();

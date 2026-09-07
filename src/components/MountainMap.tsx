@@ -1,8 +1,8 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useCallback, useRef } from 'react';
-import { ZoomIn, ZoomOut, Maximize2, Video, TrainFront } from 'lucide-react';
+import { useCallback, useRef, useState } from 'react';
+import { ZoomIn, ZoomOut, Maximize2, Video, TrainFront, Compass } from 'lucide-react';
 import type { Map } from 'maplibre-gl';
 import { useStore } from '@/store/useStore';
 import { useMapStore } from '@/store/mapStore';
@@ -15,6 +15,13 @@ const TAKAO_SUMMIT: [number, number] = [139.2485, 35.6275];
 const DEFAULT_ZOOM  = 13.7;
 const DEFAULT_PITCH = 58;
 const DEFAULT_BEARING = -22;
+
+const PERSPECTIVES = [
+  { pitch: 68, bearing: -22, zoom: 14.1, label: '3D俯瞰 (急傾斜)' },
+  { pitch: 78, bearing: 40,  zoom: 13.6, label: '3Dパノラマ (広角)' },
+  { pitch: 58, bearing: -60, zoom: 14.3, label: '3D尾根アングル' },
+  { pitch: 0,  bearing: 0,   zoom: 13.5, label: '2D真上 (平面図)' },
+];
 
 // MapLibre requires window/WebGL — never SSR this subtree
 const MountainMapGL = dynamic(
@@ -54,6 +61,7 @@ export function MountainMap() {
   const mapInstanceRef = useRef<Map | null>(null);
   const setUserMovedCamera = useMapStore((s) => s.setUserMovedCamera);
   const setActiveModal = useStore((s) => s.setActiveModal);
+  const [perspectiveIndex, setPerspectiveIndex] = useState(0);
 
   const handleMapReady = useCallback((map: Map) => {
     mapInstanceRef.current = map;
@@ -73,10 +81,24 @@ export function MountainMap() {
     });
   };
 
+  const handleToggle3D = () => {
+    setUserMovedCamera(true);
+    const nextIdx = (perspectiveIndex + 1) % PERSPECTIVES.length;
+    setPerspectiveIndex(nextIdx);
+    const p = PERSPECTIVES[nextIdx];
+    mapInstanceRef.current?.flyTo({
+      pitch: p.pitch,
+      bearing: p.bearing,
+      zoom: p.zoom,
+      duration: 1000,
+      essential: true,
+    });
+  };
+
   return (
     <div
       className="absolute inset-0 w-full h-full overflow-hidden"
-      style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+      style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1 }}
       role="main"
       id="mountain-visual-container"
     >
@@ -94,7 +116,7 @@ export function MountainMap() {
 
       {/* Map Action Controls (Floating within the central mountain viewport) */}
       <div
-        className="absolute top-16 right-3 lg:right-[315px] xl:right-[345px] z-20 flex flex-col gap-2
+        className="absolute top-16 right-3 lg:right-[310px] xl:right-[340px] 2xl:right-[380px] z-30 flex flex-col gap-2
                    animate-fadeIn opacity-0-start pointer-events-auto"
         style={{ animationFillMode: 'forwards', animationDelay: '0.6s' }}
       >
@@ -126,12 +148,13 @@ export function MountainMap() {
           <TrainFront className="w-4 h-4 text-salomon-muted group-hover:text-salomon-cyan transition-colors" />
         </button>
 
-        {/* Zoom & Reset Controls */}
+        {/* Zoom & 3D Perspective Controls */}
         <div className="flex flex-col gap-1 pt-1 border-t border-white/10">
           {[
-            { fn: handleZoomIn,  Icon: ZoomIn,    label: 'ズームイン' },
-            { fn: handleZoomOut, Icon: ZoomOut,   label: 'ズームアウト' },
-            { fn: handleReset,   Icon: Maximize2, label: '3D視点をリセット' },
+            { fn: handleToggle3D, Icon: Compass,   label: PERSPECTIVES[perspectiveIndex].label },
+            { fn: handleZoomIn,   Icon: ZoomIn,    label: 'ズームイン' },
+            { fn: handleZoomOut,  Icon: ZoomOut,   label: 'ズームアウト' },
+            { fn: handleReset,    Icon: Maximize2, label: '3D視点を初期化' },
           ].map(({ fn, Icon, label }) => (
             <button
               key={label}
@@ -151,18 +174,18 @@ export function MountainMap() {
 
       {/* 3D Interaction hint — centered in upper mountain view on desktop */}
       <div
-        className="hidden lg:block absolute top-16 left-1/2 -translate-x-1/2 z-10
+        className="hidden lg:block absolute top-16 left-1/2 -translate-x-1/2 z-20
                    animate-fadeIn opacity-0-start pointer-events-none"
         style={{ animationFillMode: 'forwards', animationDelay: '1s' }}
       >
-        <div className="bg-salomon-dark/75 backdrop-blur-md border border-white/10
-                        rounded-full px-4 py-1 shadow-glass">
+        <div className="bg-salomon-dark/85 backdrop-blur-md border border-salomon-cyan/30
+                        rounded-full px-4 py-1.5 shadow-glass">
           <p className="text-salomon-text text-[11px] tracking-wide flex items-center gap-2">
-            <span>🖱️ ドラッグで移動</span>
+            <span>🖱️ 左ドラッグ: 移動</span>
             <span className="text-salomon-muted">·</span>
-            <span>スクロールで拡大縮小</span>
+            <span>スクロール: 拡大縮小</span>
             <span className="text-salomon-muted">·</span>
-            <span className="text-salomon-cyan font-medium">右ドラッグで3D回転</span>
+            <span className="text-salomon-cyan font-bold">右ドラッグ (またはCtrl+ドラッグ): 3D回転</span>
           </p>
         </div>
       </div>

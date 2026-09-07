@@ -139,14 +139,16 @@ function MainApp() {
       />
 
       {/* ── RETAIL SIGNAGE KIOSK INTERFACE (Dedicated 110" Store Display) ── */}
-      <div className="flex flex-col flex-1 min-h-0 relative" style={{ zIndex: 10 }}>
+      <div className="flex flex-col flex-1 min-h-0 relative pointer-events-none" style={{ zIndex: 10 }}>
         {/* Header (LOGO, Greeting, Clock, Weather) */}
-        <MainHeader />
+        <div className="pointer-events-auto">
+          <MainHeader />
+        </div>
 
         {/* 3-Column Signage Work Area matching refined kiosk ergonomics */}
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-[290px_1fr_290px] xl:grid-cols-[320px_1fr_320px] 2xl:grid-cols-[360px_1fr_360px] gap-3.5 px-4 lg:px-6 pb-2 min-h-0 overflow-y-auto lg:overflow-visible">
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-[290px_1fr_290px] xl:grid-cols-[320px_1fr_320px] 2xl:grid-cols-[360px_1fr_360px] gap-3.5 px-4 lg:px-6 pb-2 min-h-0 overflow-y-auto lg:overflow-visible pointer-events-none">
           {/* Left Column: Zone ① Weather + Zone ② Routes */}
-          <div className="flex flex-col gap-2.5 min-h-0 w-full lg:max-w-[320px] 2xl:max-w-[360px]">
+          <div className="flex flex-col gap-2.5 min-h-0 w-full lg:max-w-[320px] 2xl:max-w-[360px] pointer-events-auto">
             <WeatherPanel />
             <div className="flex-1 min-h-0">
               <RoutePanel />
@@ -162,18 +164,20 @@ function MainApp() {
           </div>
 
           {/* Right Column: Zone ⑤ Trail Status + Zone ⑥ Facilities + Zone ⑦ AI Advice */}
-          <div className="min-h-0 flex flex-col w-full lg:max-w-[320px] 2xl:max-w-[360px]">
+          <div className="min-h-0 flex flex-col w-full lg:max-w-[320px] 2xl:max-w-[360px] pointer-events-auto">
             <RightPanel />
           </div>
         </div>
 
         {/* Bottom Conversation Bar: Zone ⑧ AI Conversation + Voice Core */}
-        <div className="px-4 lg:px-6 pb-2">
+        <div className="px-4 lg:px-6 pb-2 pointer-events-auto">
           <QuickActions />
         </div>
 
         {/* Kiosk Footer: 利用規約・言語切替・店舗情報 */}
-        <Footer />
+        <div className="pointer-events-auto">
+          <Footer />
+        </div>
       </div>
 
       {/* ── Modals ──────────────────────────────────────────────────── */}
