@@ -144,12 +144,9 @@ function MainApp() {
         <MainHeader />
 
         {/* 3-Column Signage Work Area matching refined kiosk ergonomics */}
-        <div
-          className="flex-1 grid gap-3.5 px-4 lg:px-6 pb-2 min-h-0 overflow-y-auto lg:overflow-visible"
-          style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}
-        >
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-[290px_1fr_290px] xl:grid-cols-[320px_1fr_320px] 2xl:grid-cols-[360px_1fr_360px] gap-3.5 px-4 lg:px-6 pb-2 min-h-0 overflow-y-auto lg:overflow-visible">
           {/* Left Column: Zone ① Weather + Zone ② Routes */}
-          <div className="flex flex-col gap-2.5 min-h-0 lg:max-w-[320px]">
+          <div className="flex flex-col gap-2.5 min-h-0 w-full lg:max-w-[320px] 2xl:max-w-[360px]">
             <WeatherPanel />
             <div className="flex-1 min-h-0">
               <RoutePanel />
@@ -157,15 +154,15 @@ function MainApp() {
           </div>
 
           {/* Center Column: Unobstructed Mountain View + Floating Gear Guide */}
-          <div className="flex flex-col justify-end gap-2 min-h-0 overflow-hidden pointer-events-none order-last lg:order-none">
-            <div className="pointer-events-auto">
+          <div className="flex flex-col justify-end items-center gap-2 min-h-0 overflow-hidden pointer-events-none order-last lg:order-none">
+            <div className="pointer-events-auto w-full max-w-2xl 2xl:max-w-3xl">
               {/* Zone ④ Gear Guide */}
               <ProductCarousel />
             </div>
           </div>
 
           {/* Right Column: Zone ⑤ Trail Status + Zone ⑥ Facilities + Zone ⑦ AI Advice */}
-          <div className="min-h-0 flex flex-col lg:max-w-[320px]">
+          <div className="min-h-0 flex flex-col w-full lg:max-w-[320px] 2xl:max-w-[360px]">
             <RightPanel />
           </div>
         </div>

@@ -80,7 +80,7 @@ export function MainHeader() {
       </div>
 
       {/* ── Desktop header (≥ lg) ────────────────────────────────────── */}
-      <div className="hidden lg:grid grid-cols-[290px_1fr_290px] xl:grid-cols-[320px_1fr_320px] items-center px-6 pt-3 pb-1 gap-4">
+      <div className="hidden lg:grid grid-cols-[290px_1fr_290px] xl:grid-cols-[320px_1fr_320px] 2xl:grid-cols-[360px_1fr_360px] items-center px-6 pt-3 pb-1 gap-4">
         {/* Left: SALOMON brand */}
         <div className="animate-fadeInLeft opacity-0-start flex flex-col justify-center" style={{ animationFillMode: 'forwards' }}>
           <div className="flex items-center gap-2">
