@@ -80,9 +80,9 @@ export function MainHeader() {
       </div>
 
       {/* ── Desktop header (≥ lg) ────────────────────────────────────── */}
-      <div className="hidden lg:grid grid-cols-[290px_1fr_290px] xl:grid-cols-[320px_1fr_320px] 2xl:grid-cols-[360px_1fr_360px] items-center px-6 pt-3 pb-1 gap-4">
+      <div className="hidden lg:grid grid-cols-[auto_1fr_auto] items-center px-6 pt-3 pb-1 gap-6">
         {/* Left: SALOMON brand */}
-        <div className="animate-fadeInLeft opacity-0-start flex flex-col justify-center" style={{ animationFillMode: 'forwards' }}>
+        <div className="animate-fadeInLeft opacity-0-start flex flex-col justify-center min-w-[200px]" style={{ animationFillMode: 'forwards' }}>
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-salomon-red shadow-glow-red animate-pulse-slow" />
             <span className="text-xl font-black tracking-[0.15em] text-white">SALOMON</span>
@@ -98,16 +98,16 @@ export function MainHeader() {
         {/* Center: Hero title */}
         <div className="text-center animate-fadeInUp opacity-0-start px-2 min-w-0"
           style={{ animationFillMode: 'forwards' }}>
-          <h1 className="text-lg xl:text-2xl font-bold text-white leading-tight line-clamp-1" title={currentHero.greeting}>
+          <h1 className="text-base xl:text-xl 2xl:text-2xl font-bold text-white leading-snug" title={currentHero.greeting}>
             {currentHero.greeting}
           </h1>
-          <p className="text-salomon-muted text-xs xl:text-sm mt-0.5 tracking-wide line-clamp-1">
+          <p className="text-salomon-muted text-xs xl:text-sm mt-0.5 tracking-wide">
             {currentHero.subtitle}
           </p>
         </div>
 
         {/* Right: clock + weather */}
-        <div className="animate-fadeInRight opacity-0-start text-right flex flex-col items-end justify-center"
+        <div className="animate-fadeInRight opacity-0-start text-right flex flex-col items-end justify-center min-w-[150px]"
           style={{ animationFillMode: 'forwards' }}>
           <div className="flex items-baseline justify-end gap-2.5">
             <span className="text-2xl xl:text-3xl font-bold text-white tabular-nums leading-none">

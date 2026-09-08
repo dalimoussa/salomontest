@@ -5,9 +5,9 @@ export const ROUTES: Route[] = [
   // ─── 8 Primary Mt. Takao Courses (takao_course) ──────────────────────────
   {
     id: 'route_1',
-    name: '1号路（表参道）★人気',
-    name_en: 'Trail 1 (Omotesando Trail) ★Popular',
-    name_zh: '1号路（表参道）★经典热门',
+    name: '1号路（表参道）',
+    name_en: 'Trail 1 (Omotesando Trail)',
+    name_zh: '1号路（表参道）',
     category: 'takao_course',
     difficulty: 'beginner',
     difficultyRating: 1,

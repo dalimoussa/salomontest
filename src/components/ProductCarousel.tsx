@@ -15,13 +15,10 @@ export function ProductCarousel() {
   const { t, language }     = useT();
 
   const CATEGORY_FILTERS = [
-    { label: t('products.filterAll'),     value: 'all' },
-    { label: t('products.filterBase'),    value: 'base' },
-    { label: t('products.filterMid'),     value: 'mid' },
-    { label: t('products.filterApparel'), value: 'apparel' },
-    { label: t('products.filterBottoms'), value: 'bottoms' },
-    { label: t('products.filterSocks'),   value: 'socks' },
-    { label: t('products.filterGear'),    value: 'gear' },
+    { label: t('products.filterAll'),      value: 'all' },
+    { label: t('products.filterFootwear'), value: 'footwear' },
+    { label: t('products.filterApparel'),  value: 'apparel' },
+    { label: t('products.filterGear'),     value: 'gear' },
   ];
 
   const getCategoryLabel = (category: string) => {
@@ -38,11 +35,7 @@ export function ProductCarousel() {
 
   const filtered = activeFilter === 'all'
     ? displayProducts
-    : displayProducts.filter(p =>
-        activeFilter === 'gear'
-          ? p.category === 'gear'
-          : p.category === activeFilter || p.subCategory?.includes(activeFilter)
-      );
+    : displayProducts.filter(p => p.category === activeFilter);
 
   const scroll = (dir: 'left' | 'right') => {
     if (!scrollRef.current) return;
@@ -77,7 +70,8 @@ export function ProductCarousel() {
         style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
         {filtered.map((product, i) => (
           <div key={product.sku}
-            className="flex-shrink-0 w-[145px] md:w-[140px] glass-card-hover p-2.5
+            title={product.name}
+            className="flex-shrink-0 w-[150px] md:w-[155px] xl:w-[165px] glass-card-hover p-2.5
                        flex flex-col items-center gap-2 cursor-pointer
                        animate-fadeInUp opacity-0-start active:scale-95 transition-transform"
             style={{ animationFillMode: 'forwards', animationDelay: `${0.4 + i * 0.07}s` }}>
@@ -88,7 +82,7 @@ export function ProductCarousel() {
               />
             </div>
             <div className="text-center w-full">
-              <p className="text-salomon-text text-xs font-bold leading-tight line-clamp-2">{product.name}</p>
+              <p className="text-salomon-text text-xs font-bold leading-tight line-clamp-2" title={product.name}>{product.name}</p>
               <p className="text-salomon-muted text-[10px] mt-0.5">{getCategoryLabel(product.category)}</p>
               <p className="text-salomon-cyan text-xs font-bold mt-1">¥{product.price.toLocaleString('ja-JP')}</p>
             </div>

@@ -36,7 +36,7 @@ export const TRANSLATIONS = {
     // RoutePanel
     'route.title': 'ルート案内',
     'route.coursesShowing': '{count} コース表示中',
-    'route.tabTakao': '高尾山 7コース',
+    'route.tabTakao': '高尾山 主要コース',
     'route.tabSurrounding': '周辺・ロングトレイル',
     'route.all': 'すべて',
     'route.beginner': '初級',
@@ -49,6 +49,11 @@ export const TRANSLATIONS = {
     'route.highest': '最高',
     'route.min': '分',
     'route.attribution': '出典: 高尾マナーズ / 東京都高尾ビジターセンター',
+
+    // Map hints
+    'map.hintPan': '左ドラッグ: 移動',
+    'map.hintZoom': 'スクロール: 拡大縮小',
+    'map.hintRotate': '右ドラッグ (またはCtrl+ドラッグ): 3D回転',
 
     // RightPanel - Trail Status & Facilities & Advice
     'trail.title': '踏面・登山道の状況',
@@ -72,13 +77,14 @@ export const TRANSLATIONS = {
     'products.title': 'おすすめ装備・アイテム（SALOMON）',
     'products.prev': '前へ',
     'products.next': '次へ',
-    'products.filterAll': 'シーズン',
+    'products.filterAll': 'すべて',
+    'products.filterFootwear': 'シューズ',
+    'products.filterApparel': 'アパレル',
+    'products.filterGear': 'ギア・パック',
     'products.filterBase': 'ベースレイヤー',
     'products.filterMid': 'ミッドレイヤー',
-    'products.filterApparel': 'アウター',
     'products.filterBottoms': 'ボトムス',
     'products.filterSocks': 'ソックス',
-    'products.filterGear': 'アクセサリー',
     'products.categoryFootwear': 'シューズ',
     'products.categoryApparel': 'ジャケット',
     'products.categoryGear': 'アクセサリー',
@@ -245,7 +251,7 @@ export const TRANSLATIONS = {
     // RoutePanel
     'route.title': 'Trail Navigation',
     'route.coursesShowing': '{count} Trails Shown',
-    'route.tabTakao': 'Mt. Takao 7 Trails',
+    'route.tabTakao': 'Mt. Takao Courses',
     'route.tabSurrounding': 'Surrounding & Long Trails',
     'route.all': 'All',
     'route.beginner': 'Beginner',
@@ -258,6 +264,11 @@ export const TRANSLATIONS = {
     'route.highest': 'Max',
     'route.min': 'min',
     'route.attribution': 'Source: Takao Manners / Tokyo Takao Visitor Center',
+
+    // Map hints
+    'map.hintPan': 'Left-drag: Pan',
+    'map.hintZoom': 'Scroll: Zoom',
+    'map.hintRotate': 'Right-drag / Ctrl+drag: 3D Rotate',
 
     // RightPanel - Trail Status & Facilities & Advice
     'trail.title': 'Trail Conditions & Surface',
@@ -281,13 +292,14 @@ export const TRANSLATIONS = {
     'products.title': 'Recommended Gear & Apparel (SALOMON)',
     'products.prev': 'Previous',
     'products.next': 'Next',
-    'products.filterAll': 'Seasonal',
+    'products.filterAll': 'All',
+    'products.filterFootwear': 'Footwear',
+    'products.filterApparel': 'Apparel',
+    'products.filterGear': 'Packs & Gear',
     'products.filterBase': 'Base Layer',
     'products.filterMid': 'Mid Layer',
-    'products.filterApparel': 'Outerwear',
     'products.filterBottoms': 'Bottoms',
     'products.filterSocks': 'Socks',
-    'products.filterGear': 'Accessories',
     'products.categoryFootwear': 'Footwear',
     'products.categoryApparel': 'Jackets',
     'products.categoryGear': 'Gear & Accessories',
@@ -454,7 +466,7 @@ export const TRANSLATIONS = {
     // RoutePanel
     'route.title': '路线向导',
     'route.coursesShowing': '正在显示 {count} 条路线',
-    'route.tabTakao': '高尾山 7条经典路线',
+    'route.tabTakao': '高尾山 经典路线',
     'route.tabSurrounding': '周边·长距离步道',
     'route.all': '全部',
     'route.beginner': '初级',
@@ -467,6 +479,11 @@ export const TRANSLATIONS = {
     'route.highest': '最高',
     'route.min': '分钟',
     'route.attribution': '资料来源: 高尾Manners / 东京都高尾游客中心',
+
+    // Map hints
+    'map.hintPan': '左键拖拽：平移',
+    'map.hintZoom': '滚轮：缩放',
+    'map.hintRotate': '右键/Ctrl+拖拽：3D旋转',
 
     // RightPanel - Trail Status & Facilities & Advice
     'trail.title': '登山道与路面状况',
@@ -490,13 +507,14 @@ export const TRANSLATIONS = {
     'products.title': '推荐装备与单品（SALOMON）',
     'products.prev': '上一项',
     'products.next': '下一项',
-    'products.filterAll': '当季推荐',
+    'products.filterAll': '全部',
+    'products.filterFootwear': '越野鞋',
+    'products.filterApparel': '专业服装',
+    'products.filterGear': '装备水袋包',
     'products.filterBase': '基础层',
     'products.filterMid': '保暖中间层',
-    'products.filterApparel': '外层夹克',
     'products.filterBottoms': '下装',
     'products.filterSocks': '登山袜',
-    'products.filterGear': '配件与装备',
     'products.categoryFootwear': '登山越野鞋',
     'products.categoryApparel': '专业夹克',
     'products.categoryGear': '配件装备',

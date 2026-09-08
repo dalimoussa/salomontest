@@ -556,9 +556,14 @@ function buildFallbackAdvice(
   if (language === 'en') {
     const queryPart = userQuery ? `Regarding your request ("${userQuery}"): ` : '';
     const rainTip = weather.rainProbability >= 50 ? 'Pack reliable rain gear and watch for slippery rock stairs.' : 'Conditions are pleasant for hiking today.';
+    const weatherEn =
+      weather.weatherCode === 'rainy' ? 'rainy' :
+      weather.weatherCode === 'sunny' ? 'sunny' :
+      weather.weatherCode === 'partly_cloudy' ? 'partly cloudy' :
+      weather.weatherCode === 'snowy' ? 'snowy' : 'cloudy';
     return {
-      advice_text: `${queryPart}Welcome to Mt. Takao! Today is ${weather.weather} with temperatures around ${weather.temp_c}°C. You are viewing ${routeName}, which covers ${route.distanceKm}km with +${route.elevationM}m elevation gain (approx. ${route.durationMin} min). ${rainTip} Stay hydrated and enjoy your time on the mountain!`,
-      advice_short: `${routeName}: ${route.distanceKm}km, +${route.elevationM}m (${route.durationMin} min). Today is ${weather.weather}, ${weather.temp_c}°C.`,
+      advice_text: `${queryPart}Welcome to Mt. Takao! Today is ${weatherEn} with temperatures around ${weather.temp_c}°C. You are viewing ${routeName}, which covers ${route.distanceKm}km with ${route.elevationM}m of elevation gain (approx. ${route.durationMin} min). ${rainTip} Stay hydrated and enjoy your time on the mountain!`,
+      advice_short: `${routeName}: ${route.distanceKm}km, ${route.elevationM}m gain (${route.durationMin} min). Today is ${weatherEn}, ${weather.temp_c}°C.`,
       safety_flags,
       recommended_gear,
       mood,
@@ -568,9 +573,14 @@ function buildFallbackAdvice(
   if (language === 'zh') {
     const queryPart = userQuery ? `关于您的咨询（“${userQuery}”）：` : '';
     const rainTip = weather.rainProbability >= 50 ? '请务必携带雨具并注意湿滑石阶。' : '步道天气舒适，非常适合徒步。';
+    const weatherZh =
+      weather.weatherCode === 'rainy' ? '有雨' :
+      weather.weatherCode === 'sunny' ? '晴朗' :
+      weather.weatherCode === 'partly_cloudy' ? '多云转晴' :
+      weather.weatherCode === 'snowy' ? '降雪' : '多云';
     return {
-      advice_text: `${queryPart}欢迎来到高尾山！今日天气${weather.weather}，气温${weather.temp_c}℃。当前路线为「${routeName}」，全长${route.distanceKm}公里（爬升+${route.elevationM}米，约需${route.durationMin}分钟）。${rainTip}请注意适时补水，祝您登山愉快！`,
-      advice_short: `${routeName}：全长${route.distanceKm}公里（约${route.durationMin}分钟）。今日${weather.weather}，气温${weather.temp_c}℃。`,
+      advice_text: `${queryPart}欢迎来到高尾山！今日天气${weatherZh}，气温${weather.temp_c}℃。当前路线为「${routeName}」，全长${route.distanceKm}公里（爬升${route.elevationM}米，约需${route.durationMin}分钟）。${rainTip}请注意适时补水，祝您登山愉快！`,
+      advice_short: `${routeName}：全长${route.distanceKm}公里（约${route.durationMin}分钟）。今日${weatherZh}，气温${weather.temp_c}℃。`,
       safety_flags,
       recommended_gear,
       mood,

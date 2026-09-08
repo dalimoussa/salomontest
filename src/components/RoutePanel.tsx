@@ -205,21 +205,23 @@ export function RoutePanel() {
                 </span>
               </div>
 
-              {/* Ratings Row: Difficulty & Crowding */}
-              <div className="flex items-center justify-between text-[10px] pl-3.5 mt-1.5 pt-1.5 border-t border-white/5">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-white/60">{t('route.difficulty')}:</span>
-                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${diffBadge.bg}`}>
-                    {diffBadge.label}
-                  </span>
+              {/* Ratings: Row 1 Difficulty & 6-Star Rating, Row 2 Crowding */}
+              <div className="text-[10px] pl-3.5 mt-1.5 pt-1.5 border-t border-white/5 space-y-1">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-white/60">{t('route.difficulty')}:</span>
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${diffBadge.bg}`}>
+                      {diffBadge.label}
+                    </span>
+                  </div>
                   {renderDifficultyStars(effStars, 6)}
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="flex items-center gap-1 text-white/60">
+                <div className="flex items-center justify-between text-white/60 text-[9.5px]">
+                  <span className="flex items-center gap-1">
                     <Users className="w-3 h-3 text-salomon-cyan" /> {t('route.weekday')}:
                     {renderCrowdStars(route.crowdWeekday ?? 1)}
                   </span>
-                  <span className="flex items-center gap-1 text-white/60">
+                  <span className="flex items-center gap-1">
                     {t('route.weekend')}:
                     {renderCrowdStars(route.crowdWeekend ?? 2)}
                   </span>

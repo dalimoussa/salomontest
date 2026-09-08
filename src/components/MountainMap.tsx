@@ -7,6 +7,7 @@ import type { Map } from 'maplibre-gl';
 import { useStore } from '@/store/useStore';
 import { useMapStore } from '@/store/mapStore';
 import { RainOverlay } from './map/RainOverlay';
+import { useT } from '@/lib/i18n';
 
 import { ErrorBoundary } from './ErrorBoundary';
 
@@ -61,6 +62,7 @@ export function MountainMap() {
   const mapInstanceRef = useRef<Map | null>(null);
   const setUserMovedCamera = useMapStore((s) => s.setUserMovedCamera);
   const setActiveModal = useStore((s) => s.setActiveModal);
+  const { t } = useT();
   const [perspectiveIndex, setPerspectiveIndex] = useState(0);
 
   const handleMapReady = useCallback((map: Map) => {
@@ -181,11 +183,11 @@ export function MountainMap() {
         <div className="bg-salomon-dark/85 backdrop-blur-md border border-salomon-cyan/30
                         rounded-full px-4 py-1.5 shadow-glass">
           <p className="text-salomon-text text-[11px] tracking-wide flex items-center gap-2">
-            <span>🖱️ 左ドラッグ: 移動</span>
+            <span>🖱️ {t('map.hintPan')}</span>
             <span className="text-salomon-muted">·</span>
-            <span>スクロール: 拡大縮小</span>
+            <span>{t('map.hintZoom')}</span>
             <span className="text-salomon-muted">·</span>
-            <span className="text-salomon-cyan font-bold">右ドラッグ (またはCtrl+ドラッグ): 3D回転</span>
+            <span className="text-salomon-cyan font-bold">{t('map.hintRotate')}</span>
           </p>
         </div>
       </div>

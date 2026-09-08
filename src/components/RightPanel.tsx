@@ -4,6 +4,7 @@ import { Bot, Coffee, ParkingCircle, Waves, RefreshCw, AlertCircle, CheckCircle2
 import { useStore } from '@/store/useStore';
 import { getTrailStatus, trailSeverityColor } from '@/data/trailStatus';
 import { getFacilities, facilityStatusLabel, facilityStatusColor } from '@/data/facilities';
+import { getSafetyFlagLabel } from '@/lib/safetyFlags';
 import { useT } from '@/lib/i18n';
 import type { Facility } from '@/types';
 
@@ -94,10 +95,10 @@ export function RightPanel() {
                 key={f.id}
                 className={`bg-white/5 rounded-xl p-2.5 border border-salomon-border flex flex-col justify-between gap-1.5 ${isFullWidth ? 'col-span-2' : ''}`}
               >
-                <div className="flex items-start justify-between gap-1.5">
+                <div className="flex items-start justify-between gap-1 flex-wrap">
                   <div className="flex items-center gap-1.5 min-w-0">
                     <FacilityIcon icon={f.icon} />
-                    <span className="text-xs font-semibold text-salomon-text truncate" title={f.name}>{f.name}</span>
+                    <span className="text-xs font-semibold text-salomon-text leading-tight">{f.name}</span>
                   </div>
                   {f.hours ? (
                     <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full border border-green-500/30 font-medium shrink-0 whitespace-nowrap">
@@ -145,10 +146,11 @@ export function RightPanel() {
             <div className="space-y-2">
               <p className="text-salomon-text text-xs leading-relaxed">{advice.advice_text}</p>
               {advice.safety_flags.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-2">
+                <div className="flex flex-wrap gap-1.5 mt-2">
                   {advice.safety_flags.slice(0, 3).map(flag => (
-                    <span key={flag} className="text-[9px] px-2 py-0.5 rounded-full bg-orange-500/20 border border-orange-500/40 text-orange-300 font-medium">
-                      ⚠ {flag.replace(/_/g, ' ')}
+                    <span key={flag} className="text-[10px] px-2.5 py-0.5 rounded-full bg-orange-500/20 border border-orange-500/40 text-orange-300 font-medium leading-normal inline-flex items-center gap-1">
+                      <span>⚠</span>
+                      <span>{getSafetyFlagLabel(flag, language)}</span>
                     </span>
                   ))}
                 </div>
