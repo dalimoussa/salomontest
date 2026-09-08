@@ -2,6 +2,7 @@
 
 import { Cloud, CloudRain, Sun, CloudSun, CloudSnow, Wind, Droplets, Zap, Sunset, Users, Mountain, AlertCircle, RefreshCw } from 'lucide-react';
 import { useStore } from '@/store/useStore';
+import { useAdminStore } from '@/store/useAdminStore';
 import { useT } from '@/lib/i18n';
 import type { WeatherCode } from '@/types';
 
@@ -19,10 +20,11 @@ function WeatherIcon({ code, size = 'lg' }: { code: WeatherCode; size?: 'lg' | '
 }
 
 export function WeatherPanel() {
-  const weather      = useStore(s => s.weather);
-  const loading      = useStore(s => s.weatherLoading);
-  const weatherError = useStore(s => s.weatherError);
-  const refreshWeather = useStore(s => s.refreshWeather);
+  const weather         = useStore(s => s.weather);
+  const loading         = useStore(s => s.weatherLoading);
+  const weatherError    = useStore(s => s.weatherError);
+  const refreshWeather  = useStore(s => s.refreshWeather);
+  const weatherOverride = useAdminStore(s => s.weatherOverride);
   const { t, language } = useT();
 
   // Loading skeleton
@@ -113,8 +115,25 @@ export function WeatherPanel() {
           <span className="text-sm font-bold text-white tracking-wide">{t('weather.mountain')}</span>
           <span className="text-[11px] text-salomon-muted font-mono">{t('weather.elevation')}</span>
         </div>
-        <span className="text-[10px] text-salomon-muted">{t('weather.todayWeather')}</span>
+        <div className="flex items-center gap-1.5">
+          {weatherOverride?.enabled ? (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-400/40 text-[9px] font-black text-cyan-300 shadow-sm">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+              手動設定中
+            </span>
+          ) : (
+            <span className="text-[10px] text-salomon-muted">{t('weather.todayWeather')}</span>
+          )}
+        </div>
       </div>
+
+      {/* Optional Staff Weather Notice */}
+      {weatherOverride?.enabled && weatherOverride?.customNotice && (
+        <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/40 rounded-xl px-2.5 py-1.5 text-[10.5px] text-amber-200 flex items-center gap-1.5 font-medium shadow-sm">
+          <AlertCircle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+          <span>{weatherOverride.customNotice}</span>
+        </div>
+      )}
 
       {/* Main weather & temp */}
       <div className="flex items-center gap-3">

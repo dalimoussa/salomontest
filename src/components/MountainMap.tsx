@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useCallback, useRef, useState } from 'react';
-import { ZoomIn, ZoomOut, Maximize2, Video, TrainFront, Compass } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize2, TrainFront, Compass } from 'lucide-react';
 import type { Map } from 'maplibre-gl';
 import { useStore } from '@/store/useStore';
 import { useMapStore } from '@/store/mapStore';
@@ -122,20 +122,6 @@ export function MountainMap() {
                    animate-fadeIn opacity-0-start pointer-events-auto"
         style={{ animationFillMode: 'forwards', animationDelay: '0.6s' }}
       >
-        {/* Summit Live Camera Shortcut Button */}
-        <button
-          onClick={() => setActiveModal('camera')}
-          aria-label="山頂ライブカメラを見る"
-          title="山頂ライブカメラを見る"
-          className="w-9 h-9 rounded-xl bg-salomon-card/90 backdrop-blur-md
-                     border border-salomon-border hover:border-salomon-cyan/60
-                     flex items-center justify-center transition-all duration-200
-                     shadow-glass active:scale-95 group relative"
-        >
-          <Video className="w-4 h-4 text-salomon-cyan" />
-          <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500 animate-ping" />
-          <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500" />
-        </button>
 
         {/* Cable Car Info Shortcut Button */}
         <button

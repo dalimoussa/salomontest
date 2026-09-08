@@ -236,9 +236,7 @@ export function useVoiceConversation(): UseVoiceConversationReturn {
         }
       }
 
-      if (q.includes('カメラ') || q.includes('camera') || q.includes('山頂カメラ')) {
-        setActiveModal('camera');
-      } else if (q.includes('持ち物') || q.includes('チェックリスト') || q.includes('checklist') || q.includes('装備')) {
+      if (q.includes('持ち物') || q.includes('チェックリスト') || q.includes('checklist') || q.includes('装備')) {
         setActiveModal('equipment');
       } else if (q.includes('ケーブルカー') || q.includes('cable') || q.includes('リフト') || q.includes('時刻表')) {
         setActiveModal('cablecar');

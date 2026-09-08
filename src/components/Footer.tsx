@@ -29,10 +29,14 @@ export function Footer() {
           <Clock className="w-3 h-3 text-salomon-muted" />
           <span>{t('footer.hours')}</span>
         </div>
-        <div className="hidden md:flex items-center gap-1">
+        <a
+          href={`tel:${t('footer.phone').replace(/[^0-9+]/g, '')}`}
+          className="hidden md:flex items-center gap-1 hover:text-white transition-colors"
+          title={t('footer.phone')}
+        >
           <Phone className="w-3 h-3 text-salomon-muted" />
           <span>{t('footer.phone')}</span>
-        </div>
+        </a>
       </div>
 
       {/* Language Switcher & Terms */}
@@ -78,6 +82,15 @@ export function Footer() {
           <FileText className="w-3.5 h-3.5" />
           <span>{t('footer.terms')}</span>
         </button>
+
+        {/* Admin Console Shortcut */}
+        <a
+          href="/admin"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-salomon-cyan/20 text-salomon-muted hover:text-salomon-cyan border border-transparent hover:border-salomon-cyan/40 transition-colors min-h-[36px]"
+          title="店舗・管理者画面"
+        >
+          <span>⚙️ 管理画面</span>
+        </a>
       </div>
 
       {/* Terms Modal */}

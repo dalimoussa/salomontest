@@ -19,6 +19,20 @@ export interface WeatherData {
   updatedAt: string;        // ISO string
 }
 
+export interface WeatherManualOverride {
+  enabled: boolean;
+  temp_c: number;
+  weather: string;
+  weatherCode: WeatherCode;
+  windSpeed: number;        // m/s
+  rainProbability: number;  // 0–100
+  precipitationMmh: number; // mm/h (drives rain particles and terrain mood)
+  uvIndex: number;
+  visibility: number;       // km
+  customNotice?: string;    // Custom operator advisory line
+  updatedAt?: string;       // ISO string
+}
+
 // ─── Routes ──────────────────────────────────────────────────────────────────
 
 export type Difficulty = 'beginner' | 'intermediate' | 'advanced';
@@ -38,6 +52,13 @@ export interface Route {
   elevationM: number;
   maxElevationM: number;
   durationMin: number;
+  durationAscentMin?: number;
+  durationDescentMin?: number;
+  durationCableCarAscentMin?: number;
+  durationCableCarDescentMin?: number;
+  gradientNote?: string;
+  gradientNote_en?: string;
+  gradientNote_zh?: string;
   features: string[];
   features_en?: string[];
   features_zh?: string[];
@@ -56,6 +77,8 @@ export interface RouteAdminSetting {
   comment?: string;
   comment_en?: string;
   comment_zh?: string;
+  customDurationMin?: number;
+  customDistanceKm?: number;
 }
 
 // ─── Products ─────────────────────────────────────────────────────────────────
@@ -189,5 +212,5 @@ export type ActiveModal =
   | null
   | 'equipment'
   | 'staff'
-  | 'camera'
-  | 'cablecar';
+  | 'cablecar'
+  | 'difficulty';

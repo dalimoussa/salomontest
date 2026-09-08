@@ -1,6 +1,6 @@
 'use client';
 
-import { MapPinned, Video, ListChecks, ParkingCircle } from 'lucide-react';
+import { MapPinned, TrainFront, ListChecks, ParkingCircle } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { ROUTES } from '@/data/routes';
 import { useVoiceConversation } from '@/hooks/useVoiceConversation';
@@ -15,7 +15,7 @@ export function QuickActions() {
 
   const ACTIONS = [
     { icon: MapPinned,    label: t('quickActions.chipBeginner'),  action: 'route_beginner' },
-    { icon: Video,        label: t('quickActions.chipCamera'),    action: 'camera' },
+    { icon: TrainFront,   label: t('quickActions.chipCablecar'),  action: 'cablecar' },
     { icon: ParkingCircle,label: t('quickActions.chipParking'),   action: 'parking' },
     { icon: ListChecks,   label: t('quickActions.chipChecklist'), action: 'checklist' },
   ];
@@ -34,8 +34,8 @@ export function QuickActions() {
   const handleClick = (action: string) => {
     if (action === 'checklist') {
       setActiveModal('equipment');
-    } else if (action === 'camera') {
-      setActiveModal('camera');
+    } else if (action === 'cablecar') {
+      setActiveModal('cablecar');
     } else if (action === 'route_beginner') {
       setSelectedDifficulty('beginner');
       const r1 = ROUTES.find(r => r.id === 'route_1');

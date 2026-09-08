@@ -251,22 +251,22 @@ export function RouteEditor() {
                     </span>
                   </div>
 
-                  {/* 6-Star visual indicator on card */}
+                  {/* 6-Star visual indicator matching client screenshot */}
                   <div className="flex items-center justify-between text-[10px] pl-4">
-                    <div className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-400/15 border border-amber-400/30">
+                    <div className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-[#E5F952] text-black font-black shadow-sm">
                       {Array.from({ length: 6 }).map((_, i) => (
                         <Star
                           key={i}
-                          className={`w-2.5 h-2.5 ${
+                          className={`w-2 h-2 ${
                             i < displaySetting.stars
-                              ? 'fill-amber-400 text-amber-400'
-                              : 'text-slate-600'
+                              ? 'fill-black text-black stroke-black'
+                              : 'fill-transparent text-black/30 stroke-black/30'
                           }`}
                         />
                       ))}
                     </div>
                     {(displaySetting.comment || displaySetting.comment_en || displaySetting.comment_zh) && (
-                      <span className="flex items-center gap-1 text-[9px] text-cyan-400">
+                      <span className="flex items-center gap-1 text-[9px] text-cyan-400 font-medium">
                         <MessageSquare className="w-2.5 h-2.5" /> コメント有
                       </span>
                     )}
@@ -501,14 +501,17 @@ export function RouteEditor() {
                         ? (commentLang === 'en' ? 'Intermediate' : commentLang === 'zh' ? '中级' : '中級')
                         : (commentLang === 'en' ? 'Advanced' : commentLang === 'zh' ? '高级' : '上級')}
                     </span>
-                    <div className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-400/90 text-black">
+                    <div
+                      className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full font-bold shadow-sm"
+                      style={{ backgroundColor: '#E5F952', color: '#000000' }}
+                    >
                       {Array.from({ length: 6 }).map((_, i) => (
                         <Star
                           key={i}
                           className={`w-2.5 h-2.5 ${
                             i < draft.stars
                               ? 'fill-black text-black'
-                              : 'fill-transparent text-black/30 stroke-black/30'
+                              : 'fill-transparent text-black/25 stroke-black/30'
                           }`}
                         />
                       ))}

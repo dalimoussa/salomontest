@@ -1,17 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import {
-  LayoutDashboard, MessageSquare, Package, Settings,
+import { LayoutDashboard, MessageSquare, Package, Settings,
   ExternalLink, ChevronRight, Clock, Database,
-  Menu, X, PanelLeftClose, PanelLeftOpen, Mountain, Globe,
+  Menu, X, PanelLeftClose, PanelLeftOpen, Mountain, Globe, CloudRain,
 } from 'lucide-react';
 import { HeroMessageEditor } from '@/admin/HeroMessageEditor';
 import { ProductEditor } from '@/admin/ProductEditor';
 import { RouteEditor } from '@/admin/RouteEditor';
+import { WeatherEditor } from '@/admin/WeatherEditor';
 import { useAdminStore } from '@/store/useAdminStore';
 
-type Section = 'dashboard' | 'messages' | 'products' | 'routes';
+type Section = 'dashboard' | 'weather' | 'routes' | 'messages' | 'products';
 
 const NAV: {
   id: Section;
@@ -20,10 +20,11 @@ const NAV: {
   icon: typeof LayoutDashboard;
   badge?: string;
 }[] = [
-  { id: 'dashboard', label: 'ダッシュボード',    labelEn: 'Dashboard',     icon: LayoutDashboard },
-  { id: 'messages',  label: 'ヒーローメッセージ', labelEn: 'Hero Messages', icon: MessageSquare, badge: '3言語対応' },
-  { id: 'routes',    label: 'コース・難易度管理', labelEn: 'Route Settings', icon: Mountain,      badge: '3言語対応' },
-  { id: 'products',  label: '商品マスター',       labelEn: 'Products',      icon: Package,       badge: '編集可' },
+  { id: 'dashboard', label: 'ダッシュボード',    labelEn: 'Dashboard',        icon: LayoutDashboard },
+  { id: 'weather',   label: '天気・気象手動設定',  labelEn: 'Weather Override', icon: CloudRain,       badge: '手動/自動' },
+  { id: 'routes',    label: 'コース・難易度管理',  labelEn: 'Route Settings',   icon: Mountain,        badge: '8大コース' },
+  { id: 'messages',  label: 'ヒーローメッセージ',  labelEn: 'Hero Messages',    icon: MessageSquare,   badge: '3言語対応' },
+  { id: 'products',  label: '商品マスター',        labelEn: 'Products',         icon: Package,         badge: '編集可' },
 ];
 
 /* ── Dashboard content ─────────────────────────────────────────────────── */
@@ -232,6 +233,7 @@ export function AdminApp() {
   const renderContent = () => {
     switch (activeSection) {
       case 'dashboard': return <Dashboard />;
+      case 'weather':   return <WeatherEditor />;
       case 'messages':  return <HeroMessageEditor />;
       case 'products':  return <ProductEditor />;
       case 'routes':    return <RouteEditor />;

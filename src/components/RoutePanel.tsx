@@ -25,11 +25,11 @@ function renderCrowdStars(rating: number = 1) {
 
 function renderDifficultyStars(rating: number = 1, maxStars: number = 6) {
   return (
-    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-amber-400/90 shadow-sm">
+    <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-[#E5F952] text-black shadow-sm font-black">
       {Array.from({ length: maxStars }).map((_, i) => (
         <Star
           key={i}
-          className={`w-2 h-2 ${
+          className={`w-2.5 h-2.5 ${
             i < rating
               ? 'fill-black text-black stroke-black'
               : 'fill-transparent text-black/35 stroke-black/35'
@@ -44,6 +44,7 @@ export function RoutePanel() {
   const selectedRoute        = useStore(s => s.selectedRoute);
   const setSelectedRoute     = useStore(s => s.setSelectedRoute);
   const setSelectedDifficulty = useStore(s => s.setSelectedDifficulty);
+  const setActiveModal       = useStore(s => s.setActiveModal);
   const routeSettings        = useAdminStore(s => s.routeSettings);
   const { t, language } = useT();
 
@@ -99,6 +100,23 @@ export function RoutePanel() {
           {t('route.coursesShowing', { count: filteredRoutes.length })}
         </span>
       </div>
+
+      {/* Quick 8-Course Difficulty Modal Button (Matches Client Request & Screenshot) */}
+      <button
+        onClick={() => setActiveModal('difficulty')}
+        className="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-amber-500/20 via-yellow-400/15 to-emerald-500/15 border border-yellow-400/40 hover:border-yellow-400 text-yellow-300 hover:text-white flex items-center justify-between transition-all duration-200 shadow-sm group active:scale-[0.99]"
+      >
+        <div className="flex items-center gap-2">
+          <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400 group-hover:scale-110 transition-transform" />
+          <span className="text-xs font-black tracking-wide">
+            {language === 'en' ? 'Takao 8 Trails Difficulty Guide' : language === 'zh' ? '高尾山8大步道难易度一览' : '高尾山 8大コース難易度一覧'}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#E5F952] text-black font-black">★1〜6</span>
+          <span className="text-xs text-yellow-400 font-bold group-hover:translate-x-0.5 transition-transform">›</span>
+        </div>
+      </button>
 
       {/* Primary Category Tabs */}
       <div className="grid grid-cols-2 gap-1 p-1 bg-black/40 rounded-xl border border-white/8">
@@ -190,24 +208,32 @@ export function RoutePanel() {
                 )}
               </div>
 
-              {/* Specs: Distance, Duration, Cumulative Gain, Max Elevation */}
+              {/* Specs: Distance, Duration (Ascent/Descent), Cumulative Gain, Max Elevation */}
               <div className="flex items-center gap-2 text-[10px] text-salomon-muted pl-3.5 flex-wrap">
-                <span className="flex items-center gap-0.5">
+                <span className="flex items-center gap-0.5 font-bold text-white/90">
                   <MapPin className="w-3 h-3 text-salomon-cyan" />
                   {route.distanceKm}km
                 </span>
-                <span className="flex items-center gap-0.5">
-                  <Clock className="w-3 h-3 text-salomon-cyan" />
-                  {route.durationMin}{t('route.min')}
-                </span>
+                {route.durationAscentMin && route.durationDescentMin ? (
+                  <span className="flex items-center gap-0.5 text-white/90">
+                    <Clock className="w-3 h-3 text-salomon-cyan" />
+                    登り{route.durationAscentMin}分 / 下り{route.durationDescentMin}分
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-0.5">
+                    <Clock className="w-3 h-3 text-salomon-cyan" />
+                    {route.durationMin}{t('route.min')}
+                  </span>
+                )}
                 <span className="flex items-center gap-0.5">
                   <TrendingUp className="w-3 h-3 text-salomon-cyan" />
                   ↑{route.elevationM}m
                 </span>
-                <span className="flex items-center gap-0.5 text-white/80">
-                  <Mountain className="w-3 h-3 text-amber-300" />
-                  {t('route.highest')}:{route.maxElevationM}m
-                </span>
+                {route.gradientNote && (
+                  <span className="text-[9px] text-amber-300/90 font-medium px-1.5 py-0.2 rounded bg-amber-400/10 border border-amber-400/25">
+                    {route.gradientNote}
+                  </span>
+                )}
               </div>
 
               {/* Ratings: Row 1 Difficulty & 6-Star Rating, Row 2 Crowding */}

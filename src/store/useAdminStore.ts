@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { PRODUCTS } from '@/data/products';
-import type { Product, RouteAdminSetting, Difficulty } from '@/types';
+import type { Product, RouteAdminSetting, Difficulty, WeatherManualOverride } from '@/types';
 
 export interface LocalizedHeroMessage {
   greeting: string;
@@ -25,62 +25,76 @@ const DEFAULT_HERO_MESSAGES: HeroMessages = {
   },
 };
 
+export const DEFAULT_WEATHER_OVERRIDE: WeatherManualOverride = {
+  enabled: false,
+  temp_c: 21,
+  weather: '晴れ',
+  weatherCode: 'sunny',
+  windSpeed: 2.5,
+  rainProbability: 10,
+  precipitationMmh: 0,
+  uvIndex: 4,
+  visibility: 15,
+  customNotice: '',
+  updatedAt: new Date().toISOString(),
+};
+
 export const DEFAULT_ROUTE_SETTINGS: Record<string, RouteAdminSetting> = {
   route_1: {
     difficulty: 'beginner',
-    stars: 1,
-    comment: '薬王院への表参道。全線舗装路で茶屋やトイレが充実。スニーカーでも安心の定番ルート。',
-    comment_en: 'Paved main trail to Yakuo-in Temple. Well-equipped with rest spots and shops. Easy and safe for beginners.',
-    comment_zh: '通往药王院的表参道，全程铺装路面，茶社洗手间齐备，初学者穿普通运动鞋即可轻松体验。',
+    stars: 1, // ★☆☆☆☆☆ (Screenshot reference)
+    comment: '【表参道】全線舗装路で茶屋やトイレが充実（5箇所・ベビーベッド有）。スニーカーや普段着でも安心の定番ルート。名物天狗焼やごまだんごがおすすめ！',
+    comment_en: 'Fully paved main trail to Yakuo-in Temple. Well-equipped with 5 rest spots & baby amenities. Safe for sneakers and beginners. Enjoy famous Tengu-yaki dumplings!',
+    comment_zh: '通往药王院的经典表参道，全程铺装路面，沿途茶社与洗手间齐全（共5处）。普通运动鞋即可轻松体验，推荐品尝招牌天狗烧！',
   },
   route_2: {
     difficulty: 'beginner',
-    stars: 1,
-    comment: '高尾山駅周辺を1周約40分。南斜面と北斜面の豊かな植生変化を観察できる緩やか散策路。',
-    comment_en: 'Gentle 40-minute loop around Takaosan Station. Great for observing diverse vegetation between slopes.',
-    comment_zh: '环绕高尾山站约40分钟，可轻松漫步并观赏南坡与北坡丰富交错的植被生态。',
+    stars: 1, // ★☆☆☆☆☆ (Screenshot reference)
+    comment: '【霞台ループ】高尾山駅周辺を1周約40分。南斜面の暖帯常緑樹と北斜面の落葉樹の植生変化を観察できる緩やか散策路。',
+    comment_en: 'Gentle 40-minute loop around Takaosan Station. Great for observing diverse vegetation between warm south and cool north slopes.',
+    comment_zh: '环绕高尾山缆车站约40分钟的平缓环线，可近距离对比南坡常绿林与北坡落叶林丰富的植被生态。',
   },
   route_3: {
     difficulty: 'beginner',
-    stars: 2,
-    comment: '静寂と美しいカツラ巨木林が広がる自然道。混雑を避けてゆっくり森林浴を楽しみたい方におすすめ。',
-    comment_en: 'Quiet forest path with giant Katsura trees. Ideal for escaping crowds and enjoying peaceful forest bathing.',
-    comment_zh: '连香树巨木成荫的宁静林道，适合避开主峰人流、悠闲享受森林浴的徒步爱好者。',
+    stars: 2, // ★★☆☆☆☆ (Screenshot reference)
+    comment: '【かつら林】静寂と美しいカツラ巨木林が広がる自然道。混雑を避けてゆっくり森林浴を楽しみたい方におすすめ。一部未舗装・軽登山靴推奨。',
+    comment_en: 'Quiet forest path with giant Katsura trees. Ideal for escaping crowds and enjoying peaceful forest bathing. Light hiking shoes recommended.',
+    comment_zh: '连香树巨木成荫的宁静林道。适合避开主峰人流、悠闲享受森林浴。部分路面未铺装，推荐穿着轻量徒步鞋。',
   },
   route_4: {
     difficulty: 'beginner',
-    stars: 2,
-    comment: '高尾山唯一の吊り橋「みやま橋」が大人気。ブナやカエデの原生林に包まれる爽快コース。',
-    comment_en: 'Features the famous Miyama Suspension Bridge surrounded by pristine beech and maple forest.',
-    comment_zh: '途经高尾山唯一的深山吊桥，穿行于榉树与红枫原始林之中，风景优美爽快。',
+    stars: 2, // ★★☆☆☆☆ (Screenshot reference)
+    comment: '【吊り橋】高尾山唯一の吊り橋「みやま橋」が大人気。ブナやカエデの原生林に包まれる爽快コース。2024年路面改修済。',
+    comment_en: 'Features the famous Miyama Suspension Bridge surrounded by pristine beech and maple forest. Path renovated in 2024 for enhanced safety.',
+    comment_zh: '途经高尾山唯一的深山吊桥（全长36米），穿行于山毛榉与红枫原始林之中，风景优美爽快。2024年路面翻新后更易行走。',
   },
   route_5: {
     difficulty: 'beginner',
-    stars: 1,
-    comment: '山頂直下を1周約30分で周回。日本最古の人工林や牧野富太郎博士の記念碑が見どころ。',
-    comment_en: 'Comfortable 30-minute loop just below the summit. Features Japan oldest artificial forest and monuments.',
-    comment_zh: '位于山顶正下方约30分钟的平缓环形路，拥有日本古老的杉木人工林与纪念碑。',
+    stars: 1, // ★☆☆☆☆☆ (Screenshot reference)
+    comment: '【山頂ループ】山頂直下を1周約30分で周回する平坦路。日本最古の人工林「江川杉」や牧野富太郎博士の記念碑が見どころ。',
+    comment_en: 'Comfortable 30-minute level loop just below the summit. Features Japan oldest 150-yr artificial cedar forest and botanical monuments.',
+    comment_zh: '位于山顶正下方约30分钟的平缓环形路，拥有树龄逾150年的江川古杉人工林与植物学家纪念碑。',
   },
   route_6: {
     difficulty: 'intermediate',
-    stars: 4,
-    comment: '清流沿いを登る沢道。飛び石渡りやぬかるみがあるため、防水性のあるトレイルシューズ推奨。',
-    comment_en: 'Scenic stream trail with stepping stones. Surfaces can be wet and muddy; waterproof trail shoes recommended.',
-    comment_zh: '沿清澈溪流向上的溯溪步道，需踏石过水，路面潮湿多泥，强烈推荐穿着防水防滑越野鞋。',
+    stars: 4, // ★★★★☆☆ (Screenshot reference)
+    comment: '【水のコース】清流沿いを登る沢道。琵琶滝や飛び石渡りがあり夏も涼しいですが、濡れた岩場やぬかるみがあるため防水トレイルシューズ推奨！',
+    comment_en: 'Scenic stream trail with stepping stones past Biwa Waterfall. Surfaces can be wet and muddy; waterproof trail running shoes strongly recommended.',
+    comment_zh: '沿清澈溪流向上的溯溪步道，途经琵琶瀑布与踏石过溪段。清凉怡人但多泥泞湿滑，强烈建议穿着防水抓地越野鞋！',
   },
   route_inariyama: {
     difficulty: 'advanced',
-    stars: 5,
-    comment: '尾根伝いに登る本格登山道。木の根や階段が多く登りごたえ抜群。見晴らし台からの眺望が絶景。',
-    comment_en: 'Authentic ridge trail with natural steps and tree roots. Superb panoramic views from the observation deck.',
-    comment_zh: '沿山脊攀升的经典登山路线，树根与阶梯较多，极富攀登乐趣，观景台视野绝佳。',
+    stars: 5, // ★★★★★☆ (Screenshot reference)
+    comment: '【尾根道】南側尾根伝いに登る本格登山道。階段や木の根が多く登りごたえ抜群。中腹の稲荷山展望台からは新宿副都心や横浜方面を一望できます。',
+    comment_en: 'Authentic southern ridge trail with natural steps and tree roots. Superb panoramic views of Tokyo & Yokohama from the observation deck.',
+    comment_zh: '沿南侧山脊攀升的经典硬核路线，木阶梯与盘根树根较多。半山腰观景台可一览新宿与横滨的辽阔全景。',
   },
   route_jinba: {
     difficulty: 'advanced',
-    stars: 6,
-    comment: '奥高尾を満喫する約15km・約4時間半のロング縦走。早朝出発・十分な飲料とトレッキング装備が必須。',
-    comment_en: 'Challenging 15km / 4.5h traverse across Okutakao. Early departure, ample hydration, and trail gear required.',
-    comment_zh: '纵贯奥高尾约15公里（约4.5小时）的长距离专业穿越路线，需备齐饮水、补给及专业徒步装备。',
+    stars: 6, // ★★★★★★ (Screenshot reference)
+    comment: '【奥高尾縦走】高尾山頂から陣馬山へ至る約15.3km・約4時間半のロングトレイル。小仏城山のなめこ汁や景信山の絶景。早朝出発・登山装備必須！',
+    comment_en: 'Challenging 15.3km / 4.5h traverse across Okutakao ridge to Mt. Jinba summit. Early departure, ample hydration, and trail hiking gear required.',
+    comment_zh: '纵贯奥高尾约15.3公里（约4.5小时）的长距离专业大纵走。尽享城山热汤与阵马山白马峰顶。需备齐饮水、补给及专业装备。',
   },
 };
 
@@ -97,10 +111,16 @@ export interface AdminState {
   updateProduct: (sku: string, updates: Partial<Product>) => void;
   deleteProduct: (sku: string) => void;
 
-  // Route settings (difficulty, 6-star rating, staff comments)
+  // Route settings (difficulty, 6-star rating, staff comments, custom times)
   routeSettings: Record<string, RouteAdminSetting>;
   updateRouteSetting: (routeId: string, updates: Partial<RouteAdminSetting>) => void;
   resetRouteSettings: () => void;
+
+  // Manual Weather Override ("なんなら天気も！ 自動取得出来なかった時のために全て手作業で行えるように")
+  weatherOverride: WeatherManualOverride;
+  setWeatherOverride: (updates: Partial<WeatherManualOverride>) => void;
+  toggleWeatherOverride: (enabled?: boolean) => void;
+  resetWeatherOverride: () => void;
 
   // UI state (not persisted)
   lastSavedAt: string | null;
@@ -159,6 +179,31 @@ export const useAdminStore = create<AdminState>()(
           lastSavedAt: new Date().toISOString(),
         }),
 
+      weatherOverride: DEFAULT_WEATHER_OVERRIDE,
+      setWeatherOverride: (updates) =>
+        set((s) => ({
+          weatherOverride: {
+            ...s.weatherOverride,
+            ...updates,
+            updatedAt: new Date().toISOString(),
+          },
+          lastSavedAt: new Date().toISOString(),
+        })),
+      toggleWeatherOverride: (enabled) =>
+        set((s) => ({
+          weatherOverride: {
+            ...s.weatherOverride,
+            enabled: enabled !== undefined ? enabled : !s.weatherOverride.enabled,
+            updatedAt: new Date().toISOString(),
+          },
+          lastSavedAt: new Date().toISOString(),
+        })),
+      resetWeatherOverride: () =>
+        set({
+          weatherOverride: DEFAULT_WEATHER_OVERRIDE,
+          lastSavedAt: new Date().toISOString(),
+        }),
+
       lastSavedAt: null,
       markSaved: () => set({ lastSavedAt: new Date().toISOString() }),
     }),
@@ -169,9 +214,10 @@ export const useAdminStore = create<AdminState>()(
         heroMessages: s.heroMessages,
         products: s.products,
         routeSettings: s.routeSettings,
+        weatherOverride: s.weatherOverride,
         lastSavedAt: s.lastSavedAt,
       }),
-      // Migrate legacy single-language structure
+      // Migrate legacy state
       onRehydrateStorage: () => (state) => {
         if (!state) return;
         const msgs = state.heroMessages as any;
@@ -189,6 +235,9 @@ export const useAdminStore = create<AdminState>()(
           state.routeSettings = DEFAULT_ROUTE_SETTINGS;
         } else {
           state.routeSettings = { ...DEFAULT_ROUTE_SETTINGS, ...state.routeSettings };
+        }
+        if (!state.weatherOverride) {
+          state.weatherOverride = DEFAULT_WEATHER_OVERRIDE;
         }
       },
     }

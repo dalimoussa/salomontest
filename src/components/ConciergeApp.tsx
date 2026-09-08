@@ -11,12 +11,13 @@ import { QuickActions } from './QuickActions';
 import { Footer } from './Footer';
 import { EquipmentModal } from './modals/EquipmentModal';
 import { StaffModal } from './modals/StaffModal';
-import { LiveCameraModal } from './modals/LiveCameraModal';
 import { CableCarModal } from './modals/CableCarModal';
+import { DifficultyModal } from './modals/DifficultyModal';
 import { HeroSplash } from './HeroSplash';
 import { KioskWatchdog } from './KioskWatchdog';
 import { useStore } from '@/store/useStore';
 import { useMapStore } from '@/store/mapStore';
+import { useAdminStore } from '@/store/useAdminStore';
 import { getAIAdvice } from '@/api/llm';
 import { getRecommendedProducts } from '@/data/products';
 import { getCurrentSeason } from '@/lib/season';
@@ -43,9 +44,33 @@ function useAppData() {
   const setRecommendedProducts = useStore(s => s.setRecommendedProducts);
   const setRainOverlay      = useMapStore(s => s.setRainOverlay);
   const setHighlightedRouteId = useMapStore(s => s.setHighlightedRouteId);
+  const weatherOverride     = useAdminStore(s => s.weatherOverride);
   const [lastKey, setLastKey] = useState<string | null>(null);
 
   useEffect(() => {
+    // 1. If operator has enabled Manual Weather Override, prioritize it immediately
+    if (weatherOverride?.enabled) {
+      const data: WeatherData = {
+        temp_c:           weatherOverride.temp_c,
+        weather:          weatherOverride.weather,
+        weatherCode:      weatherOverride.weatherCode,
+        windSpeed:        weatherOverride.windSpeed,
+        rainProbability:  weatherOverride.rainProbability,
+        precipitationMmh: weatherOverride.precipitationMmh,
+        uvIndex:          weatherOverride.uvIndex,
+        visibility:       weatherOverride.visibility,
+        updatedAt:        weatherOverride.updatedAt || new Date().toISOString(),
+      };
+      setWeather(data);
+      const isRaining    = data.precipitationMmh > 0 || data.weatherCode === 'rainy' || data.weatherCode === 'snowy';
+      const intensityMmh = data.precipitationMmh > 0 ? data.precipitationMmh : (isRaining ? 2 : 0);
+      setRainOverlay(isRaining, intensityMmh);
+      setWeatherError(null);
+      setWeatherLoading(false);
+      return;
+    }
+
+    // 2. Automatic Live Weather Fetch Mode
     const load = async () => {
       setWeatherLoading(true);
       setWeatherError(null);
@@ -70,7 +95,7 @@ function useAppData() {
     const iv = setInterval(load, 10 * 60 * 1000);
     return () => clearInterval(iv);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setWeather, setWeatherLoading, setWeatherError, setRainOverlay, weatherRefreshTick]);
+  }, [setWeather, setWeatherLoading, setWeatherError, setRainOverlay, weatherRefreshTick, weatherOverride]);
 
   useEffect(() => {
     setHighlightedRouteId(selectedRoute?.id ?? null);
@@ -181,10 +206,10 @@ function MainApp() {
       </div>
 
       {/* ── Modals ──────────────────────────────────────────────────── */}
-      {activeModal === 'equipment' && <EquipmentModal />}
-      {activeModal === 'staff'     && <StaffModal />}
-      {activeModal === 'camera'    && <LiveCameraModal />}
-      {activeModal === 'cablecar'  && <CableCarModal />}
+      {activeModal === 'equipment'  && <EquipmentModal />}
+      {activeModal === 'staff'      && <StaffModal />}
+      {activeModal === 'cablecar'   && <CableCarModal />}
+      {activeModal === 'difficulty' && <DifficultyModal />}
     </div>
   );
 }

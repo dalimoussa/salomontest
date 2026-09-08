@@ -465,11 +465,11 @@ function buildFallbackAdvice(
     };
   }
 
-  // 4. Live Camera / Summit View Question
-  if (q.includes('カメラ') || q.includes('camera') || q.includes('山頂') || q.includes('summit') || q.includes('富士山') || q.includes('景色') || q.includes('view')) {
+  // 4. Summit View / Scenery Question
+  if (q.includes('山頂') || q.includes('summit') || q.includes('富士山') || q.includes('景色') || q.includes('view') || q.includes('展望')) {
     if (language === 'en') {
       return {
-        advice_text: `Mt. Takao summit stands at 599m. From the Omiharidai observation deck on clear days, you can enjoy stunning panoramic views of Mt. Fuji and the Tanzawa mountain range. Tap the camera button below to view the summit camera status!`,
+        advice_text: `Mt. Takao summit stands at 599m. From the Omiharidai observation deck on clear days, you can enjoy stunning panoramic views of Mt. Fuji and the Tanzawa mountain range. Early morning climbs offer the clearest visibility!`,
         advice_short: `Summit elevation is 599m with great Mt. Fuji views on clear days.`,
         safety_flags,
         recommended_gear,
@@ -478,7 +478,7 @@ function buildFallbackAdvice(
     }
     if (language === 'zh') {
       return {
-        advice_text: `高尾山山顶海拔599米，在大见晴台观景台上，晴天可以清晰远眺富士山及丹泽连峰壮丽全景。您可以点击下方的相机按钮查看山顶实时画面状态！`,
+        advice_text: `高尾山山顶海拔599米，在大见晴台观景台上，晴天可以清晰远眺富士山及丹泽连峰壮丽全景。清晨及上午时段空气澄澈，视野最为开阔！`,
         advice_short: `山顶海拔599米，大见晴台可远眺富士山壮丽景色。`,
         safety_flags,
         recommended_gear,
@@ -486,7 +486,7 @@ function buildFallbackAdvice(
       };
     }
     return {
-      advice_text: `高尾山山頂は標高599mです。山頂の大見晴台からは、天気の良い日には富士山や丹沢の山並みが美しく一望できます。下の「山頂のライブカメラを見たい」ボタンから現地の様子をご確認いただけます！`,
+      advice_text: `高尾山山頂は標高599mです。山頂の大見晴台からは、天気の良い日には富士山や丹沢の山並みが美しく一望できます。空気の澄んだ早朝や午前中の登山が特におすすめです！`,
       advice_short: `標高599mの山頂大見晴台からは富士山の絶景が望めます！`,
       safety_flags,
       recommended_gear,
