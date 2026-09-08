@@ -210,16 +210,16 @@ export function HeroMessageEditor() {
         <button
           onClick={handleSave}
           disabled={!isDirty}
-          className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${
+          className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-black transition-all ${
             saved
               ? 'bg-green-500/20 border border-green-500/40 text-green-400'
               : isDirty
-              ? 'bg-cyan-500 text-slate-900 hover:bg-cyan-400 shadow-[0_0_20px_rgba(0,200,255,0.3)]'
+              ? 'bg-cyan-500 text-slate-900 hover:bg-cyan-400 shadow-[0_0_20px_rgba(0,200,255,0.3)] cursor-pointer'
               : 'bg-white/5 border border-white/10 text-slate-500 cursor-not-allowed'
           }`}
         >
           <Save className="w-4 h-4" />
-          {saved ? '全言語を更新完了！' : '全言語の変更を保存'}
+          <span>{saved ? '変更を保存しました！' : '変更'}</span>
         </button>
       </div>
 

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import {
   LayoutDashboard, MessageSquare, Package, Settings,
   ExternalLink, ChevronRight, Clock, Database,
-  Menu, X, PanelLeftClose, PanelLeftOpen, Mountain,
+  Menu, X, PanelLeftClose, PanelLeftOpen, Mountain, Globe,
 } from 'lucide-react';
 import { HeroMessageEditor } from '@/admin/HeroMessageEditor';
 import { ProductEditor } from '@/admin/ProductEditor';
@@ -21,9 +21,9 @@ const NAV: {
   badge?: string;
 }[] = [
   { id: 'dashboard', label: 'ダッシュボード',    labelEn: 'Dashboard',     icon: LayoutDashboard },
-  { id: 'messages',  label: 'ヒーローメッセージ', labelEn: 'Hero Messages', icon: MessageSquare, badge: '変更可' },
-  { id: 'products',  label: '商品マスター',       labelEn: 'Products',      icon: Package,       badge: '変更可' },
-  { id: 'routes',    label: 'コース・難易度管理', labelEn: 'Route Settings', icon: Mountain,      badge: '設定可' },
+  { id: 'messages',  label: 'ヒーローメッセージ', labelEn: 'Hero Messages', icon: MessageSquare, badge: '3言語対応' },
+  { id: 'routes',    label: 'コース・難易度管理', labelEn: 'Route Settings', icon: Mountain,      badge: '3言語対応' },
+  { id: 'products',  label: '商品マスター',       labelEn: 'Products',      icon: Package,       badge: '編集可' },
 ];
 
 /* ── Dashboard content ─────────────────────────────────────────────────── */
@@ -144,9 +144,15 @@ function SidebarContent({
             <span className="text-base font-black tracking-widest text-white">SALOMON</span>
           </div>
           <p className="text-[10px] text-cyan-400 tracking-widest uppercase font-semibold">Admin Console</p>
-          <div className="mt-2 inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-orange-500/15 border border-orange-500/30">
-            <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
-            <span className="text-[10px] text-orange-300 font-bold">DEMO版</span>
+          <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-500/30">
+              <Globe className="w-3 h-3 text-cyan-400" />
+              <span className="text-[10px] text-cyan-300 font-bold">3言語対応</span>
+            </div>
+            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-500/15 border border-orange-500/30">
+              <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
+              <span className="text-[10px] text-orange-300 font-bold">DEMO版</span>
+            </div>
           </div>
         </div>
         {/* Close button — only shown when used as mobile overlay */}

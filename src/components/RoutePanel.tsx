@@ -147,7 +147,12 @@ export function RoutePanel() {
           const adminSetting = routeSettings[rawRoute.id];
           const effDifficulty: Difficulty = adminSetting?.difficulty ?? rawRoute.difficulty;
           const effStars: number = adminSetting?.stars ?? rawRoute.difficultyRating ?? (effDifficulty === 'beginner' ? 1 : effDifficulty === 'intermediate' ? 4 : 6);
-          const effComment: string | undefined = adminSetting?.comment ?? rawRoute.adminComment;
+          const effComment: string | undefined =
+            language === 'en'
+              ? (adminSetting?.comment_en || adminSetting?.comment || rawRoute.adminComment_en || rawRoute.adminComment)
+              : language === 'zh'
+              ? (adminSetting?.comment_zh || adminSetting?.comment || rawRoute.adminComment_zh || rawRoute.adminComment)
+              : (adminSetting?.comment || rawRoute.adminComment);
 
           const diffBadge =
             effDifficulty === 'beginner'
@@ -236,7 +241,13 @@ export function RoutePanel() {
                     <div className="ml-3.5 mr-1 p-2.5 rounded-xl bg-gradient-to-r from-cyan-500/15 to-blue-500/10 border border-cyan-500/30 shadow-glow-cyan/15 space-y-1">
                       <div className="flex items-center gap-1.5 text-[10px] font-bold text-cyan-300">
                         <MessageSquare className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
-                        <span>SALOMONスタッフのアドバイス</span>
+                        <span>
+                          {language === 'en'
+                            ? 'SALOMON Staff Advice'
+                            : language === 'zh'
+                            ? 'SALOMON 工作人员建议'
+                            : 'SALOMON スタッフのアドバイス'}
+                        </span>
                       </div>
                       <p className="text-[11px] text-slate-200 leading-relaxed pl-5">
                         {effComment}

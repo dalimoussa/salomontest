@@ -46,12 +46,16 @@ export interface Route {
   description_zh?: string;
   sourceAttribution?: string;
   adminComment?: string;
+  adminComment_en?: string;
+  adminComment_zh?: string;
 }
 
 export interface RouteAdminSetting {
   difficulty: Difficulty;
   stars: number; // 1 to 6
   comment?: string;
+  comment_en?: string;
+  comment_zh?: string;
 }
 
 // ─── Products ─────────────────────────────────────────────────────────────────
