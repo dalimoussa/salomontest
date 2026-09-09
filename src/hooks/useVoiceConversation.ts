@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useStore } from '@/store/useStore';
 import { getAIAdvice } from '@/api/llm';
 import { getRecommendedProducts } from '@/data/products';
@@ -17,6 +17,7 @@ export interface UseVoiceConversationReturn {
   responseText: string;
   audioLevel: number;
   errorMessage: string | null;
+  isHandsFree: boolean;
   startListening: () => Promise<void>;
   stopListening: () => void;
   cancelConversation: () => void;
@@ -24,11 +25,21 @@ export interface UseVoiceConversationReturn {
 }
 
 export function useVoiceConversation(): UseVoiceConversationReturn {
-  const [status, setStatus] = useState<VoiceStatus>('idle');
+  const [status, setStatusState] = useState<VoiceStatus>('idle');
   const [transcript, setTranscript] = useState('');
   const [responseText, setResponseText] = useState('');
   const [audioLevel, setAudioLevel] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isHandsFree, setIsHandsFree] = useState(true);
+
+  const statusRef = useRef<VoiceStatus>('idle');
+  const setStatus = (next: VoiceStatus) => {
+    statusRef.current = next;
+    setStatusState(next);
+  };
+
+  const autoLoopRef = useRef<boolean>(true);
+  const startListeningRef = useRef<() => Promise<void>>();
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -156,11 +167,22 @@ export function useVoiceConversation(): UseVoiceConversationReturn {
       console.warn('OpenAI TTS call failed, falling back to browser speech:', e);
       await speakWithBrowserSynth(text, language);
     } finally {
-      setStatus('idle');
+      // ── Real-time Hands-free Loop ──
+      // If hands-free mode is on, automatically re-listen for customer's next response!
+      if (autoLoopRef.current) {
+        setStatus('idle');
+        setTimeout(() => {
+          if (autoLoopRef.current && statusRef.current === 'idle') {
+            startListeningRef.current?.().catch(() => {});
+          }
+        }, 600);
+      } else {
+        setStatus('idle');
+      }
     }
   }, [language, speakWithBrowserSynth]);
 
-  // Process user audio through STT -> GPT-4o -> TTS pipeline
+  // Process user audio through STT -> LLM -> TTS pipeline
   const processRecordedAudio = async (audioBlob: Blob) => {
     setStatus('thinking');
     setErrorMessage(null);
@@ -191,14 +213,15 @@ export function useVoiceConversation(): UseVoiceConversationReturn {
       }
 
       if (!recognizedText) {
-        const noHearText =
-          language === 'en'
-            ? 'I did not catch that. You can ask: "What route is best for beginners?" or "What shoes do you recommend?"'
-            : language === 'zh'
-            ? '没有听清您的声音。您可以试着问：“初学者推荐哪条路线？”或“推荐什么登山鞋？”'
-            : '音声を認識できませんでした。「初心者におすすめのルートは？」や「おすすめの靴は？」とお話しください。';
-        setTranscript('');
-        await speakText(noHearText);
+        // Did not catch speech — silently resume listening without annoying user
+        setStatus('idle');
+        if (autoLoopRef.current) {
+          setTimeout(() => {
+            if (autoLoopRef.current && statusRef.current === 'idle') {
+              startListeningRef.current?.().catch(() => {});
+            }
+          }, 500);
+        }
         return;
       }
 
@@ -296,13 +319,20 @@ export function useVoiceConversation(): UseVoiceConversationReturn {
       console.error('Voice conversation error:', err);
       setErrorMessage(err instanceof Error ? err.message : '音声処理に失敗しました');
       setStatus('idle');
+      if (autoLoopRef.current) {
+        setTimeout(() => {
+          if (autoLoopRef.current && statusRef.current === 'idle') {
+            startListeningRef.current?.().catch(() => {});
+          }
+        }, 1200);
+      }
     } finally {
       setIsGenerating(false);
     }
   };
 
   const startListening = useCallback(async () => {
-    if (status !== 'idle') return;
+    if (statusRef.current === 'listening' || statusRef.current === 'speaking' || statusRef.current === 'thinking') return;
     setErrorMessage(null);
     setTranscript('');
     setResponseText('');
@@ -341,7 +371,7 @@ export function useVoiceConversation(): UseVoiceConversationReturn {
               localTranscriptRef.current = clean;
               setTranscript(clean);
 
-              // Auto-stop after 1.8 seconds of silence once speech is detected
+              // Auto-stop after 1.5 seconds of silence once speech is detected
               if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
               silenceTimerRef.current = setTimeout(() => {
                 if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
@@ -354,7 +384,7 @@ export function useVoiceConversation(): UseVoiceConversationReturn {
                   } catch {}
                   recognitionRef.current = null;
                 }
-              }, 1800);
+              }, 1500);
             }
           };
 
@@ -396,7 +426,7 @@ export function useVoiceConversation(): UseVoiceConversationReturn {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         setTimeout(() => {
           processRecordedAudio(audioBlob);
-        }, 250);
+        }, 150);
       };
 
       mediaRecorderRef.current = mediaRecorder;
@@ -404,12 +434,14 @@ export function useVoiceConversation(): UseVoiceConversationReturn {
       mediaRecorder.start(250);
       setStatus('listening');
     } catch (err) {
-      console.error('Microphone access failed:', err);
-      setErrorMessage('マイクへのアクセスが許可されていません。ブラウザ設定を確認してください。');
+      console.warn('Microphone access standby:', err);
+      // If mic is denied or not yet permitted, keep status idle and wait for user gesture
       setStatus('idle');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, language, selectedRoute, weather, selectedDifficulty]);
+  }, [language, selectedRoute, weather, selectedDifficulty]);
+
+  startListeningRef.current = startListening;
 
   const stopListening = useCallback(() => {
     if (silenceTimerRef.current) {
@@ -429,6 +461,8 @@ export function useVoiceConversation(): UseVoiceConversationReturn {
   }, []);
 
   const cancelConversation = useCallback(() => {
+    autoLoopRef.current = false;
+    setIsHandsFree(false);
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = null;
@@ -457,12 +491,46 @@ export function useVoiceConversation(): UseVoiceConversationReturn {
     localTranscriptRef.current = '';
   }, []);
 
+  // ── Auto-Start Continuous Hands-free Conversation on Mount or First Interaction ──
+  useEffect(() => {
+    autoLoopRef.current = true;
+    let didInit = false;
+
+    // 1. Attempt immediate start (succeeds if browser already granted mic permission)
+    const initialTimer = setTimeout(() => {
+      if (!didInit && statusRef.current === 'idle') {
+        startListeningRef.current?.().catch(() => {});
+      }
+    }, 1000);
+
+    // 2. Fallback: activate automatically on first user click or tap anywhere on the screen
+    const handleFirstTouch = () => {
+      if (didInit) return;
+      didInit = true;
+      autoLoopRef.current = true;
+      setIsHandsFree(true);
+      if (statusRef.current === 'idle') {
+        startListeningRef.current?.().catch(() => {});
+      }
+    };
+
+    window.addEventListener('pointerdown', handleFirstTouch, { once: true });
+    window.addEventListener('keydown', handleFirstTouch, { once: true });
+
+    return () => {
+      clearTimeout(initialTimer);
+      window.removeEventListener('pointerdown', handleFirstTouch);
+      window.removeEventListener('keydown', handleFirstTouch);
+    };
+  }, []);
+
   return {
     status,
     transcript,
     responseText,
     audioLevel,
     errorMessage,
+    isHandsFree,
     startListening,
     stopListening,
     cancelConversation,
