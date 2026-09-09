@@ -1,0 +1,373 @@
+'use client';
+
+/**
+ * useRealtimeVoice — OpenAI Realtime API hook via WebRTC (browser-native).
+ *
+ * Architecture:
+ *   Browser ──[POST]──▶ /api/voice/realtime-token ──▶ OpenAI REST (mints ephemeral key)
+ *   Browser ──[WebRTC]──▶ openai.realtime-api.com (direct, using ephemeral key)
+ *
+ * Why WebRTC over WebSocket?
+ *   - Vercel serverless functions cannot maintain long-lived WebSocket connections.
+ *   - WebRTC is the officially recommended approach for browser clients.
+ *   - Sub-200ms audio latency via DTLS/SRTP transport.
+ *   - Native echo cancellation, noise suppression, and VAD (server-side).
+ *
+ * Fallback: If the ephemeral token fetch fails (no API key, network error),
+ *           the hook returns `available: false` and the caller falls back to
+ *           useVoiceConversation (the recording-based pipeline).
+ */
+
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { useStore } from '@/store/useStore';
+import type { VoiceStatus } from './useVoiceConversation';
+
+export interface UseRealtimeVoiceReturn {
+  status: VoiceStatus;
+  transcript: string;
+  responseText: string;
+  audioLevel: number;
+  errorMessage: string | null;
+  isHandsFree: boolean;
+  available: boolean; // false if API key not configured
+  startListening: () => Promise<void>;
+  stopListening: () => void;
+  cancelConversation: () => void;
+  speakText: (text: string) => Promise<void>; // no-op in realtime mode
+}
+
+export function useRealtimeVoice(): UseRealtimeVoiceReturn {
+  const [status, setStatusState] = useState<VoiceStatus>('idle');
+  const [transcript, setTranscript] = useState('');
+  const [responseText, setResponseText] = useState('');
+  const [audioLevel, setAudioLevel] = useState(0);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [available, setAvailable] = useState(true); // optimistic; set false on 503
+
+  const statusRef = useRef<VoiceStatus>('idle');
+  const setStatus = (next: VoiceStatus) => {
+    statusRef.current = next;
+    setStatusState(next);
+  };
+
+  const language = useStore((s) => s.language);
+  const addMessage = useStore((s) => s.addMessage);
+
+  // WebRTC refs
+  const pcRef = useRef<RTCPeerConnection | null>(null);
+  const dcRef = useRef<RTCDataChannel | null>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const animFrameRef = useRef<number | null>(null);
+  const sessionActiveRef = useRef(false);
+
+  // ── Audio level meter ──
+  const startLevelMeter = (stream: MediaStream) => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      audioCtxRef.current = ctx;
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 64;
+      analyserRef.current = analyser;
+      ctx.createMediaStreamSource(stream).connect(analyser);
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      const tick = () => {
+        analyser.getByteFrequencyData(data);
+        const avg = data.reduce((a, b) => a + b, 0) / data.length;
+        setAudioLevel(Math.min(1, avg / 80));
+        animFrameRef.current = requestAnimationFrame(tick);
+      };
+      tick();
+    } catch {}
+  };
+
+  const stopLevelMeter = () => {
+    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    if (audioCtxRef.current?.state !== 'closed') audioCtxRef.current?.close().catch(() => {});
+    audioCtxRef.current = null;
+    setAudioLevel(0);
+  };
+
+  // ── Tear down WebRTC session ──
+  const teardown = useCallback(() => {
+    sessionActiveRef.current = false;
+    stopLevelMeter();
+
+    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+
+    dcRef.current?.close();
+    dcRef.current = null;
+
+    pcRef.current?.close();
+    pcRef.current = null;
+
+    localStreamRef.current?.getTracks().forEach((t) => t.stop());
+    localStreamRef.current = null;
+
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.srcObject = null;
+      remoteAudioRef.current = null;
+    }
+
+    setStatus('idle');
+    setAudioLevel(0);
+  }, []);
+
+  // ── Handle incoming DataChannel events from OpenAI ──
+  const handleDataChannelMessage = useCallback((event: MessageEvent) => {
+    try {
+      const msg = JSON.parse(event.data as string) as Record<string, unknown>;
+      const type = msg.type as string;
+
+      // User started speaking → show listening
+      if (type === 'input_audio_buffer.speech_started') {
+        setStatus('listening');
+        setTranscript('');
+      }
+
+      // User stopped speaking → AI is now thinking/generating
+      if (type === 'input_audio_buffer.speech_stopped') {
+        setStatus('thinking');
+      }
+
+      // Live partial transcript of what user said
+      if (type === 'conversation.item.input_audio_transcription.delta') {
+        const delta = (msg as any).delta as string;
+        setTranscript((prev) => prev + delta);
+      }
+
+      // Final transcript of what user said
+      if (type === 'conversation.item.input_audio_transcription.completed') {
+        const text = ((msg as any).transcript as string) || '';
+        setTranscript(text);
+        if (text.trim()) {
+          addMessage({
+            id: crypto.randomUUID(),
+            role: 'system',
+            text: `🎤「${text}」`,
+            timestamp: new Date(),
+          });
+        }
+      }
+
+      // AI started producing audio → speaking
+      if (type === 'response.audio.delta') {
+        setStatus('speaking');
+      }
+
+      // Partial AI text transcript (for the display card)
+      if (type === 'response.audio_transcript.delta') {
+        const delta = (msg as any).delta as string;
+        setResponseText((prev) => prev + delta);
+      }
+
+      // AI response fully done
+      if (type === 'response.done') {
+        const output = (msg as any)?.response?.output as any[];
+        const aiText = output
+          ?.flatMap((o: any) => o?.content ?? [])
+          ?.find((c: any) => c?.type === 'text' || c?.type === 'transcript')
+          ?.transcript || responseText;
+
+        if (aiText?.trim()) {
+          addMessage({
+            id: crypto.randomUUID(),
+            role: 'ai',
+            text: aiText,
+            timestamp: new Date(),
+          });
+        }
+        setResponseText('');
+        // After AI finishes, go back to listening (VAD will auto-trigger)
+        setStatus('listening');
+      }
+
+      // Server VAD interrupted (user spoke while AI was speaking)
+      if (type === 'response.cancelled') {
+        setStatus('listening');
+        setResponseText('');
+      }
+
+      // Error from OpenAI
+      if (type === 'error') {
+        const errMsg = (msg as any)?.error?.message || 'Realtime API error';
+        console.error('[useRealtimeVoice] OpenAI error event:', errMsg);
+        setErrorMessage(errMsg);
+      }
+    } catch (e) {
+      console.warn('[useRealtimeVoice] Failed to parse DC message:', e);
+    }
+  }, [addMessage, responseText]);
+
+  // ── Start the WebRTC realtime session ──
+  const startListening = useCallback(async () => {
+    if (sessionActiveRef.current) return;
+    if (!available) return;
+
+    setErrorMessage(null);
+    setTranscript('');
+    setResponseText('');
+
+    try {
+      // 1. Get ephemeral key from our server
+      const tokenRes = await fetch('/api/voice/realtime-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ language }),
+      });
+
+      if (tokenRes.status === 503) {
+        // API key not configured — disable realtime permanently for this session
+        setAvailable(false);
+        return;
+      }
+
+      if (!tokenRes.ok) {
+        throw new Error(`Token fetch failed: ${tokenRes.status}`);
+      }
+
+      const { ephemeralKey } = await tokenRes.json() as { ephemeralKey: string };
+
+      // 2. Create RTCPeerConnection
+      const pc = new RTCPeerConnection();
+      pcRef.current = pc;
+
+      // 3. Remote audio → play through speakers
+      const remoteAudio = new Audio();
+      remoteAudio.autoplay = true;
+      remoteAudioRef.current = remoteAudio;
+
+      pc.ontrack = (e) => {
+        remoteAudio.srcObject = e.streams[0];
+      };
+
+      // 4. Local microphone
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 24000,
+        },
+      });
+      localStreamRef.current = stream;
+      stream.getTracks().forEach((t) => pc.addTrack(t, stream));
+      startLevelMeter(stream);
+
+      // 5. DataChannel for events
+      const dc = pc.createDataChannel('oai-events');
+      dcRef.current = dc;
+      dc.onmessage = handleDataChannelMessage;
+      dc.onopen = () => {
+        sessionActiveRef.current = true;
+        setStatus('listening');
+      };
+      dc.onerror = (e) => {
+        console.error('[useRealtimeVoice] DataChannel error:', e);
+        setErrorMessage('Connection error. Please try again.');
+        teardown();
+      };
+
+      // 6. SDP Offer → OpenAI → SDP Answer
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      const sdpRes = await fetch(
+        `https://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${ephemeralKey}`,
+            'Content-Type': 'application/sdp',
+          },
+          body: offer.sdp,
+          signal: AbortSignal.timeout(15_000),
+        }
+      );
+
+      if (!sdpRes.ok) {
+        throw new Error(`SDP exchange failed: ${sdpRes.status}`);
+      }
+
+      const answerSdp = await sdpRes.text();
+      await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
+
+      // Connection established — the session is live
+      // VAD is server-side so we just stay in listening mode
+
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+          console.warn('[useRealtimeVoice] PeerConnection state:', pc.connectionState);
+          teardown();
+        }
+      };
+    } catch (err) {
+      console.error('[useRealtimeVoice] Session start error:', err);
+      setErrorMessage(
+        language === 'en'
+          ? 'Voice AI connection failed. Please try again.'
+          : language === 'zh'
+          ? '语音AI连接失败，请重试。'
+          : '音声AI接続に失敗しました。もう一度お試しください。'
+      );
+      teardown();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [language, available, teardown, handleDataChannelMessage]);
+
+  const stopListening = useCallback(() => {
+    teardown();
+  }, [teardown]);
+
+  const cancelConversation = useCallback(() => {
+    teardown();
+  }, [teardown]);
+
+  // speakText is a no-op in realtime mode — OpenAI handles TTS natively
+  const speakText = useCallback(async (_text: string) => {}, []);
+
+  // Auto-start on mount (first interaction unlocks autoplay)
+  useEffect(() => {
+    const handleFirstInteraction = () => {
+      if (!sessionActiveRef.current && statusRef.current === 'idle' && available) {
+        startListening().catch(() => {});
+      }
+    };
+
+    // Try immediately (works if mic permission already granted)
+    const timer = setTimeout(() => {
+      if (!sessionActiveRef.current) {
+        startListening().catch(() => {});
+      }
+    }, 1200);
+
+    window.addEventListener('pointerdown', handleFirstInteraction, { once: true });
+    window.addEventListener('keydown', handleFirstInteraction, { once: true });
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('pointerdown', handleFirstInteraction);
+      window.removeEventListener('keydown', handleFirstInteraction);
+      teardown();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return {
+    status,
+    transcript,
+    responseText,
+    audioLevel,
+    errorMessage,
+    isHandsFree: true,
+    available,
+    startListening,
+    stopListening,
+    cancelConversation,
+    speakText,
+  };
+}

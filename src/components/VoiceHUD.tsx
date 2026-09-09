@@ -26,33 +26,33 @@ export function VoiceHUD({
   onCancel,
   language,
 }: VoiceHUDProps) {
-  const isListening = status === 'listening';
-  const isThinking  = status === 'thinking';
-  const isSpeaking  = status === 'speaking';
-  const isIdle      = status === 'idle';
+  const isListening    = status === 'listening';
+  const isThinking     = status === 'thinking';
+  const isSpeaking     = status === 'speaking';
+  const isIdle         = status === 'idle';
 
   // Localized status labels
   const titleText = isListening
-    ? (language === 'en' ? 'Real-time Listening' : language === 'zh' ? '实时收音中' : '常時音声受付中')
+    ? (language === 'en' ? 'Listening...' : language === 'zh' ? '收音中' : '聞いています…')
     : isThinking
-    ? (language === 'en' ? 'AI is Planning Advice...' : language === 'zh' ? 'AI向导正在生成回答...' : 'AI山守が回答を考案中…')
+    ? (language === 'en' ? 'AI Thinking...' : language === 'zh' ? 'AI思考中...' : 'AI山守が考え中…')
     : isSpeaking
-    ? (language === 'en' ? 'AI Guide Speaking' : language === 'zh' ? 'AI向导语音解答中' : 'AI山守が音声案内中')
-    : (language === 'en' ? 'Hands-free Voice AI Standby' : language === 'zh' ? '全时语音对讲就绪' : 'リアルタイム音声対話');
+    ? (language === 'en' ? 'AI Speaking' : language === 'zh' ? 'AI回答中' : 'AI音声案内中')
+    : (language === 'en' ? 'Voice AI Ready' : language === 'zh' ? '语音AI就绪' : '音声AI待機中');
 
   const subtitleText = isListening
     ? (transcript
         ? `「${transcript}」`
         : language === 'en'
-        ? 'No button needed — Just speak naturally'
+        ? 'Just speak — interrupt anytime'
         : language === 'zh'
-        ? '无需按键，请直接开口对话'
-        : 'ボタン不要：そのまま自然にお話しください')
+        ? '请说话，随时可打断AI'
+        : 'そのままお話しください。いつでも割り込めます')
     : isThinking
-    ? (language === 'en' ? 'Analyzing mountain & gear...' : language === 'zh' ? '正在匹配路线与装备...' : '天候・コース・最適装備を照会中...')
+    ? (language === 'en' ? 'Processing your request...' : language === 'zh' ? '正在处理...' : '処理中...')
     : isSpeaking
-    ? (language === 'en' ? 'Microphone resumes automatically after speaking' : language === 'zh' ? '播报结束后将自动继续收音' : '話し終わると自動でマイクが再開します')
-    : (language === 'en' ? 'Tap anywhere to activate hands-free mode' : language === 'zh' ? '点击此处启动常时对讲' : 'タップで常時音声対話を開始');
+    ? (language === 'en' ? 'Speak anytime to interrupt' : language === 'zh' ? '说话可随时打断' : '話しかけると会話を止めます')
+    : (language === 'en' ? 'Tap anywhere to start' : language === 'zh' ? '点击启动语音对话' : 'タップで音声対話を開始');
 
   return (
     <div className="relative w-full md:w-auto">
@@ -91,7 +91,7 @@ export function VoiceHUD({
             {responseText}
           </div>
           <p className="text-[10px] text-salomon-cyan/80 text-right pt-1 font-medium">
-            {language === 'en' ? '● Resuming listening automatically...' : language === 'zh' ? '● 结束后自动继续收音...' : '● 終了後自動でそのまま会話を続けられます'}
+            {language === 'en' ? '● Speak anytime to interrupt' : language === 'zh' ? '● 说话可随时打断' : '● 話しかけると会話を止めます'}
           </p>
         </div>
       )}

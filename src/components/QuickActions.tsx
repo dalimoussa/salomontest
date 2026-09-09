@@ -4,6 +4,7 @@ import { MapPinned, TrainFront, ListChecks, ParkingCircle } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { ROUTES } from '@/data/routes';
 import { useVoiceConversation } from '@/hooks/useVoiceConversation';
+import { useRealtimeVoice } from '@/hooks/useRealtimeVoice';
 import { VoiceHUD } from './VoiceHUD';
 import { useT } from '@/lib/i18n';
 
@@ -20,6 +21,15 @@ export function QuickActions() {
     { icon: ListChecks,   label: t('quickActions.chipChecklist'), action: 'checklist' },
   ];
 
+  // ── Voice engine selection ──────────────────────────────────────────────────
+  // Primary: OpenAI Realtime API (WebRTC) — true free-flowing conversation,
+  //          sub-second latency, server-side VAD, natural interruption support.
+  // Fallback: Legacy record-based pipeline (useVoiceConversation) — used when
+  //           the Realtime API is unavailable (no API key, older browser, etc.)
+  const realtime  = useRealtimeVoice();
+  const legacy    = useVoiceConversation();
+  const voice     = realtime.available ? realtime : legacy;
+
   const {
     status,
     transcript,
@@ -29,7 +39,7 @@ export function QuickActions() {
     startListening,
     stopListening,
     cancelConversation,
-  } = useVoiceConversation();
+  } = voice;
 
   const handleClick = (action: string) => {
     if (action === 'checklist') {
