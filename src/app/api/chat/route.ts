@@ -18,13 +18,15 @@ export async function POST(req: NextRequest) {
   const systemPrompt = getSystemPrompt(ctx.language || 'ja');
   const userPrompt = buildUserPrompt(ctx);
 
+  const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+
   let openaiRes: Response;
   try {
     openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user',   content: userPrompt },

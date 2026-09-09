@@ -11,9 +11,9 @@ export const TRANSLATIONS = {
     'header.location': '東京都八王子市',
 
     // WeatherPanel
-    'weather.mountain': '高尾山',
-    'weather.elevation': '(599m)',
-    'weather.todayWeather': '本日の天気',
+    'weather.mountain': '高尾山頂',
+    'weather.elevation': '(標高599m)',
+    'weather.todayWeather': '山頂天気',
     'weather.loading': '天気情報を取得中...',
     'weather.errorTitle': '天気情報の取得に失敗',
     'weather.errorDesc': '気象データを読み込めませんでした。しばらく後に再試行してください。',
@@ -206,9 +206,9 @@ export const TRANSLATIONS = {
     'header.location': 'Hachioji, Tokyo',
 
     // WeatherPanel
-    'weather.mountain': 'Mt. Takao',
+    'weather.mountain': 'Mt. Takao Summit',
     'weather.elevation': '(599m)',
-    'weather.todayWeather': "Today's Weather",
+    'weather.todayWeather': "Summit Weather",
     'weather.loading': 'Loading weather...',
     'weather.errorTitle': 'Weather Data Unavailable',
     'weather.errorDesc': 'Could not load meteorological data. Please retry in a moment.',
@@ -401,9 +401,9 @@ export const TRANSLATIONS = {
     'header.location': '东京都八王子市',
 
     // WeatherPanel
-    'weather.mountain': '高尾山',
-    'weather.elevation': '(599米)',
-    'weather.todayWeather': '今日天气',
+    'weather.mountain': '高尾山顶',
+    'weather.elevation': '(海拔599米)',
+    'weather.todayWeather': '山顶实时天气',
     'weather.loading': '正在获取天气数据...',
     'weather.errorTitle': '天气数据获取失败',
     'weather.errorDesc': '未能加载气象数据，请稍后重试。',

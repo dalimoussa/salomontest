@@ -45,6 +45,7 @@ export async function fetchWeather(): Promise<WeatherData> {
   const url = new URL('https://api.open-meteo.com/v1/forecast');
   url.searchParams.set('latitude', String(LAT));
   url.searchParams.set('longitude', String(LON));
+  url.searchParams.set('elevation', '599'); // Mt. Takao Summit (599m)
   url.searchParams.set('current', 'temperature_2m,weathercode,windspeed_10m');
   url.searchParams.set('hourly', 'precipitation,precipitation_probability,uv_index,visibility');
   url.searchParams.set('forecast_days', '1');

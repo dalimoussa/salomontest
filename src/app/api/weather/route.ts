@@ -17,9 +17,10 @@ import type { WeatherData, WeatherCode } from '@/types';
 const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 let   cached: { data: WeatherData; ts: number } | null = null;
 
-// Mt. Takao coordinates
+// Mt. Takao coordinates & Summit elevation (599m)
 const LAT = 35.6252;
 const LON = 139.2437;
+const ELEVATION = 599; // Mt. Takao summit elevation in meters
 
 function mapWmoToWeatherCode(wmo: number): WeatherCode {
   if (wmo === 0 || wmo === 1)           return 'sunny';
@@ -63,6 +64,7 @@ async function fetchFromUpstream(): Promise<WeatherData> {
   const url = new URL('https://api.open-meteo.com/v1/forecast');
   url.searchParams.set('latitude',       String(LAT));
   url.searchParams.set('longitude',      String(LON));
+  url.searchParams.set('elevation',      String(ELEVATION)); // Fetch summit weather (599m)
   url.searchParams.set('current',        'temperature_2m,weathercode,windspeed_10m');
   url.searchParams.set('hourly',         'precipitation,precipitation_probability,uv_index,visibility');
   url.searchParams.set('forecast_days',  '1');

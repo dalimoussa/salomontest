@@ -25,13 +25,13 @@ export function Footer() {
           <MapPin className="w-3.5 h-3.5 text-salomon-cyan" />
           <span>{t('footer.storeName')}</span>
         </div>
-        <div className="hidden sm:flex items-center gap-1">
+        <div className="flex items-center gap-1">
           <Clock className="w-3 h-3 text-salomon-muted" />
           <span>{t('footer.hours')}</span>
         </div>
         <a
           href={`tel:${t('footer.phone').replace(/[^0-9+]/g, '')}`}
-          className="hidden md:flex items-center gap-1 hover:text-white transition-colors"
+          className="flex items-center gap-1 hover:text-white transition-colors"
           title={t('footer.phone')}
         >
           <Phone className="w-3 h-3 text-salomon-muted" />
