@@ -125,9 +125,9 @@ export async function POST(req: NextRequest) {
           input_audio_transcription: { model: 'whisper-1' },
           turn_detection: {
             type: 'server_vad',
-            threshold: 0.55,
-            prefix_padding_ms: 300,
-            silence_duration_ms: 900,
+            threshold: 0.48,
+            prefix_padding_ms: 200,
+            silence_duration_ms: 600,
           },
           temperature: 0.8,
         },

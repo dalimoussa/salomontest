@@ -1,5 +1,6 @@
 'use client';
 
+import React, { useEffect } from 'react';
 import { MapPinned, TrainFront, ListChecks, ParkingCircle } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { ROUTES } from '@/data/routes';
@@ -7,6 +8,7 @@ import { useVoiceConversation } from '@/hooks/useVoiceConversation';
 import { useRealtimeVoice } from '@/hooks/useRealtimeVoice';
 import { useT } from '@/lib/i18n';
 import { unlockAudio } from '@/lib/audioUnlock';
+import { initCameraPresenceBridge } from '@/lib/cameraPresence';
 import { VoiceHUD } from './VoiceHUD';
 
 export function QuickActions() {
@@ -52,6 +54,25 @@ export function QuickActions() {
       await legacy.startListening();
     }
   };
+
+  // ── AI Camera Presence Bridge Integration ───────────────────────────────────
+  // When an AI camera detects someone standing in front of the whiteboard,
+  // greet them and automatically begin the hands-free listening loop.
+  useEffect(() => {
+    const cleanup = initCameraPresenceBridge(
+      async (greetingText) => {
+        unlockAudio();
+        if (voice.status === 'idle') {
+          await voice.speakText(greetingText);
+          if (voice.status === 'idle') {
+            await handleStartListening();
+          }
+        }
+      },
+      () => language
+    );
+    return cleanup;
+  }, [language, voice]);
 
   const handleClick = (action: string) => {
     if (action === 'checklist') {

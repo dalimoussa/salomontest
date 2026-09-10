@@ -54,6 +54,8 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
   const localTranscriptRef = useRef<string>('');
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  const streamRef = useRef<MediaStream | null>(null);
+
   const weather = useStore((s) => s.weather);
   const selectedRoute = useStore((s) => s.selectedRoute);
   const selectedDifficulty = useStore((s) => s.selectedDifficulty);
@@ -78,20 +80,15 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       const source = ctx.createMediaStreamSource(stream);
       source.connect(analyser);
 
-      const bufferLength = analyser.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
-
-      const checkLevel = () => {
-        analyser.getByteFrequencyData(dataArray);
-        let sum = 0;
-        for (let i = 0; i < bufferLength; i++) {
-          sum += dataArray[i];
-        }
-        const avg = sum / bufferLength;
+      const data = new Uint8Array(analyser.frequencyBinCount);
+      const updateLevel = () => {
+        analyser.getByteFrequencyData(data);
+        const sum = data.reduce((acc, val) => acc + val, 0);
+        const avg = sum / data.length;
         setAudioLevel(Math.min(1, avg / 100));
-        animFrameRef.current = requestAnimationFrame(checkLevel);
+        animFrameRef.current = requestAnimationFrame(updateLevel);
       };
-      checkLevel();
+      updateLevel();
     } catch (e) {
       console.warn('AudioContext level meter not available:', e);
     }
@@ -265,7 +262,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
           if (autoLoopRef.current && statusRef.current === 'idle') {
             startListeningRef.current?.().catch(() => {});
           }
-        }, 500);
+        }, 300);
       }
     }
   }, [language, speakWithBrowserSynth]);
@@ -301,14 +298,14 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       }
 
       if (!recognizedText) {
-        // Did not catch speech — silently resume listening without annoying user
+        // Did not catch speech — silently resume listening
         setStatus('idle');
         if (autoLoopRef.current) {
           setTimeout(() => {
             if (autoLoopRef.current && statusRef.current === 'idle') {
               startListeningRef.current?.().catch(() => {});
             }
-          }, 500);
+          }, 300);
         }
         return;
       }
@@ -422,7 +419,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
           if (autoLoopRef.current && statusRef.current === 'idle') {
             startListeningRef.current?.().catch(() => {});
           }
-        }, 1200);
+        }, 600);
       }
     } finally {
       setIsGenerating(false);
@@ -430,30 +427,24 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
   };
 
   const startListening = useCallback(async () => {
-    if (statusRef.current === 'listening' || statusRef.current === 'speaking' || statusRef.current === 'thinking') return;
+    if (statusRef.current === 'thinking') return;
+    if (statusRef.current === 'listening' && mediaRecorderRef.current?.state === 'recording') return;
+
     unlockAudio();
     setErrorMessage(null);
     setTranscript('');
-    setResponseText('');
     localTranscriptRef.current = '';
 
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = null;
     }
-    if (currentAudioRef.current) {
-      currentAudioRef.current.pause();
-      currentAudioRef.current = null;
-    }
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-    }
 
-    // Initialize real-time Web Speech Recognition for instant feedback
+    // Initialize real-time Web Speech Recognition for instant feedback & barge-in interruption
     if (typeof window !== 'undefined') {
       const SpeechRecognition =
         (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (SpeechRecognition) {
+      if (SpeechRecognition && !recognitionRef.current) {
         try {
           const recognition = new SpeechRecognition();
           recognition.continuous = true;
@@ -462,33 +453,60 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
 
           recognition.onresult = (event: any) => {
             let fullText = '';
+            let isFinalChunk = false;
             for (let i = 0; i < event.results.length; ++i) {
               fullText += event.results[i][0].transcript;
+              if (event.results[i].isFinal) isFinalChunk = true;
             }
             const clean = fullText.trim();
-            if (clean) {
-              localTranscriptRef.current = clean;
-              setTranscript(clean);
+            if (!clean) return;
 
-              // Auto-stop after 1.5 seconds of silence once speech is detected
-              if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-              silenceTimerRef.current = setTimeout(() => {
-                if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-                  mediaRecorderRef.current.stop();
-                  mediaRecorderRef.current = null;
-                }
-                if (recognitionRef.current) {
-                  try {
-                    recognitionRef.current.stop();
-                  } catch {}
-                  recognitionRef.current = null;
-                }
-              }, 1500);
+            // ── BARGE-IN INTERRUPTION: If AI is speaking, user speech cuts it off immediately! ──
+            if (statusRef.current === 'speaking') {
+              console.log('[useVoiceConversation] User interrupted AI speech:', clean);
+              if (typeof window !== 'undefined' && window.speechSynthesis) {
+                window.speechSynthesis.cancel();
+              }
+              if (currentAudioRef.current) {
+                currentAudioRef.current.pause();
+                currentAudioRef.current = null;
+              }
+              setResponseText('');
+              setStatus('listening');
             }
+
+            localTranscriptRef.current = clean;
+            setTranscript(clean);
+
+            // Fast commit: 600ms on final recognized chunk, 800ms on interim silence
+            const commitDelay = isFinalChunk ? 600 : 800;
+            if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+            silenceTimerRef.current = setTimeout(() => {
+              if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+                mediaRecorderRef.current.stop();
+                mediaRecorderRef.current = null;
+              }
+            }, commitDelay);
           };
 
-          recognition.onerror = () => {
-            // Whisper fallback will handle audio if Web Speech fails
+          recognition.onerror = (e: any) => {
+            if (e.error === 'no-speech' || e.error === 'aborted') return;
+            console.warn('[useVoiceConversation] Speech recognition error:', e.error);
+          };
+
+          // Continuous recognition lifecycle: never let recognition die after silence
+          recognition.onend = () => {
+            if (autoLoopRef.current && statusRef.current !== 'thinking') {
+              try {
+                recognition.start();
+              } catch {
+                setTimeout(() => {
+                  if (autoLoopRef.current && statusRef.current !== 'thinking') {
+                    try { recognition.start(); } catch {}
+                  }
+                }, 100);
+              }
+            }
           };
 
           recognition.start();
@@ -500,13 +518,17 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      });
+      let stream = streamRef.current;
+      if (!stream || !stream.active) {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
+        streamRef.current = stream;
+      }
 
       audioChunksRef.current = [];
       const mediaRecorder = new MediaRecorder(stream, {
@@ -520,12 +542,11 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       };
 
       mediaRecorder.onstop = () => {
-        stream.getTracks().forEach((track) => track.stop());
         stopLevelMeter();
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         setTimeout(() => {
           processRecordedAudio(audioBlob);
-        }, 150);
+        }, 80);
       };
 
       mediaRecorderRef.current = mediaRecorder;
@@ -534,7 +555,6 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       setStatus('listening');
     } catch (err) {
       console.warn('Microphone access standby:', err);
-      // If mic is denied or not yet permitted, keep status idle and wait for user gesture
       setStatus('idle');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -574,6 +594,10 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       mediaRecorderRef.current.stop();
       mediaRecorderRef.current = null;
     }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
     if (currentAudioRef.current) {
       currentAudioRef.current.pause();
       currentAudioRef.current = null;
@@ -593,7 +617,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         if (autoLoopRef.current && statusRef.current === 'idle') {
           startListeningRef.current?.().catch(() => {});
         }
-      }, 400);
+      }, 300);
     }
   }, []);
 

@@ -153,9 +153,21 @@ export function useRealtimeVoice(): UseRealtimeVoiceReturn {
       const msg = JSON.parse(event.data as string) as Record<string, unknown>;
       const type = msg.type as string;
 
-      // User started speaking → show listening and dismiss response card
+      // User started speaking → show listening, cut off audio immediately, send cancel to OpenAI
       if (type === 'input_audio_buffer.speech_started') {
         setStatus('listening');
+        if (remoteAudioRef.current) {
+          try {
+            remoteAudioRef.current.pause();
+            remoteAudioRef.current.currentTime = 0;
+            remoteAudioRef.current.play().catch(() => {});
+          } catch {}
+        }
+        if (dcRef.current && dcRef.current.readyState === 'open') {
+          try {
+            dcRef.current.send(JSON.stringify({ type: 'response.cancel' }));
+          } catch {}
+        }
         setTranscript('');
         setResponseText('');
       }
@@ -212,10 +224,10 @@ export function useRealtimeVoice(): UseRealtimeVoiceReturn {
             timestamp: new Date(),
           });
         }
-        // Auto-close floating card after 4 seconds so it doesn't linger forever
+        // Auto-close floating card after 5 seconds so it doesn't linger forever
         setTimeout(() => {
           setResponseText('');
-        }, 4000);
+        }, 5000);
         // After AI finishes, go back to listening (VAD will auto-trigger)
         setStatus('listening');
       }
@@ -224,6 +236,13 @@ export function useRealtimeVoice(): UseRealtimeVoiceReturn {
       if (type === 'response.cancelled') {
         setStatus('listening');
         setResponseText('');
+        if (remoteAudioRef.current) {
+          try {
+            remoteAudioRef.current.pause();
+            remoteAudioRef.current.currentTime = 0;
+            remoteAudioRef.current.play().catch(() => {});
+          } catch {}
+        }
       }
 
       // Error from OpenAI
@@ -405,8 +424,25 @@ export function useRealtimeVoice(): UseRealtimeVoiceReturn {
     setStatus('listening');
   }, []);
 
-  // speakText is a no-op in realtime mode — OpenAI handles TTS natively
-  const speakText = useCallback(async (_text: string) => {}, []);
+  // Speak greeting or prompt on demand in realtime mode via DataChannel
+  const speakText = useCallback(async (text: string) => {
+    if (!text) return;
+    if (sessionActiveRef.current && dcRef.current && dcRef.current.readyState === 'open') {
+      try {
+        dcRef.current.send(
+          JSON.stringify({
+            type: 'response.create',
+            response: {
+              modalities: ['audio', 'text'],
+              instructions: `Greet the user warmly using these words: "${text}"`,
+            },
+          })
+        );
+      } catch (e) {
+        console.warn('[useRealtimeVoice] Failed to trigger response.create:', e);
+      }
+    }
+  }, []);
 
   // Dynamically update OpenAI instructions when user switches language in the UI
   useEffect(() => {

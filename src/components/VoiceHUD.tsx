@@ -1,6 +1,6 @@
 'use client';
 
-import { Mic, Loader2, Volume2, X, Sparkles } from 'lucide-react';
+import { Mic, Loader2, Volume2, X, Sparkles, User } from 'lucide-react';
 import type { VoiceStatus } from '@/hooks/useVoiceConversation';
 
 interface VoiceHUDProps {
@@ -33,7 +33,7 @@ export function VoiceHUD({
 
   // Localized status labels
   const titleText = isListening
-    ? (language === 'en' ? 'Listening...' : language === 'zh' ? '收音中' : '聞いています…')
+    ? (language === 'en' ? 'Listening... LIVE' : language === 'zh' ? '正在倾听... LIVE' : '聞いています… LIVE')
     : isThinking
     ? (language === 'en' ? 'AI Thinking...' : language === 'zh' ? 'AI思考中...' : 'AI山守が考え中…')
     : isSpeaking
@@ -52,7 +52,7 @@ export function VoiceHUD({
     ? (language === 'en' ? 'Processing your request...' : language === 'zh' ? '正在处理...' : '処理中...')
     : isSpeaking
     ? (language === 'en' ? 'Speak anytime to interrupt' : language === 'zh' ? '说话可随时打断' : '話しかけると会話を止めます')
-    : (language === 'en' ? 'Tap anywhere to start' : language === 'zh' ? '点击启动语音对话' : 'タップで音声対話を開始');
+    : (language === 'en' ? 'Always-on hands-free • Just speak' : language === 'zh' ? '常时免提 • 直接说话即可' : '常時ハンズフリー • 話しかけるだけ');
 
   return (
     <div className="relative w-full md:w-auto">
@@ -68,31 +68,70 @@ export function VoiceHUD({
         </div>
       )}
 
-      {/* ── Active Speech Response Floating Card ── */}
-      {isSpeaking && responseText && (
-        <div className="absolute bottom-full mb-3 right-0 w-80 sm:w-96 p-4 rounded-2xl bg-[#081226]/95 border border-salomon-cyan/60 shadow-2xl backdrop-blur-xl flex flex-col gap-2 z-50 animate-fadeInUp">
-          <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
+      {/* ── Active Conversation Floating Card (Shows BOTH User Question and AI Response) ── */}
+      {(transcript || responseText || isThinking || isSpeaking) && (
+        <div className="absolute bottom-full mb-3 right-0 w-84 sm:w-[430px] p-4 rounded-2xl bg-[#081226]/95 border border-salomon-cyan/60 shadow-2xl backdrop-blur-2xl flex flex-col gap-3 z-50 animate-fadeInUp">
+          <div className="flex items-center justify-between pb-2 border-b border-white/10">
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-salomon-teal animate-pulse" />
-              <span className="text-xs font-bold text-white tracking-wide flex items-center gap-1">
-                <Volume2 className="w-3.5 h-3.5 text-salomon-cyan" />
-                {language === 'en' ? 'AI Voice Guide' : language === 'zh' ? 'AI山野向导' : 'AI山守'}
+              <span className={`w-2.5 h-2.5 rounded-full ${isSpeaking ? 'bg-salomon-teal animate-pulse' : isThinking ? 'bg-amber-400 animate-spin' : 'bg-salomon-cyan animate-ping'}`} />
+              <span className="text-xs font-bold text-white tracking-wide flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-salomon-cyan" />
+                {language === 'en' ? 'Salomon AI Concierge' : language === 'zh' ? '萨洛蒙AI向导' : 'サロモンAI山守'}
               </span>
             </div>
             <button
               onClick={onCancel}
               className="w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-salomon-muted hover:text-white transition-colors"
-              title={language === 'en' ? 'Stop Speaking' : '音声停止'}
+              title={language === 'en' ? 'Close' : '閉じる'}
             >
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
-          <div className="text-xs text-slate-200 leading-relaxed max-h-36 overflow-y-auto pr-1">
-            {responseText}
+
+          {/* User speech inquiry bubble */}
+          {transcript && (
+            <div className="p-2.5 rounded-xl bg-cyan-950/50 border border-cyan-500/30 text-xs space-y-1">
+              <div className="text-[10px] font-bold text-cyan-300 flex items-center gap-1">
+                <User className="w-3 h-3 text-cyan-400" />
+                <span>{language === 'en' ? 'You Asked:' : language === 'zh' ? '您的提问：' : 'お客様のご質問:'}</span>
+              </div>
+              <div className="text-white font-medium pl-4 leading-relaxed">
+                「{transcript}」
+              </div>
+            </div>
+          )}
+
+          {/* AI Thinking status */}
+          {isThinking && !responseText && (
+            <div className="flex items-center gap-2 text-xs text-amber-300 py-1 pl-1 animate-pulse">
+              <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
+              <span>
+                {language === 'en'
+                  ? 'Analyzing mountain & trail conditions...'
+                  : language === 'zh'
+                  ? '正在分析高尾山实时路况与建议...'
+                  : '高尾山のルートと天候を分析中…'}
+              </span>
+            </div>
+          )}
+
+          {/* AI Response text bubble */}
+          {responseText && (
+            <div className="p-3 rounded-xl bg-white/5 border border-white/15 text-xs text-slate-100 leading-relaxed max-h-48 overflow-y-auto pr-1">
+              <div className="text-[10px] font-bold text-salomon-cyan mb-1 flex items-center gap-1">
+                <Volume2 className="w-3 h-3" />
+                <span>{language === 'en' ? 'AI Response:' : language === 'zh' ? 'AI回答：' : 'AI回答:'}</span>
+              </div>
+              <div className="pl-4 text-slate-200">
+                {responseText}
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between text-[10px] text-salomon-cyan/80 pt-1 font-medium border-t border-white/5">
+            <span>● {language === 'en' ? 'Always-on hands-free' : language === 'zh' ? '常时免提监听中' : '常時ハンズフリー待機中'}</span>
+            <span>● {language === 'en' ? 'Speak anytime to interrupt' : language === 'zh' ? '说话可随时打断' : '話しかけるといつでも割り込めます'}</span>
           </div>
-          <p className="text-[10px] text-salomon-cyan/80 text-right pt-1 font-medium">
-            {language === 'en' ? '● Speak anytime to interrupt' : language === 'zh' ? '● 说话可随时打断' : '● 話しかけると会話を止めます'}
-          </p>
         </div>
       )}
 
