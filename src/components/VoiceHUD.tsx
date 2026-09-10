@@ -31,6 +31,14 @@ export function VoiceHUD({
   const isSpeaking     = status === 'speaking';
   const isIdle         = status === 'idle';
 
+  // Localized quote styling helper: English uses "", Chinese uses “”, Japanese uses 「」
+  const formatQuote = (text: string) => {
+    if (!text) return '';
+    if (language === 'en') return `"${text}"`;
+    if (language === 'zh') return `“${text}”`;
+    return `「${text}」`;
+  };
+
   // Localized status labels
   const titleText = isListening
     ? (language === 'en' ? 'Listening... LIVE' : language === 'zh' ? '正在倾听... LIVE' : '聞いています… LIVE')
@@ -42,7 +50,7 @@ export function VoiceHUD({
 
   const subtitleText = isListening
     ? (transcript
-        ? `「${transcript}」`
+        ? formatQuote(transcript)
         : language === 'en'
         ? 'Just speak — interrupt anytime'
         : language === 'zh'
@@ -82,7 +90,7 @@ export function VoiceHUD({
             <button
               onClick={onCancel}
               className="w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-salomon-muted hover:text-white transition-colors"
-              title={language === 'en' ? 'Close' : '閉じる'}
+              title={language === 'en' ? 'Close' : language === 'zh' ? '关闭' : '閉じる'}
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -96,7 +104,7 @@ export function VoiceHUD({
                 <span>{language === 'en' ? 'You Asked:' : language === 'zh' ? '您的提问：' : 'お客様のご質問:'}</span>
               </div>
               <div className="text-white font-medium pl-4 leading-relaxed">
-                「{transcript}」
+                {formatQuote(transcript)}
               </div>
             </div>
           )}
@@ -250,7 +258,7 @@ export function VoiceHUD({
                 onCancel();
               }}
               className="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/15 flex items-center justify-center text-salomon-muted hover:text-white transition-colors"
-              title={language === 'en' ? 'Mute' : '一時停止'}
+              title={language === 'en' ? 'Mute' : language === 'zh' ? '静音' : '一時停止'}
             >
               <X className="w-3 h-3" />
             </button>

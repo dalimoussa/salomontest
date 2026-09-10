@@ -376,6 +376,54 @@ export function buildFallbackAdvice(
   }
 
   // ── General Question Intent Responses ──
+  // 0. Course Count / Total Trails Question (e.g. "How many hiking courses are there in total?")
+  if (
+    q.includes('how many') ||
+    q.includes('total course') ||
+    q.includes('total trail') ||
+    q.includes('all course') ||
+    q.includes('all trail') ||
+    q.includes('number of course') ||
+    q.includes('number of trail') ||
+    q.includes('いくつ') ||
+    q.includes('何コース') ||
+    q.includes('何本') ||
+    q.includes('何個') ||
+    q.includes('何ルート') ||
+    q.includes('合計') ||
+    q.includes('全部で') ||
+    q.includes('多少条') ||
+    q.includes('几条') ||
+    q.includes('总共') ||
+    q.includes('总数')
+  ) {
+    if (language === 'en') {
+      return {
+        advice_text: `There are 16 hiking and trail courses registered in total on our Salomon kiosk! This includes 8 Main Mt. Takao Summit Courses (such as Trail 1 Omotesando, Trail 4 Suspension Bridge, Trail 6 Biwa Waterfall stream walk, Inariyama ridge, and the 15.3km Mt. Takao to Mt. Jinba long traverse), plus 8 Surrounding & Outer Trails recommended by Takao Manners (such as Gongendaira, South Takao East Ridge, and Kogezawa Forest Trail). You can view full details for all 16 courses right here on the interactive screen!`,
+        advice_short: `There are 16 hiking courses in total: 8 Main Summit Courses and 8 Surrounding & Outer Trails.`,
+        safety_flags,
+        recommended_gear: ['trail_shoes_beginner', 'trail_shoes_intermediate', 'hat'],
+        mood: 'good',
+      };
+    }
+    if (language === 'zh') {
+      return {
+        advice_text: `高尾山智能向导系统中总共完整收录了16条登山与越野跑路线！包含高尾山8大经典主干路线（如1号路表参道、4号路吊桥线、6号路琵琶瀑布溯溪线、稻荷山山脊道，以及15.3公里的高尾山・阵马山大纵走），以及8条高尾Manners推荐的周边与外围山脊路线（如权现平、南高尾东山脊、小下泽林道等）。您可以在电子白板上自由探索全部16条路线的实时数据！`,
+        advice_short: `系统中总共收录16条路线：8条高尾山经典主干路线与8条周边外围山脊路线。`,
+        safety_flags,
+        recommended_gear: ['trail_shoes_beginner', 'trail_shoes_intermediate', 'hat'],
+        mood: 'good',
+      };
+    }
+    return {
+      advice_text: `高尾山デジタルガイドには、合計16本の登山・トレイルコースが登録されています！薬王院を通る定番の1号路、吊り橋の4号路、沢歩きの6号路、稲荷山、陣馬山縦走などの「メイン8コース」に加え、混雑を避けて豊かな自然を楽しめる高尾マナーズ推奨の「周辺・ロングトレイル8コース」（南高尾、小下沢、城山天狗など）を網羅しています。画面から自由にコースをお選びいただけます！`,
+      advice_short: `登録コースは全部で16コース（メイン8コース＋周辺ロング8コース）です！`,
+      safety_flags,
+      recommended_gear: ['trail_shoes_beginner', 'trail_shoes_intermediate', 'hat'],
+      mood: 'good',
+    };
+  }
+
   // 1. Beginner Route Question
   if (q.includes('初心者') || q.includes('beginner') || q.includes('easy') || q.includes('初級') || q.includes('おすすめのルート')) {
     recommended_gear.push('footwear', 'apparel');

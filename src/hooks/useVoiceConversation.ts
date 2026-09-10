@@ -26,6 +26,12 @@ export interface UseVoiceConversationReturn {
   speakText: (text: string) => Promise<void>;
 }
 
+function getTargetRecognitionLang(lang: 'ja' | 'en' | 'zh'): string {
+  if (lang === 'en') return 'en-US';
+  if (lang === 'zh') return 'zh-CN';
+  return 'ja-JP';
+}
+
 export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceConversationReturn {
   const enabled = options?.enabled ?? true;
   const [status, setStatusState] = useState<VoiceStatus>('idle');
@@ -53,6 +59,18 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
   const recognitionRef = useRef<any>(null);
   const localTranscriptRef = useRef<string>('');
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const stopSpeechRecognition = useCallback(() => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.onend = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.abort();
+      } catch {}
+      recognitionRef.current = null;
+    }
+  }, []);
 
   const streamRef = useRef<MediaStream | null>(null);
 
@@ -391,11 +409,17 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       );
       setRecommendedProducts(products);
 
-      // Add user voice input as chat message
+      // Add user voice input as chat message with language-tailored quotation marks
+      const quoteFormatted =
+        language === 'en'
+          ? `"${recognizedText}"`
+          : language === 'zh'
+          ? `“${recognizedText}”`
+          : `「${recognizedText}」`;
       addMessage({
         id: crypto.randomUUID(),
         role: 'system',
-        text: `🎤「${recognizedText}」`,
+        text: `🎤 ${quoteFormatted}`,
         timestamp: new Date(),
       });
 
@@ -413,7 +437,15 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       await speakText(advice.advice_text);
     } catch (err) {
       console.error('Voice conversation error:', err);
-      setErrorMessage(err instanceof Error ? err.message : '音声処理に失敗しました');
+      setErrorMessage(
+        err instanceof Error
+          ? err.message
+          : language === 'en'
+          ? 'Voice processing failed'
+          : language === 'zh'
+          ? '语音处理失败'
+          : '音声処理に失敗しました'
+      );
       setStatus('idle');
       if (autoLoopRef.current) {
         setTimeout(() => {
@@ -445,75 +477,83 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     if (typeof window !== 'undefined') {
       const SpeechRecognition =
         (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (SpeechRecognition && !recognitionRef.current) {
-        try {
-          const recognition = new SpeechRecognition();
-          recognition.continuous = true;
-          recognition.interimResults = true;
-          recognition.lang = language === 'en' ? 'en-US' : language === 'zh' ? 'zh-CN' : 'ja-JP';
+      if (SpeechRecognition) {
+        const targetLang = getTargetRecognitionLang(language);
+        // If an existing recognition instance is using a different language, tear it down
+        if (recognitionRef.current && recognitionRef.current.lang !== targetLang) {
+          stopSpeechRecognition();
+        }
 
-          recognition.onresult = (event: any) => {
-            let fullText = '';
-            let isFinalChunk = false;
-            for (let i = 0; i < event.results.length; ++i) {
-              fullText += event.results[i][0].transcript;
-              if (event.results[i].isFinal) isFinalChunk = true;
-            }
-            const clean = fullText.trim();
-            if (!clean) return;
+        if (!recognitionRef.current) {
+          try {
+            const recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = targetLang;
 
-            // ── BARGE-IN INTERRUPTION: If AI is speaking, user speech cuts it off immediately! ──
-            if (statusRef.current === 'speaking') {
-              console.log('[useVoiceConversation] User interrupted AI speech:', clean);
-              if (typeof window !== 'undefined' && window.speechSynthesis) {
-                window.speechSynthesis.cancel();
+            recognition.onresult = (event: any) => {
+              let fullText = '';
+              let isFinalChunk = false;
+              for (let i = 0; i < event.results.length; ++i) {
+                fullText += event.results[i][0].transcript;
+                if (event.results[i].isFinal) isFinalChunk = true;
               }
-              if (currentAudioRef.current) {
-                currentAudioRef.current.pause();
-                currentAudioRef.current = null;
+              const clean = fullText.trim();
+              if (!clean) return;
+
+              // ── BARGE-IN INTERRUPTION: If AI is speaking, user speech cuts it off immediately! ──
+              if (statusRef.current === 'speaking') {
+                console.log('[useVoiceConversation] User interrupted AI speech:', clean);
+                if (typeof window !== 'undefined' && window.speechSynthesis) {
+                  window.speechSynthesis.cancel();
+                }
+                if (currentAudioRef.current) {
+                  currentAudioRef.current.pause();
+                  currentAudioRef.current = null;
+                }
+                setResponseText('');
+                setStatus('listening');
               }
-              setResponseText('');
-              setStatus('listening');
-            }
 
-            localTranscriptRef.current = clean;
-            setTranscript(clean);
+              localTranscriptRef.current = clean;
+              setTranscript(clean);
 
-            // Fast commit: 600ms on final recognized chunk, 800ms on interim silence
-            const commitDelay = isFinalChunk ? 600 : 800;
-            if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-            silenceTimerRef.current = setTimeout(() => {
-              if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-                mediaRecorderRef.current.stop();
-                mediaRecorderRef.current = null;
+              // Fast commit: 600ms on final recognized chunk, 800ms on interim silence
+              const commitDelay = isFinalChunk ? 600 : 800;
+              if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+              silenceTimerRef.current = setTimeout(() => {
+                if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+                  mediaRecorderRef.current.stop();
+                  mediaRecorderRef.current = null;
+                }
+              }, commitDelay);
+            };
+
+            recognition.onerror = (e: any) => {
+              if (e.error === 'no-speech' || e.error === 'aborted') return;
+              console.warn('[useVoiceConversation] Speech recognition error:', e.error);
+            };
+
+            // Continuous recognition lifecycle: only restart if this instance is still active
+            recognition.onend = () => {
+              if (autoLoopRef.current && statusRef.current !== 'thinking' && recognitionRef.current === recognition) {
+                try {
+                  recognition.start();
+                } catch {
+                  setTimeout(() => {
+                    if (autoLoopRef.current && statusRef.current !== 'thinking' && recognitionRef.current === recognition) {
+                      try { recognition.start(); } catch {}
+                    }
+                  }, 150);
+                }
               }
-            }, commitDelay);
-          };
+            };
 
-          recognition.onerror = (e: any) => {
-            if (e.error === 'no-speech' || e.error === 'aborted') return;
-            console.warn('[useVoiceConversation] Speech recognition error:', e.error);
-          };
-
-          // Continuous recognition lifecycle: never let recognition die after silence
-          recognition.onend = () => {
-            if (autoLoopRef.current && statusRef.current !== 'thinking') {
-              try {
-                recognition.start();
-              } catch {
-                setTimeout(() => {
-                  if (autoLoopRef.current && statusRef.current !== 'thinking') {
-                    try { recognition.start(); } catch {}
-                  }
-                }, 100);
-              }
-            }
-          };
-
-          recognition.start();
-          recognitionRef.current = recognition;
-        } catch (e) {
-          console.warn('Web Speech Recognition init:', e);
+            recognition.start();
+            recognitionRef.current = recognition;
+          } catch (e) {
+            console.warn('Web Speech Recognition init:', e);
+          }
         }
       }
     }
@@ -559,7 +599,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       setStatus('idle');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [language, selectedRoute, weather, selectedDifficulty]);
+  }, [language, selectedRoute, weather, selectedDifficulty, stopSpeechRecognition]);
 
   startListeningRef.current = startListening;
 
@@ -568,29 +608,19 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = null;
     }
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch {}
-      recognitionRef.current = null;
-    }
+    stopSpeechRecognition();
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.stop();
       mediaRecorderRef.current = null;
     }
-  }, []);
+  }, [stopSpeechRecognition]);
 
   const cancelConversation = useCallback(() => {
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = null;
     }
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.abort();
-      } catch {}
-      recognitionRef.current = null;
-    }
+    stopSpeechRecognition();
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.stop();
       mediaRecorderRef.current = null;
@@ -620,7 +650,42 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         }
       }, 300);
     }
-  }, []);
+  }, [stopSpeechRecognition]);
+
+  // ── Synchronize Speech Recognition Immediately on Language Switch ──
+  useEffect(() => {
+    const targetLang = getTargetRecognitionLang(language);
+    console.log(`[useVoiceConversation] Synchronizing language to: ${language} (${targetLang})`);
+
+    // Reset visual transcript and responses so old language text disappears immediately
+    setTranscript('');
+    localTranscriptRef.current = '';
+    setResponseText('');
+    setErrorMessage(null);
+
+    // Stop active audio playback and speech synthesis from previous language
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause();
+      currentAudioRef.current = null;
+    }
+
+    // Abort previous speech recognition so the new language acoustic model starts clean
+    stopSpeechRecognition();
+
+    // If hands-free is enabled and we are not thinking, restart listening immediately in new language
+    if (autoLoopRef.current && statusRef.current !== 'thinking') {
+      setStatus('idle');
+      const timer = setTimeout(() => {
+        if (autoLoopRef.current && statusRef.current === 'idle') {
+          startListeningRef.current?.().catch(() => {});
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [language, stopSpeechRecognition]);
 
   // ── Auto-Start Continuous Hands-free Conversation on Mount or First Interaction ──
   useEffect(() => {

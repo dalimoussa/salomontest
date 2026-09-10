@@ -22,6 +22,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { useStore } from '@/store/useStore';
 import type { VoiceStatus } from './useVoiceConversation';
 import { unlockAudio } from '@/lib/audioUnlock';
+import { getSystemPrompt } from '@/lib/prompts';
 
 export interface UseRealtimeVoiceReturn {
   status: VoiceStatus;
@@ -193,10 +194,16 @@ export function useRealtimeVoice(): UseRealtimeVoiceReturn {
         const text = ((msg as any).transcript as string) || '';
         setTranscript(text);
         if (text.trim()) {
+          const formattedQuote =
+            language === 'en'
+              ? `"${text}"`
+              : language === 'zh'
+              ? `“${text}”`
+              : `「${text}」`;
           addMessage({
             id: crypto.randomUUID(),
             role: 'system',
-            text: `🎤「${text}」`,
+            text: `🎤 ${formattedQuote}`,
             timestamp: new Date(),
           });
         }
@@ -448,32 +455,33 @@ export function useRealtimeVoice(): UseRealtimeVoiceReturn {
           })
         );
       } catch (e) {
-        console.warn('[useRealtimeVoice] Failed to trigger response.create:', e);
+        console.warn('[useRealtimeVoice] speakText failed:', e);
       }
     }
   }, []);
 
-  // Dynamically update OpenAI instructions when user switches language in the UI
+  // ── Synchronize Realtime Session on Language Switch ──
   useEffect(() => {
+    setTranscript('');
+    setResponseText('');
+    setErrorMessage(null);
+    if (remoteAudioRef.current) {
+      try {
+        remoteAudioRef.current.pause();
+      } catch {}
+    }
     if (sessionActiveRef.current && dcRef.current && dcRef.current.readyState === 'open') {
-      const prompt =
-        language === 'en'
-          ? 'You are "Yamamori" (Mountain Guardian), the Salomon Mt. Takao Store AI Mountain Concierge. CRITICAL: The user has selected ENGLISH. You MUST ALWAYS speak and reply strictly in fluent, natural English. Do NOT speak Japanese or Chinese under any circumstances.'
-          : language === 'zh'
-          ? '你是“山守”，萨洛蒙高尾山专营店的AI山野向导。【最重要规则】顾客已切换为中文。你必须始终使用规范自然的简体中文进行回复，严禁使用日语或英语回答。'
-          : 'あなたは「山守（やまもり）」、サロモン高尾店のAIマウンテンコンシェルジュです。【最重要指示】お客様は日本語を選択しています。必ず自然で丁寧な日本語のみで発話・返答してください。英語や中国語などの他言語は話さないでください。';
-
       try {
         dcRef.current.send(
           JSON.stringify({
             type: 'session.update',
             session: {
-              instructions: prompt,
+              instructions: getSystemPrompt(language),
             },
           })
         );
       } catch (e) {
-        console.warn('[useRealtimeVoice] Failed to update session language on channel:', e);
+        console.warn('[useRealtimeVoice] session.update failed on language change:', e);
       }
     }
   }, [language]);
