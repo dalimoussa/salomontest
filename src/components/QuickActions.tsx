@@ -5,8 +5,9 @@ import { useStore } from '@/store/useStore';
 import { ROUTES } from '@/data/routes';
 import { useVoiceConversation } from '@/hooks/useVoiceConversation';
 import { useRealtimeVoice } from '@/hooks/useRealtimeVoice';
-import { VoiceHUD } from './VoiceHUD';
 import { useT } from '@/lib/i18n';
+import { unlockAudio } from '@/lib/audioUnlock';
+import { VoiceHUD } from './VoiceHUD';
 
 export function QuickActions() {
   const setActiveModal        = useStore(s => s.setActiveModal);
@@ -36,10 +37,21 @@ export function QuickActions() {
     responseText,
     audioLevel,
     errorMessage,
-    startListening,
     stopListening,
     cancelConversation,
   } = voice;
+
+  const handleStartListening = async () => {
+    unlockAudio();
+    if (realtime.available) {
+      const started = await realtime.startListening();
+      if (!started) {
+        await legacy.startListening();
+      }
+    } else {
+      await legacy.startListening();
+    }
+  };
 
   const handleClick = (action: string) => {
     if (action === 'checklist') {
@@ -101,7 +113,7 @@ export function QuickActions() {
           responseText={responseText}
           audioLevel={audioLevel}
           errorMessage={errorMessage}
-          onStartListening={startListening}
+          onStartListening={handleStartListening}
           onStopListening={stopListening}
           onCancel={cancelConversation}
           language={language}

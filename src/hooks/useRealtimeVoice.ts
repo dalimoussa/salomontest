@@ -21,6 +21,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useStore } from '@/store/useStore';
 import type { VoiceStatus } from './useVoiceConversation';
+import { unlockAudio } from '@/lib/audioUnlock';
 
 export interface UseRealtimeVoiceReturn {
   status: VoiceStatus;
@@ -30,7 +31,7 @@ export interface UseRealtimeVoiceReturn {
   errorMessage: string | null;
   isHandsFree: boolean;
   available: boolean; // false if API key not configured
-  startListening: () => Promise<void>;
+  startListening: () => Promise<boolean>;
   stopListening: () => void;
   cancelConversation: () => void;
   speakText: (text: string) => Promise<void>; // no-op in realtime mode
@@ -109,13 +110,42 @@ export function useRealtimeVoice(): UseRealtimeVoiceReturn {
     localStreamRef.current = null;
 
     if (remoteAudioRef.current) {
-      remoteAudioRef.current.srcObject = null;
+      try {
+        remoteAudioRef.current.pause();
+        remoteAudioRef.current.srcObject = null;
+        if (remoteAudioRef.current.parentNode) {
+          remoteAudioRef.current.parentNode.removeChild(remoteAudioRef.current);
+        }
+      } catch {}
       remoteAudioRef.current = null;
     }
 
     setStatus('idle');
     setAudioLevel(0);
   }, []);
+
+  // Proactive check on mount to discover if Realtime Token endpoint is available
+  useEffect(() => {
+    let mounted = true;
+    fetch('/api/voice/realtime-token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ language: 'ja' }),
+    })
+      .then((res) => {
+        if (!res.ok && mounted) {
+          setAvailable(false);
+        }
+      })
+      .catch(() => {
+        if (mounted) setAvailable(false);
+      });
+
+    return () => {
+      mounted = false;
+      teardown();
+    };
+  }, [teardown]);
 
   // ── Handle incoming DataChannel events from OpenAI ──
   const handleDataChannelMessage = useCallback((event: MessageEvent) => {
@@ -208,9 +238,12 @@ export function useRealtimeVoice(): UseRealtimeVoiceReturn {
   }, [addMessage, responseText]);
 
   // ── Start the WebRTC realtime session ──
-  const startListening = useCallback(async () => {
-    if (sessionActiveRef.current) return;
-    if (!available) return;
+  const startListening = useCallback(async (): Promise<boolean> => {
+    if (sessionActiveRef.current) return true;
+    if (!available) return false;
+
+    // Ensure audio context and browser audio pipeline are unlocked on user gesture
+    unlockAudio();
 
     setErrorMessage(null);
     setTranscript('');
@@ -230,7 +263,7 @@ export function useRealtimeVoice(): UseRealtimeVoiceReturn {
         );
         setAvailable(false);
         teardown();
-        return;
+        return false;
       }
 
       const { ephemeralKey } = (await tokenRes.json()) as { ephemeralKey: string };
@@ -238,20 +271,35 @@ export function useRealtimeVoice(): UseRealtimeVoiceReturn {
         console.warn('[useRealtimeVoice] No ephemeralKey received. Falling back to standard voice pipeline.');
         setAvailable(false);
         teardown();
-        return;
+        return false;
       }
 
       // 2. Create RTCPeerConnection
       const pc = new RTCPeerConnection();
       pcRef.current = pc;
 
-      // 3. Remote audio → play through speakers
-      const remoteAudio = new Audio();
-      remoteAudio.autoplay = true;
-      remoteAudioRef.current = remoteAudio;
+      // 3. Remote audio → attach to DOM with playsinline and play through speakers
+      let remoteAudio = remoteAudioRef.current;
+      if (!remoteAudio) {
+        remoteAudio = document.createElement('audio');
+        remoteAudio.id = 'salomon-realtime-remote-audio';
+        remoteAudio.autoplay = true;
+        (remoteAudio as any).playsInline = true;
+        remoteAudio.setAttribute('playsinline', 'true');
+        remoteAudio.style.position = 'fixed';
+        remoteAudio.style.top = '-9999px';
+        remoteAudio.style.left = '-9999px';
+        document.body.appendChild(remoteAudio);
+        remoteAudioRef.current = remoteAudio;
+      }
 
       pc.ontrack = (e) => {
-        remoteAudio.srcObject = e.streams[0];
+        if (remoteAudioRef.current && e.streams[0]) {
+          remoteAudioRef.current.srcObject = e.streams[0];
+          remoteAudioRef.current.play().catch((err) => {
+            console.warn('[useRealtimeVoice] remoteAudio.play() error:', err);
+          });
+        }
       };
 
       // 4. Local microphone
@@ -315,25 +363,26 @@ export function useRealtimeVoice(): UseRealtimeVoiceReturn {
         console.warn(`[useRealtimeVoice] SDP exchange failed (${sdpRes.status}). Falling back to standard voice pipeline.`);
         setAvailable(false);
         teardown();
-        return;
+        return false;
       }
 
       const answerSdp = await sdpRes.text();
       await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
 
       // Connection established — the session is live
-      // VAD is server-side so we just stay in listening mode
-
       pc.onconnectionstatechange = () => {
         if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
           console.warn('[useRealtimeVoice] PeerConnection state:', pc.connectionState);
           teardown();
         }
       };
+
+      return true;
     } catch (err) {
       console.warn('[useRealtimeVoice] Session start error, falling back to standard voice pipeline:', err);
       setAvailable(false);
       teardown();
+      return false;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [language, available, teardown, handleDataChannelMessage]);

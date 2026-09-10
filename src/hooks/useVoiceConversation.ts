@@ -8,6 +8,8 @@ import { getCurrentSeason } from '@/lib/season';
 import { getTrailStatus } from '@/data/trailStatus';
 import { getFacilities } from '@/data/facilities';
 import { ROUTES } from '@/data/routes';
+import { unlockAudio } from '@/lib/audioUnlock';
+import type { WeatherData } from '@/types';
 
 export type VoiceStatus = 'idle' | 'listening' | 'thinking' | 'speaking';
 
@@ -114,39 +116,89 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         resolve();
         return;
       }
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = lang === 'en' ? 'en-US' : lang === 'zh' ? 'zh-CN' : 'ja-JP';
-      utterance.rate = 1.05;
-      utterance.pitch = 1.0;
 
-      let finished = false;
-      const finish = () => {
-        if (!finished) {
-          finished = true;
-          clearTimeout(watchdog);
-          clearInterval(keepAlive);
+      unlockAudio();
+
+      const targetLang = lang === 'en' ? 'en-US' : lang === 'zh' ? 'zh-CN' : 'ja-JP';
+
+      const performSpeak = () => {
+        try {
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.lang = targetLang;
+          utterance.rate = 1.0;
+          utterance.pitch = 1.0;
+          utterance.volume = 1.0;
+
+          // Select best matching voice for the target language
+          const voices = window.speechSynthesis.getVoices();
+          if (voices.length > 0) {
+            const langPrefix = lang === 'en' ? 'en' : lang === 'zh' ? 'zh' : 'ja';
+            const matchedVoice =
+              voices.find((v) => v.lang.toLowerCase() === targetLang.toLowerCase()) ||
+              voices.find((v) => v.lang.toLowerCase().replace('_', '-').startsWith(langPrefix)) ||
+              voices.find((v) => v.default);
+            if (matchedVoice) {
+              utterance.voice = matchedVoice;
+            }
+          }
+
+          let finished = false;
+          const finish = () => {
+            if (!finished) {
+              finished = true;
+              clearTimeout(watchdog);
+              clearInterval(keepAlive);
+              resolve();
+            }
+          };
+
+          utterance.onend = finish;
+          utterance.onerror = () => {
+            finish();
+          };
+
+          // Chrome speech synthesis watchdog: ensures Promise always resolves even if Chrome drops onend
+          const maxMs = Math.max(3000, Math.min(25000, text.length * 80 + 2000));
+          const watchdog = setTimeout(finish, maxMs);
+
+          // Keep-alive timer for Chrome speech synthesis
+          const keepAlive = setInterval(() => {
+            if (finished) {
+              clearInterval(keepAlive);
+            } else if (typeof window !== 'undefined' && window.speechSynthesis?.paused) {
+              window.speechSynthesis.resume();
+            }
+          }, 500);
+
+          if (window.speechSynthesis.paused) {
+            window.speechSynthesis.resume();
+          }
+
+          window.speechSynthesis.speak(utterance);
+        } catch (e) {
+          console.warn('[speakWithBrowserSynth] Execution failed:', e);
           resolve();
         }
       };
 
-      utterance.onend = finish;
-      utterance.onerror = finish;
-
-      // Chrome speech synthesis watchdog: ensures Promise always resolves even if Chrome drops onend
-      const maxMs = Math.max(3000, Math.min(25000, text.length * 80 + 2000));
-      const watchdog = setTimeout(finish, maxMs);
-
-      // Keep-alive timer for Chrome speech synthesis
-      const keepAlive = setInterval(() => {
-        if (finished) {
-          clearInterval(keepAlive);
-        } else if (typeof window !== 'undefined' && window.speechSynthesis?.paused) {
-          window.speechSynthesis.resume();
-        }
-      }, 800);
-
-      window.speechSynthesis.speak(utterance);
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length === 0 && 'onvoiceschanged' in window.speechSynthesis) {
+        let invoked = false;
+        window.speechSynthesis.onvoiceschanged = () => {
+          if (!invoked) {
+            invoked = true;
+            performSpeak();
+          }
+        };
+        setTimeout(() => {
+          if (!invoked) {
+            invoked = true;
+            performSpeak();
+          }
+        }, 150);
+      } else {
+        performSpeak();
+      }
     });
   }, []);
 
@@ -167,6 +219,8 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         const blob = await res.blob();
         const audioUrl = URL.createObjectURL(blob);
         const audio = new Audio(audioUrl);
+        (audio as any).playsInline = true;
+        audio.setAttribute('playsinline', 'true');
         currentAudioRef.current = audio;
 
         await new Promise<void>((resolve) => {
@@ -302,14 +356,24 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       }
 
       // Step 2: Feed recognized text directly into LLM
-      if (!weather) return;
+      const activeWeather: WeatherData = weather || {
+        weather: '快晴',
+        weatherCode: 'sunny',
+        temp_c: 20,
+        rainProbability: 0,
+        precipitationMmh: 0,
+        windSpeed: 2.0,
+        uvIndex: 5,
+        visibility: 20,
+        updatedAt: new Date().toISOString(),
+      };
 
       const trailStatus = getTrailStatus(language);
       const facilities = getFacilities(language);
       const season = getCurrentSeason();
 
       const advice = await getAIAdvice(
-        weather,
+        activeWeather,
         targetRoute,
         targetRoute.difficulty || 'beginner',
         trailStatus,
@@ -320,7 +384,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
 
       const products = getRecommendedProducts(
         targetRoute.difficulty || 'beginner',
-        weather.weatherCode,
+        activeWeather.weatherCode,
         season,
         advice.recommended_gear,
         6,
@@ -367,6 +431,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
 
   const startListening = useCallback(async () => {
     if (statusRef.current === 'listening' || statusRef.current === 'speaking' || statusRef.current === 'thinking') return;
+    unlockAudio();
     setErrorMessage(null);
     setTranscript('');
     setResponseText('');
