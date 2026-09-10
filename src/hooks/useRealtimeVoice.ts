@@ -220,17 +220,22 @@ export function useRealtimeVoice(): UseRealtimeVoiceReturn {
         body: JSON.stringify({ language }),
       });
 
-      if (tokenRes.status === 503) {
-        // API key not configured — disable realtime permanently for this session
+      if (!tokenRes.ok) {
+        console.warn(
+          `[useRealtimeVoice] Realtime token endpoint returned ${tokenRes.status}. Gracefully falling back to standard voice pipeline.`
+        );
         setAvailable(false);
+        teardown();
         return;
       }
 
-      if (!tokenRes.ok) {
-        throw new Error(`Token fetch failed: ${tokenRes.status}`);
+      const { ephemeralKey } = (await tokenRes.json()) as { ephemeralKey: string };
+      if (!ephemeralKey) {
+        console.warn('[useRealtimeVoice] No ephemeralKey received. Falling back to standard voice pipeline.');
+        setAvailable(false);
+        teardown();
+        return;
       }
-
-      const { ephemeralKey } = await tokenRes.json() as { ephemeralKey: string };
 
       // 2. Create RTCPeerConnection
       const pc = new RTCPeerConnection();
@@ -268,7 +273,7 @@ export function useRealtimeVoice(): UseRealtimeVoiceReturn {
       };
       dc.onerror = (e) => {
         console.error('[useRealtimeVoice] DataChannel error:', e);
-        setErrorMessage('Connection error. Please try again.');
+        setAvailable(false);
         teardown();
       };
 
@@ -276,21 +281,37 @@ export function useRealtimeVoice(): UseRealtimeVoiceReturn {
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
-      const sdpRes = await fetch(
-        `https://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${ephemeralKey}`,
-            'Content-Type': 'application/sdp',
-          },
-          body: offer.sdp,
-          signal: AbortSignal.timeout(15_000),
-        }
-      );
+      // GA endpoint is /v1/realtime/calls, with fallback to /v1/realtime
+      let sdpRes = await fetch('https://api.openai.com/v1/realtime/calls', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${ephemeralKey}`,
+          'Content-Type': 'application/sdp',
+        },
+        body: offer.sdp,
+        signal: AbortSignal.timeout(15_000),
+      });
 
       if (!sdpRes.ok) {
-        throw new Error(`SDP exchange failed: ${sdpRes.status}`);
+        sdpRes = await fetch(
+          `https://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${ephemeralKey}`,
+              'Content-Type': 'application/sdp',
+            },
+            body: offer.sdp,
+            signal: AbortSignal.timeout(15_000),
+          }
+        );
+      }
+
+      if (!sdpRes.ok) {
+        console.warn(`[useRealtimeVoice] SDP exchange failed (${sdpRes.status}). Falling back to standard voice pipeline.`);
+        setAvailable(false);
+        teardown();
+        return;
       }
 
       const answerSdp = await sdpRes.text();
@@ -306,14 +327,8 @@ export function useRealtimeVoice(): UseRealtimeVoiceReturn {
         }
       };
     } catch (err) {
-      console.error('[useRealtimeVoice] Session start error:', err);
-      setErrorMessage(
-        language === 'en'
-          ? 'Voice AI connection failed. Please try again.'
-          : language === 'zh'
-          ? '语音AI连接失败，请重试。'
-          : '音声AI接続に失敗しました。もう一度お試しください。'
-      );
+      console.warn('[useRealtimeVoice] Session start error, falling back to standard voice pipeline:', err);
+      setAvailable(false);
       teardown();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps

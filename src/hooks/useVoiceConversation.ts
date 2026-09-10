@@ -24,7 +24,8 @@ export interface UseVoiceConversationReturn {
   speakText: (text: string) => Promise<void>;
 }
 
-export function useVoiceConversation(): UseVoiceConversationReturn {
+export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceConversationReturn {
+  const enabled = options?.enabled ?? true;
   const [status, setStatusState] = useState<VoiceStatus>('idle');
   const [transcript, setTranscript] = useState('');
   const [responseText, setResponseText] = useState('');
@@ -493,6 +494,10 @@ export function useVoiceConversation(): UseVoiceConversationReturn {
 
   // ── Auto-Start Continuous Hands-free Conversation on Mount or First Interaction ──
   useEffect(() => {
+    if (!enabled) {
+      cancelConversation();
+      return;
+    }
     autoLoopRef.current = true;
     let didInit = false;
 
@@ -522,7 +527,7 @@ export function useVoiceConversation(): UseVoiceConversationReturn {
       window.removeEventListener('pointerdown', handleFirstTouch);
       window.removeEventListener('keydown', handleFirstTouch);
     };
-  }, []);
+  }, [enabled, cancelConversation]);
 
   return {
     status,

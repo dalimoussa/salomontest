@@ -60,27 +60,30 @@ export async function POST(req: NextRequest) {
   const systemPrompt = buildSystemPrompt(language);
 
   try {
-    const res = await fetch('https://api.openai.com/v1/realtime/sessions', {
+    const res = await fetch('https://api.openai.com/v1/realtime/client_secrets', {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-realtime-preview-2024-12-17',
-        modalities: ['audio', 'text'],
-        instructions: systemPrompt,
-        voice: 'alloy',
-        input_audio_format: 'pcm16',
-        output_audio_format: 'pcm16',
-        input_audio_transcription: { model: 'whisper-1' },
-        turn_detection: {
-          type: 'server_vad',
-          threshold: 0.5,
-          prefix_padding_ms: 300,
-          silence_duration_ms: 600,
+        session: {
+          type: 'realtime',
+          model: 'gpt-4o-realtime-preview-2024-12-17',
+          modalities: ['audio', 'text'],
+          instructions: systemPrompt,
+          voice: 'alloy',
+          input_audio_format: 'pcm16',
+          output_audio_format: 'pcm16',
+          input_audio_transcription: { model: 'whisper-1' },
+          turn_detection: {
+            type: 'server_vad',
+            threshold: 0.5,
+            prefix_padding_ms: 300,
+            silence_duration_ms: 600,
+          },
+          temperature: 0.8,
         },
-        temperature: 0.8,
       }),
       signal: AbortSignal.timeout(10_000),
     });
@@ -89,23 +92,37 @@ export async function POST(req: NextRequest) {
       const errText = await res.text().catch(() => '');
       console.error('[realtime-token] OpenAI session create error:', res.status, errText);
       return NextResponse.json(
-        { error: 'openai_error', status: res.status },
+        { error: 'openai_error', status: res.status, message: errText },
         { status: 502 }
       );
     }
 
-    const session = await res.json() as {
-      id: string;
-      client_secret: { value: string; expires_at: number };
-    };
+    const data = (await res.json()) as any;
+    const ephemeralKey = data.client_secret?.value || data.value;
+    const expiresAt =
+      data.client_secret?.expires_at ||
+      data.expires_at ||
+      Math.floor(Date.now() / 1000) + 60;
+    const sessionId = data.session?.id || data.id || '';
+
+    if (!ephemeralKey) {
+      console.error('[realtime-token] No client_secret in OpenAI response:', data);
+      return NextResponse.json(
+        { error: 'no_secret_in_response' },
+        { status: 502 }
+      );
+    }
 
     return NextResponse.json({
-      ephemeralKey: session.client_secret.value,
-      expiresAt: session.client_secret.expires_at,
-      sessionId: session.id,
+      ephemeralKey,
+      expiresAt,
+      sessionId,
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error('[realtime-token] Error:', err);
-    return NextResponse.json({ error: 'internal_error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'internal_error', message: err?.message || String(err) },
+      { status: 500 }
+    );
   }
 }

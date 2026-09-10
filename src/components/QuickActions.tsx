@@ -27,7 +27,7 @@ export function QuickActions() {
   // Fallback: Legacy record-based pipeline (useVoiceConversation) — used when
   //           the Realtime API is unavailable (no API key, older browser, etc.)
   const realtime  = useRealtimeVoice();
-  const legacy    = useVoiceConversation();
+  const legacy    = useVoiceConversation({ enabled: !realtime.available });
   const voice     = realtime.available ? realtime : legacy;
 
   const {
