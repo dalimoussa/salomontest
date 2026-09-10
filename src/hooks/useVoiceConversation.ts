@@ -119,8 +119,33 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       utterance.lang = lang === 'en' ? 'en-US' : lang === 'zh' ? 'zh-CN' : 'ja-JP';
       utterance.rate = 1.05;
       utterance.pitch = 1.0;
-      utterance.onend = () => resolve();
-      utterance.onerror = () => resolve();
+
+      let finished = false;
+      const finish = () => {
+        if (!finished) {
+          finished = true;
+          clearTimeout(watchdog);
+          clearInterval(keepAlive);
+          resolve();
+        }
+      };
+
+      utterance.onend = finish;
+      utterance.onerror = finish;
+
+      // Chrome speech synthesis watchdog: ensures Promise always resolves even if Chrome drops onend
+      const maxMs = Math.max(3000, Math.min(25000, text.length * 80 + 2000));
+      const watchdog = setTimeout(finish, maxMs);
+
+      // Keep-alive timer for Chrome speech synthesis
+      const keepAlive = setInterval(() => {
+        if (finished) {
+          clearInterval(keepAlive);
+        } else if (typeof window !== 'undefined' && window.speechSynthesis?.paused) {
+          window.speechSynthesis.resume();
+        }
+      }, 800);
+
       window.speechSynthesis.speak(utterance);
     });
   }, []);
@@ -145,20 +170,29 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         currentAudioRef.current = audio;
 
         await new Promise<void>((resolve) => {
-          audio.onended = () => {
-            URL.revokeObjectURL(audioUrl);
-            currentAudioRef.current = null;
-            resolve();
+          let resolved = false;
+          const finish = () => {
+            if (!resolved) {
+              resolved = true;
+              clearTimeout(watchdog);
+              URL.revokeObjectURL(audioUrl);
+              currentAudioRef.current = null;
+              resolve();
+            }
           };
+
+          audio.onended = finish;
           audio.onerror = async () => {
-            URL.revokeObjectURL(audioUrl);
-            currentAudioRef.current = null;
+            finish();
             await speakWithBrowserSynth(text, language);
-            resolve();
           };
+
+          // Audio playback safety watchdog
+          const watchdog = setTimeout(finish, 20000);
+
           audio.play().catch(async () => {
+            finish();
             await speakWithBrowserSynth(text, language);
-            resolve();
           });
         });
       } else {
@@ -168,17 +202,16 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       console.warn('OpenAI TTS call failed, falling back to browser speech:', e);
       await speakWithBrowserSynth(text, language);
     } finally {
-      // ── Real-time Hands-free Loop ──
-      // If hands-free mode is on, automatically re-listen for customer's next response!
+      // ── Always close response card and re-listen ──
+      setResponseText('');
+      setStatus('idle');
+
       if (autoLoopRef.current) {
-        setStatus('idle');
         setTimeout(() => {
           if (autoLoopRef.current && statusRef.current === 'idle') {
             startListeningRef.current?.().catch(() => {});
           }
-        }, 600);
-      } else {
-        setStatus('idle');
+        }, 500);
       }
     }
   }, [language, speakWithBrowserSynth]);
@@ -462,8 +495,6 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
   }, []);
 
   const cancelConversation = useCallback(() => {
-    autoLoopRef.current = false;
-    setIsHandsFree(false);
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = null;
@@ -490,6 +521,15 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     setTranscript('');
     setResponseText('');
     localTranscriptRef.current = '';
+
+    // Re-listen in hands-free mode
+    if (autoLoopRef.current) {
+      setTimeout(() => {
+        if (autoLoopRef.current && statusRef.current === 'idle') {
+          startListeningRef.current?.().catch(() => {});
+        }
+      }, 400);
+    }
   }, []);
 
   // ── Auto-Start Continuous Hands-free Conversation on Mount or First Interaction ──

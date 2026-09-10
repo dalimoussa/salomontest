@@ -123,10 +123,11 @@ export function useRealtimeVoice(): UseRealtimeVoiceReturn {
       const msg = JSON.parse(event.data as string) as Record<string, unknown>;
       const type = msg.type as string;
 
-      // User started speaking → show listening
+      // User started speaking → show listening and dismiss response card
       if (type === 'input_audio_buffer.speech_started') {
         setStatus('listening');
         setTranscript('');
+        setResponseText('');
       }
 
       // User stopped speaking → AI is now thinking/generating
@@ -181,7 +182,10 @@ export function useRealtimeVoice(): UseRealtimeVoiceReturn {
             timestamp: new Date(),
           });
         }
-        setResponseText('');
+        // Auto-close floating card after 4 seconds so it doesn't linger forever
+        setTimeout(() => {
+          setResponseText('');
+        }, 4000);
         // After AI finishes, go back to listening (VAD will auto-trigger)
         setStatus('listening');
       }
@@ -339,8 +343,18 @@ export function useRealtimeVoice(): UseRealtimeVoiceReturn {
   }, [teardown]);
 
   const cancelConversation = useCallback(() => {
-    teardown();
-  }, [teardown]);
+    setResponseText('');
+    setTranscript('');
+    if (dcRef.current?.readyState === 'open') {
+      try {
+        dcRef.current.send(JSON.stringify({ type: 'response.cancel' }));
+      } catch {}
+    }
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.pause();
+    }
+    setStatus('listening');
+  }, []);
 
   // speakText is a no-op in realtime mode — OpenAI handles TTS natively
   const speakText = useCallback(async (_text: string) => {}, []);
