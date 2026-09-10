@@ -129,38 +129,44 @@ export function WeatherEditor() {
   // Local draft state
   const [draft, setDraft] = useState<WeatherManualOverride>(weatherOverride);
   const [savedFeedback, setSavedFeedback] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // Keep draft in sync if external weatherOverride changes
   React.useEffect(() => {
     setDraft(weatherOverride);
+    setHasUnsavedChanges(false);
   }, [weatherOverride]);
 
   const handleApplyPreset = (presetData: Partial<WeatherManualOverride>) => {
-    const updated: WeatherManualOverride = {
-      ...draft,
+    setDraft((prev) => ({
+      ...prev,
       ...presetData,
-      enabled: true, // Automatically enable when a preset is chosen
-      updatedAt: new Date().toISOString(),
-    };
-    setDraft(updated);
-    setWeatherOverride(updated);
-    setSavedFeedback(true);
-    setTimeout(() => setSavedFeedback(false), 2500);
+      enabled: true, // Stage manual mode enabled
+    }));
+    setHasUnsavedChanges(true);
   };
 
   const handleSaveDraft = () => {
     setWeatherOverride({
       ...draft,
+      enabled: true,
       updatedAt: new Date().toISOString(),
     });
+    setHasUnsavedChanges(false);
     setSavedFeedback(true);
     setTimeout(() => setSavedFeedback(false), 2500);
   };
 
   const handleToggleMode = () => {
     const nextState = !draft.enabled;
-    setDraft((prev) => ({ ...prev, enabled: nextState }));
-    toggleWeatherOverride(nextState);
+    const updated = {
+      ...draft,
+      enabled: nextState,
+      updatedAt: new Date().toISOString(),
+    };
+    setDraft(updated);
+    setWeatherOverride(updated);
+    setHasUnsavedChanges(false);
     setSavedFeedback(true);
     setTimeout(() => setSavedFeedback(false), 2500);
   };
@@ -229,27 +235,50 @@ export function WeatherEditor() {
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
             <span>ワンクリック天候プリセット</span>
           </span>
-          <span className="text-[11px] text-slate-500">クリックですぐに手動適用</span>
+          <span className="text-[11px] text-cyan-300/80 font-medium">
+            ※ 選択後、下の「手動天気を保存・キオスクへ反映」を押して適用
+          </span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-          {PRESETS.map((preset) => (
-            <button
-              key={preset.id}
-              onClick={() => handleApplyPreset(preset.data)}
-              className={`p-3 rounded-xl border text-left flex flex-col justify-between gap-2 transition-all active:scale-[0.98] ${preset.color}`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold">{preset.name}</span>
-                <preset.icon className="w-4 h-4" />
-              </div>
-              <div className="text-[11px] opacity-80 flex items-center gap-2">
-                <span>{preset.data.temp_c}°C</span>
-                <span>•</span>
-                <span>雨量 {preset.data.precipitationMmh} mm/h</span>
-              </div>
-            </button>
-          ))}
+          {PRESETS.map((preset) => {
+            const isSelected =
+              draft.weatherCode === preset.data.weatherCode &&
+              draft.precipitationMmh === preset.data.precipitationMmh &&
+              draft.temp_c === preset.data.temp_c;
+
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                onClick={() => handleApplyPreset(preset.data)}
+                className={`p-3 rounded-xl border text-left flex flex-col justify-between gap-2 transition-all active:scale-[0.98] ${
+                  preset.color
+                } ${
+                  isSelected
+                    ? 'ring-2 ring-salomon-cyan shadow-glow-cyan bg-cyan-500/25 border-cyan-400'
+                    : 'opacity-85 hover:opacity-100'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold flex items-center gap-1.5">
+                    {preset.name}
+                    {isSelected && (
+                      <span className="px-1.5 py-0.2 rounded text-[9px] bg-cyan-400 text-black font-black">
+                        選択中
+                      </span>
+                    )}
+                  </span>
+                  <preset.icon className="w-4 h-4" />
+                </div>
+                <div className="text-[11px] opacity-80 flex items-center gap-2">
+                  <span>{preset.data.temp_c}°C</span>
+                  <span>•</span>
+                  <span>雨量 {preset.data.precipitationMmh} mm/h</span>
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -260,11 +289,6 @@ export function WeatherEditor() {
             <Sliders className="w-4 h-4 text-cyan-400" />
             <h3 className="text-sm font-bold text-white">詳細パラメータ手動調整</h3>
           </div>
-          {savedFeedback && (
-            <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-400 animate-fadeIn">
-              <Check className="w-3.5 h-3.5" /> 保存しました
-            </span>
-          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -273,12 +297,13 @@ export function WeatherEditor() {
             <label className="text-xs font-semibold text-slate-300">天候種別 (Weather Code)</label>
             <select
               value={draft.weatherCode}
-              onChange={(e) =>
+              onChange={(e) => {
                 setDraft((prev) => ({
                   ...prev,
                   weatherCode: e.target.value as WeatherCode,
-                }))
-              }
+                }));
+                setHasUnsavedChanges(true);
+              }}
               className="w-full px-3 py-2 rounded-xl bg-black/60 border border-white/20 text-white text-xs focus:border-cyan-400 outline-none"
             >
               <option value="sunny">☀️ 晴れ / 快晴 (sunny)</option>
@@ -295,7 +320,10 @@ export function WeatherEditor() {
             <input
               type="text"
               value={draft.weather}
-              onChange={(e) => setDraft((prev) => ({ ...prev, weather: e.target.value }))}
+              onChange={(e) => {
+                setDraft((prev) => ({ ...prev, weather: e.target.value }));
+                setHasUnsavedChanges(true);
+              }}
               placeholder="例: 快晴、にわか雨、大雨注意報"
               className="w-full px-3 py-2 rounded-xl bg-black/60 border border-white/20 text-white text-xs focus:border-cyan-400 outline-none"
             />
@@ -313,7 +341,10 @@ export function WeatherEditor() {
               max="40"
               step="1"
               value={draft.temp_c}
-              onChange={(e) => setDraft((prev) => ({ ...prev, temp_c: Number(e.target.value) }))}
+              onChange={(e) => {
+                setDraft((prev) => ({ ...prev, temp_c: Number(e.target.value) }));
+                setHasUnsavedChanges(true);
+              }}
               className="w-full accent-cyan-400"
             />
             <div className="flex justify-between text-[10px] text-slate-500">
@@ -335,7 +366,10 @@ export function WeatherEditor() {
               max="100"
               step="5"
               value={draft.rainProbability}
-              onChange={(e) => setDraft((prev) => ({ ...prev, rainProbability: Number(e.target.value) }))}
+              onChange={(e) => {
+                setDraft((prev) => ({ ...prev, rainProbability: Number(e.target.value) }));
+                setHasUnsavedChanges(true);
+              }}
               className="w-full accent-blue-400"
             />
             <div className="flex justify-between text-[10px] text-slate-500">
@@ -360,7 +394,10 @@ export function WeatherEditor() {
               max="40"
               step="0.5"
               value={draft.precipitationMmh}
-              onChange={(e) => setDraft((prev) => ({ ...prev, precipitationMmh: Number(e.target.value) }))}
+              onChange={(e) => {
+                setDraft((prev) => ({ ...prev, precipitationMmh: Number(e.target.value) }));
+                setHasUnsavedChanges(true);
+              }}
               className="w-full accent-blue-400"
             />
             <div className="flex justify-between text-[10px] text-slate-400 pt-1">
@@ -383,7 +420,10 @@ export function WeatherEditor() {
               max="25"
               step="0.5"
               value={draft.windSpeed}
-              onChange={(e) => setDraft((prev) => ({ ...prev, windSpeed: Number(e.target.value) }))}
+              onChange={(e) => {
+                setDraft((prev) => ({ ...prev, windSpeed: Number(e.target.value) }));
+                setHasUnsavedChanges(true);
+              }}
               className="w-full accent-cyan-400"
             />
           </div>
@@ -400,7 +440,10 @@ export function WeatherEditor() {
               max="12"
               step="1"
               value={draft.uvIndex}
-              onChange={(e) => setDraft((prev) => ({ ...prev, uvIndex: Number(e.target.value) }))}
+              onChange={(e) => {
+                setDraft((prev) => ({ ...prev, uvIndex: Number(e.target.value) }));
+                setHasUnsavedChanges(true);
+              }}
               className="w-full accent-amber-400"
             />
           </div>
@@ -414,7 +457,10 @@ export function WeatherEditor() {
             <input
               type="text"
               value={draft.customNotice || ''}
-              onChange={(e) => setDraft((prev) => ({ ...prev, customNotice: e.target.value }))}
+              onChange={(e) => {
+                setDraft((prev) => ({ ...prev, customNotice: e.target.value }));
+                setHasUnsavedChanges(true);
+              }}
               placeholder="例: 午後から急な雷雨の予報。山頂付近では早めの下山をご案内ください。"
               className="w-full px-3 py-2 rounded-xl bg-black/60 border border-white/20 text-white text-xs focus:border-cyan-400 outline-none"
             />
@@ -422,10 +468,12 @@ export function WeatherEditor() {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center justify-between pt-3 border-t border-white/10">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-white/10">
           <button
             onClick={() => {
               resetWeatherOverride();
+              setDraft(weatherOverride);
+              setHasUnsavedChanges(false);
               setSavedFeedback(true);
               setTimeout(() => setSavedFeedback(false), 2000);
             }}
@@ -435,13 +483,31 @@ export function WeatherEditor() {
             <span>初期状態に戻す</span>
           </button>
 
-          <button
-            onClick={handleSaveDraft}
-            className="px-5 py-2.5 rounded-xl font-bold text-xs text-salomon-black bg-salomon-cyan hover:bg-salomon-cyan/90 shadow-glow-cyan flex items-center gap-2 transition-all active:scale-[0.98]"
-          >
-            <Save className="w-4 h-4" />
-            <span>手動天気を保存・キオスクへ反映</span>
-          </button>
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+            {hasUnsavedChanges && (
+              <span className="text-[11px] text-amber-300 font-semibold flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/30 px-2.5 py-1 rounded-lg animate-pulse">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                <span>未反映の変更あり</span>
+              </span>
+            )}
+            {savedFeedback && (
+              <span className="text-[11px] text-emerald-300 font-semibold flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 rounded-lg">
+                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                <span>キオスク画面へ反映しました</span>
+              </span>
+            )}
+            <button
+              onClick={handleSaveDraft}
+              className={`px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all active:scale-[0.98] ${
+                hasUnsavedChanges
+                  ? 'text-salomon-black bg-salomon-cyan hover:bg-cyan-300 shadow-glow-cyan ring-2 ring-cyan-400'
+                  : 'text-salomon-black bg-salomon-cyan hover:bg-salomon-cyan/90 shadow-glow-cyan'
+              }`}
+            >
+              <Save className="w-4 h-4" />
+              <span>手動天気を保存・キオスクへ反映</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
