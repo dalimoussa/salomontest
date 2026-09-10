@@ -132,8 +132,13 @@ export function useRealtimeVoice(): UseRealtimeVoiceReturn {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ language: 'ja' }),
     })
-      .then((res) => {
+      .then(async (res) => {
         if (!res.ok && mounted) {
+          setAvailable(false);
+          return;
+        }
+        const data = await res.json().catch(() => ({}));
+        if (mounted && (data.available === false || !data.ephemeralKey)) {
           setAvailable(false);
         }
       })
@@ -285,13 +290,17 @@ export function useRealtimeVoice(): UseRealtimeVoiceReturn {
         return false;
       }
 
-      const { ephemeralKey } = (await tokenRes.json()) as { ephemeralKey: string };
-      if (!ephemeralKey) {
-        console.warn('[useRealtimeVoice] No ephemeralKey received. Falling back to standard voice pipeline.');
+      const tokenData = (await tokenRes.json().catch(() => ({}))) as {
+        ephemeralKey?: string;
+        available?: boolean;
+      };
+
+      if (!tokenData.ephemeralKey || tokenData.available === false) {
         setAvailable(false);
         teardown();
         return false;
       }
+      const ephemeralKey = tokenData.ephemeralKey;
 
       // 2. Create RTCPeerConnection
       const pc = new RTCPeerConnection();

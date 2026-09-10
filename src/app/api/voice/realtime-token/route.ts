@@ -98,8 +98,8 @@ export async function POST(req: NextRequest) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
-      { error: 'no_api_key', message: 'OPENAI_API_KEY not configured' },
-      { status: 503 }
+      { available: false, mode: 'browser_native', message: 'Browser-Native Voice Mode active (no OpenAI key)' },
+      { status: 200 }
     );
   }
 

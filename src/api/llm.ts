@@ -104,7 +104,7 @@ export async function getAIAdvice(
   return buildFallbackAdvice(weather, effectiveRoute, effectiveLevel, userQuery, language);
 }
 
-function buildFallbackAdvice(
+export function buildFallbackAdvice(
   weather: WeatherData,
   route: Route,
   userLevel: Difficulty,

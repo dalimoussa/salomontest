@@ -1,18 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { AdviceResponse } from '@/types';
 import { getSystemPrompt, buildUserPrompt, type AIContext } from '@/lib/prompts';
+import { buildFallbackAdvice } from '@/api/llm';
 
 export async function POST(req: NextRequest) {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json({ error: 'no_api_key' }, { status: 503 });
-  }
-
   let ctx: AIContext;
   try {
     ctx = await req.json() as AIContext;
   } catch {
     return NextResponse.json({ error: 'invalid_request_body' }, { status: 400 });
+  }
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    // Offline / zero-key mode: return local mountain knowledge advice with 200 OK
+    const fallback = buildFallbackAdvice(
+      ctx.weather,
+      ctx.route,
+      ctx.userLevel,
+      ctx.userQuery,
+      ctx.language || 'ja'
+    );
+    return NextResponse.json(fallback, { status: 200 });
   }
 
   const systemPrompt = getSystemPrompt(ctx.language || 'ja');

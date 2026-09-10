@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(req: NextRequest) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    return NextResponse.json({ error: 'no_api_key' }, { status: 503 });
+    return NextResponse.json({ fallback: true, mode: 'browser_synth' }, { status: 200 });
   }
 
   try {

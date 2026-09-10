@@ -212,7 +212,8 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         body: JSON.stringify({ text, language, voice: 'alloy' }),
       });
 
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('audio')) {
         const blob = await res.blob();
         const audioUrl = URL.createObjectURL(blob);
         const audio = new Audio(audioUrl);
