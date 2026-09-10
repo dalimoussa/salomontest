@@ -345,6 +345,31 @@ export function useRealtimeVoice(): UseRealtimeVoiceReturn {
   // speakText is a no-op in realtime mode — OpenAI handles TTS natively
   const speakText = useCallback(async (_text: string) => {}, []);
 
+  // Dynamically update OpenAI instructions when user switches language in the UI
+  useEffect(() => {
+    if (sessionActiveRef.current && dcRef.current && dcRef.current.readyState === 'open') {
+      const prompt =
+        language === 'en'
+          ? 'You are "Yamamori" (Mountain Guardian), the Salomon Mt. Takao Store AI Mountain Concierge. CRITICAL: The user has selected ENGLISH. You MUST ALWAYS speak and reply strictly in fluent, natural English. Do NOT speak Japanese or Chinese under any circumstances.'
+          : language === 'zh'
+          ? '你是“山守”，萨洛蒙高尾山专营店的AI山野向导。【最重要规则】顾客已切换为中文。你必须始终使用规范自然的简体中文进行回复，严禁使用日语或英语回答。'
+          : 'あなたは「山守（やまもり）」、サロモン高尾店のAIマウンテンコンシェルジュです。【最重要指示】お客様は日本語を選択しています。必ず自然で丁寧な日本語のみで発話・返答してください。英語や中国語などの他言語は話さないでください。';
+
+      try {
+        dcRef.current.send(
+          JSON.stringify({
+            type: 'session.update',
+            session: {
+              instructions: prompt,
+            },
+          })
+        );
+      } catch (e) {
+        console.warn('[useRealtimeVoice] Failed to update session language on channel:', e);
+      }
+    }
+  }, [language]);
+
   // Auto-start on mount (first interaction unlocks autoplay)
   useEffect(() => {
     const handleFirstInteraction = () => {
