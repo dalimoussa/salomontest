@@ -248,6 +248,7 @@ export function useRealtimeVoice(): UseRealtimeVoiceReturn {
       if (type === 'response.cancelled') {
         setStatus('listening');
         setResponseText('');
+        setTranscript('');
         if (remoteAudioRef.current) {
           try {
             remoteAudioRef.current.pause();

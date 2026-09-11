@@ -6,7 +6,7 @@ import {
   Droplets, Zap, AlertTriangle, Check, RotateCcw,
   Sparkles, Sliders, Info, Eye, Save
 } from 'lucide-react';
-import { useAdminStore } from '@/store/useAdminStore';
+import { useAdminStore, DEFAULT_WEATHER_OVERRIDE } from '@/store/useAdminStore';
 import type { WeatherCode, WeatherManualOverride } from '@/types';
 
 const PRESETS: {
@@ -149,7 +149,6 @@ export function WeatherEditor() {
   const handleSaveDraft = () => {
     setWeatherOverride({
       ...draft,
-      enabled: true,
       updatedAt: new Date().toISOString(),
     });
     setHasUnsavedChanges(false);
@@ -158,17 +157,16 @@ export function WeatherEditor() {
   };
 
   const handleToggleMode = () => {
-    const nextState = !draft.enabled;
-    const updated = {
-      ...draft,
-      enabled: nextState,
-      updatedAt: new Date().toISOString(),
-    };
-    setDraft(updated);
-    setWeatherOverride(updated);
-    setHasUnsavedChanges(false);
-    setSavedFeedback(true);
-    setTimeout(() => setSavedFeedback(false), 2500);
+    setDraft((prev) => ({
+      ...prev,
+      enabled: !prev.enabled,
+    }));
+    setHasUnsavedChanges(true);
+  };
+
+  const handleResetDraft = () => {
+    setDraft({ ...DEFAULT_WEATHER_OVERRIDE });
+    setHasUnsavedChanges(true);
   };
 
   return (
@@ -470,13 +468,7 @@ export function WeatherEditor() {
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-white/10">
           <button
-            onClick={() => {
-              resetWeatherOverride();
-              setDraft(weatherOverride);
-              setHasUnsavedChanges(false);
-              setSavedFeedback(true);
-              setTimeout(() => setSavedFeedback(false), 2000);
-            }}
+            onClick={handleResetDraft}
             className="px-3.5 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 flex items-center gap-1.5 transition-colors"
           >
             <RotateCcw className="w-3.5 h-3.5" />
@@ -485,13 +477,13 @@ export function WeatherEditor() {
 
           <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
             {hasUnsavedChanges && (
-              <span className="text-[11px] text-amber-300 font-semibold flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/30 px-2.5 py-1 rounded-lg animate-pulse">
+              <span className="text-[11px] text-amber-300 font-semibold flex items-center gap-1.5 bg-amber-500/15 border border-amber-500/40 px-3 py-1.5 rounded-xl animate-pulse">
                 <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-                <span>未反映の変更あり</span>
+                <span>未反映の変更あり（ボタンを押して保存）</span>
               </span>
             )}
             {savedFeedback && (
-              <span className="text-[11px] text-emerald-300 font-semibold flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 rounded-lg">
+              <span className="text-[11px] text-emerald-300 font-semibold flex items-center gap-1.5 bg-emerald-500/15 border border-emerald-500/40 px-3 py-1.5 rounded-xl">
                 <Check className="w-3.5 h-3.5 text-emerald-400" />
                 <span>キオスク画面へ反映しました</span>
               </span>
@@ -500,7 +492,7 @@ export function WeatherEditor() {
               onClick={handleSaveDraft}
               className={`px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all active:scale-[0.98] ${
                 hasUnsavedChanges
-                  ? 'text-salomon-black bg-salomon-cyan hover:bg-cyan-300 shadow-glow-cyan ring-2 ring-cyan-400'
+                  ? 'text-salomon-black bg-salomon-cyan hover:bg-cyan-300 shadow-glow-cyan ring-2 ring-cyan-300 animate-pulse'
                   : 'text-salomon-black bg-salomon-cyan hover:bg-salomon-cyan/90 shadow-glow-cyan'
               }`}
             >

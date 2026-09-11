@@ -60,6 +60,13 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
   const localTranscriptRef = useRef<string>('');
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Turn management and interruption refs
+  const resultStartIndexRef = useRef<number>(0);
+  const recognitionResultCountRef = useRef<number>(0);
+  const abortSpeakingRef = useRef<(() => void) | null>(null);
+  const interruptedRef = useRef<boolean>(false);
+  const generationIdRef = useRef<number>(0);
+
   const stopSpeechRecognition = useCallback(() => {
     if (recognitionRef.current) {
       try {
@@ -70,6 +77,31 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       } catch {}
       recognitionRef.current = null;
     }
+    resultStartIndexRef.current = 0;
+    recognitionResultCountRef.current = 0;
+  }, []);
+
+  const abortSpeaking = useCallback(() => {
+    if (abortSpeakingRef.current) {
+      try {
+        abortSpeakingRef.current();
+      } catch {}
+      abortSpeakingRef.current = null;
+    }
+    if (currentAudioRef.current) {
+      try {
+        currentAudioRef.current.pause();
+        currentAudioRef.current.currentTime = 0;
+        currentAudioRef.current.src = '';
+      } catch {}
+      currentAudioRef.current = null;
+    }
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch {}
+    }
+    setResponseText('');
   }, []);
 
   const streamRef = useRef<MediaStream | null>(null);
@@ -136,6 +168,22 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
 
       const targetLang = lang === 'en' ? 'en-US' : lang === 'zh' ? 'zh-CN' : 'ja-JP';
 
+      let finished = false;
+      let watchdog: NodeJS.Timeout | null = null;
+      let keepAlive: NodeJS.Timeout | null = null;
+
+      const finish = () => {
+        if (!finished) {
+          finished = true;
+          if (watchdog) clearTimeout(watchdog);
+          if (keepAlive) clearInterval(keepAlive);
+          abortSpeakingRef.current = null;
+          resolve();
+        }
+      };
+
+      abortSpeakingRef.current = finish;
+
       const performSpeak = () => {
         try {
           const utterance = new SpeechSynthesisUtterance(text);
@@ -157,16 +205,6 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
             }
           }
 
-          let finished = false;
-          const finish = () => {
-            if (!finished) {
-              finished = true;
-              clearTimeout(watchdog);
-              clearInterval(keepAlive);
-              resolve();
-            }
-          };
-
           utterance.onend = finish;
           utterance.onerror = () => {
             finish();
@@ -174,12 +212,12 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
 
           // Chrome speech synthesis watchdog: ensures Promise always resolves even if Chrome drops onend
           const maxMs = Math.max(3000, Math.min(25000, text.length * 80 + 2000));
-          const watchdog = setTimeout(finish, maxMs);
+          watchdog = setTimeout(finish, maxMs);
 
           // Keep-alive timer for Chrome speech synthesis
-          const keepAlive = setInterval(() => {
+          keepAlive = setInterval(() => {
             if (finished) {
-              clearInterval(keepAlive);
+              if (keepAlive) clearInterval(keepAlive);
             } else if (typeof window !== 'undefined' && window.speechSynthesis?.paused) {
               window.speechSynthesis.resume();
             }
@@ -192,7 +230,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
           window.speechSynthesis.speak(utterance);
         } catch (e) {
           console.warn('[speakWithBrowserSynth] Execution failed:', e);
-          resolve();
+          finish();
         }
       };
 
@@ -222,6 +260,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     if (!text || text.trim() === '') return;
     setStatus('speaking');
     setResponseText(text);
+    interruptedRef.current = false;
 
     try {
       const res = await fetch('/api/voice/tts', {
@@ -230,9 +269,18 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         body: JSON.stringify({ text, language, voice: 'alloy' }),
       });
 
+      // If user interrupted during network request
+      if (interruptedRef.current || statusRef.current !== 'speaking') {
+        return;
+      }
+
       const contentType = res.headers.get('content-type') || '';
       if (res.ok && contentType.includes('audio')) {
         const blob = await res.blob();
+        if (interruptedRef.current || statusRef.current !== 'speaking') {
+          return;
+        }
+
         const audioUrl = URL.createObjectURL(blob);
         const audio = new Audio(audioUrl);
         (audio as any).playsInline = true;
@@ -241,84 +289,61 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
 
         await new Promise<void>((resolve) => {
           let resolved = false;
+          let watchdog: NodeJS.Timeout | null = null;
           const finish = () => {
             if (!resolved) {
               resolved = true;
-              clearTimeout(watchdog);
+              if (watchdog) clearTimeout(watchdog);
               URL.revokeObjectURL(audioUrl);
               currentAudioRef.current = null;
+              abortSpeakingRef.current = null;
               resolve();
             }
           };
 
+          abortSpeakingRef.current = finish;
+
           audio.onended = finish;
           audio.onerror = async () => {
             finish();
-            await speakWithBrowserSynth(text, language);
+            if (!interruptedRef.current) {
+              await speakWithBrowserSynth(text, language);
+            }
           };
 
           // Audio playback safety watchdog
-          const watchdog = setTimeout(finish, 20000);
+          watchdog = setTimeout(finish, 20000);
 
           audio.play().catch(async () => {
             finish();
-            await speakWithBrowserSynth(text, language);
+            if (!interruptedRef.current) {
+              await speakWithBrowserSynth(text, language);
+            }
           });
         });
       } else {
-        await speakWithBrowserSynth(text, language);
+        if (!interruptedRef.current) {
+          await speakWithBrowserSynth(text, language);
+        }
       }
     } catch (e) {
       console.warn('OpenAI TTS call failed, falling back to browser speech:', e);
-      await speakWithBrowserSynth(text, language);
+      if (!interruptedRef.current) {
+        await speakWithBrowserSynth(text, language);
+      }
     } finally {
-      // ── Always close response card and re-listen ──
+      abortSpeakingRef.current = null;
       setResponseText('');
-      setStatus('idle');
 
-      if (autoLoopRef.current) {
-        setTimeout(() => {
-          if (autoLoopRef.current && statusRef.current === 'idle') {
-            startListeningRef.current?.().catch(() => {});
-          }
-        }, 300);
-      }
-    }
-  }, [language, speakWithBrowserSynth]);
-
-  // Process user audio through STT -> LLM -> TTS pipeline
-  const processRecordedAudio = async (audioBlob: Blob) => {
-    setStatus('thinking');
-    setErrorMessage(null);
-    setIsGenerating(true);
-
-    try {
-      // Step 1: Speech recognition (prioritize instant live transcript, fallback to Whisper)
-      let recognizedText = localTranscriptRef.current?.trim() || '';
-
-      if (!recognizedText && audioBlob.size > 1000) {
-        try {
-          const formData = new FormData();
-          formData.append('file', audioBlob, 'speech.webm');
-          formData.append('language', language);
-
-          const sttRes = await fetch('/api/voice/stt', {
-            method: 'POST',
-            body: formData,
-          });
-
-          if (sttRes.ok) {
-            const data = (await sttRes.json()) as { text?: string };
-            recognizedText = data.text?.trim() || '';
-          }
-        } catch (e) {
-          console.warn('Whisper STT fallback failed:', e);
-        }
-      }
-
-      if (!recognizedText) {
-        // Did not catch speech — silently resume listening
+      // If user interrupted AI during speech, do NOT revert status to idle
+      // and do not trigger a delayed startListening that wipes out the new in-progress prompt!
+      if (interruptedRef.current) {
+        interruptedRef.current = false;
+      } else {
         setStatus('idle');
+        setTranscript('');
+        localTranscriptRef.current = '';
+
         if (autoLoopRef.current) {
           setTimeout(() => {
             if (autoLoopRef.current && statusRef.current === 'idle') {
@@ -326,12 +351,108 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
             }
           }, 300);
         }
-        return;
+      }
+    }
+  }, [language, speakWithBrowserSynth]);
+
+  // Ensure MediaRecorder is active so user speech audio can be captured
+  const ensureMediaRecorderActive = useCallback(async () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      return;
+    }
+    try {
+      let stream = streamRef.current;
+      if (!stream || !stream.active) {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+        });
+        streamRef.current = stream;
       }
 
-      setTranscript(recognizedText);
+      audioChunksRef.current = [];
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : undefined,
+      });
 
-      // ── Synchronize Real UI Actions Based on Voice Intent ──
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        stopLevelMeter();
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const text = localTranscriptRef.current.trim();
+        setTimeout(() => {
+          processRecordedAudio(audioBlob, text);
+        }, 80);
+      };
+
+      mediaRecorderRef.current = mediaRecorder;
+      startLevelMeter(stream);
+      mediaRecorder.start(250);
+    } catch (e) {
+      console.warn('ensureMediaRecorderActive error:', e);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Process user audio through STT -> LLM -> TTS pipeline
+  const processRecordedAudio = async (audioBlob?: Blob | null, directText?: string) => {
+    // Determine recognized text: prefer directText, then localTranscriptRef, then Whisper
+    let recognizedText = directText?.trim() || localTranscriptRef.current?.trim() || '';
+
+    // Mark current Web Speech Recognition results as consumed so the NEXT turn starts completely clean!
+    resultStartIndexRef.current = recognitionResultCountRef.current;
+    localTranscriptRef.current = '';
+
+    if (!recognizedText && audioBlob && audioBlob.size > 1000) {
+      try {
+        const formData = new FormData();
+        formData.append('file', audioBlob, 'speech.webm');
+        formData.append('language', language);
+
+        const sttRes = await fetch('/api/voice/stt', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (sttRes.ok) {
+          const data = (await sttRes.json()) as { text?: string };
+          recognizedText = data.text?.trim() || '';
+        }
+      } catch (e) {
+        console.warn('Whisper STT fallback failed:', e);
+      }
+    }
+
+    if (!recognizedText) {
+      // Did not catch speech — silently resume listening
+      setStatus('idle');
+      setTranscript('');
+      if (autoLoopRef.current) {
+        setTimeout(() => {
+          if (autoLoopRef.current && statusRef.current === 'idle') {
+            startListeningRef.current?.().catch(() => {});
+          }
+        }, 300);
+      }
+      return;
+    }
+
+    const currentGenId = ++generationIdRef.current;
+    setTranscript(recognizedText);
+    setStatus('thinking');
+    setErrorMessage(null);
+    setIsGenerating(true);
+
+    try {
+      // Step 1: Synchronize Real UI Actions Based on Voice Intent
       const q = recognizedText.toLowerCase();
       const matchedRoute = findRouteByVoiceQuery(recognizedText);
       let targetRoute = selectedRoute || ROUTES[0];
@@ -398,6 +519,12 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         language
       );
 
+      // If user interrupted while LLM was processing, discard obsolete answer
+      if (generationIdRef.current !== currentGenId || interruptedRef.current) {
+        console.log('[useVoiceConversation] Stale response discarded due to barge-in');
+        return;
+      }
+
       const products = getRecommendedProducts(
         targetRoute.difficulty || 'beginner',
         activeWeather.weatherCode,
@@ -459,6 +586,29 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     }
   };
 
+  // Safely commit user speech once silence is detected
+  const commitCurrentSpeech = useCallback(() => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+
+    const textToProcess = localTranscriptRef.current.trim();
+    if (!textToProcess) return;
+
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      try {
+        mediaRecorderRef.current.stop();
+        mediaRecorderRef.current = null;
+      } catch {
+        processRecordedAudio(null, textToProcess);
+      }
+    } else {
+      processRecordedAudio(null, textToProcess);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const startListening = useCallback(async () => {
     if (statusRef.current === 'thinking') return;
     if (statusRef.current === 'listening' && mediaRecorderRef.current?.state === 'recording') return;
@@ -467,6 +617,10 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     setErrorMessage(null);
     setTranscript('');
     localTranscriptRef.current = '';
+    interruptedRef.current = false;
+
+    // Fast-forward starting result index so any previous turn results in event.results are ignored!
+    resultStartIndexRef.current = recognitionResultCountRef.current;
 
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
@@ -492,27 +646,36 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
             recognition.lang = targetLang;
 
             recognition.onresult = (event: any) => {
+              recognitionResultCountRef.current = event.results.length;
+
+              // If recognition was restarted internally by browser, reset start index
+              if (event.results.length <= resultStartIndexRef.current) {
+                resultStartIndexRef.current = 0;
+              }
+
               let fullText = '';
               let isFinalChunk = false;
-              for (let i = 0; i < event.results.length; ++i) {
-                fullText += event.results[i][0].transcript;
+              for (let i = resultStartIndexRef.current; i < event.results.length; ++i) {
+                const chunk = event.results[i][0]?.transcript || '';
+                if (chunk) {
+                  if (fullText && !fullText.endsWith(' ') && !chunk.startsWith(' ') && language === 'en') {
+                    fullText += ' ';
+                  }
+                  fullText += chunk;
+                }
                 if (event.results[i].isFinal) isFinalChunk = true;
               }
               const clean = fullText.trim();
               if (!clean) return;
 
-              // ── BARGE-IN INTERRUPTION: If AI is speaking, user speech cuts it off immediately! ──
-              if (statusRef.current === 'speaking') {
-                console.log('[useVoiceConversation] User interrupted AI speech:', clean);
-                if (typeof window !== 'undefined' && window.speechSynthesis) {
-                  window.speechSynthesis.cancel();
-                }
-                if (currentAudioRef.current) {
-                  currentAudioRef.current.pause();
-                  currentAudioRef.current = null;
-                }
+              // ── BARGE-IN INTERRUPTION: If AI is speaking or thinking, user speech cuts it off immediately! ──
+              if (statusRef.current === 'speaking' || statusRef.current === 'thinking') {
+                console.log('[useVoiceConversation] User interrupted AI with new query:', clean);
+                interruptedRef.current = true;
+                abortSpeaking();
                 setResponseText('');
                 setStatus('listening');
+                ensureMediaRecorderActive();
               }
 
               localTranscriptRef.current = clean;
@@ -522,10 +685,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
               const commitDelay = isFinalChunk ? 600 : 800;
               if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
               silenceTimerRef.current = setTimeout(() => {
-                if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-                  mediaRecorderRef.current.stop();
-                  mediaRecorderRef.current = null;
-                }
+                commitCurrentSpeech();
               }, commitDelay);
             };
 
@@ -585,8 +745,9 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       mediaRecorder.onstop = () => {
         stopLevelMeter();
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const text = localTranscriptRef.current.trim();
         setTimeout(() => {
-          processRecordedAudio(audioBlob);
+          processRecordedAudio(audioBlob, text);
         }, 80);
       };
 
@@ -599,7 +760,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       setStatus('idle');
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [language, selectedRoute, weather, selectedDifficulty, stopSpeechRecognition]);
+  }, [language, selectedRoute, weather, selectedDifficulty, stopSpeechRecognition, abortSpeaking, commitCurrentSpeech, ensureMediaRecorderActive]);
 
   startListeningRef.current = startListening;
 
@@ -620,27 +781,26 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = null;
     }
+    abortSpeaking();
     stopSpeechRecognition();
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-      mediaRecorderRef.current.stop();
+      try {
+        mediaRecorderRef.current.stop();
+      } catch {}
       mediaRecorderRef.current = null;
     }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     }
-    if (currentAudioRef.current) {
-      currentAudioRef.current.pause();
-      currentAudioRef.current = null;
-    }
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-    }
     stopLevelMeter();
     setStatus('idle');
     setTranscript('');
     setResponseText('');
     localTranscriptRef.current = '';
+    resultStartIndexRef.current = 0;
+    recognitionResultCountRef.current = 0;
+    interruptedRef.current = false;
 
     // Re-listen in hands-free mode
     if (autoLoopRef.current) {
@@ -650,7 +810,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         }
       }, 300);
     }
-  }, [stopSpeechRecognition]);
+  }, [abortSpeaking, stopSpeechRecognition]);
 
   // ── Synchronize Speech Recognition Immediately on Language Switch ──
   useEffect(() => {
@@ -662,15 +822,12 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     localTranscriptRef.current = '';
     setResponseText('');
     setErrorMessage(null);
+    resultStartIndexRef.current = 0;
+    recognitionResultCountRef.current = 0;
+    interruptedRef.current = false;
 
     // Stop active audio playback and speech synthesis from previous language
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-    }
-    if (currentAudioRef.current) {
-      currentAudioRef.current.pause();
-      currentAudioRef.current = null;
-    }
+    abortSpeaking();
 
     // Abort previous speech recognition so the new language acoustic model starts clean
     stopSpeechRecognition();
@@ -685,7 +842,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [language, stopSpeechRecognition]);
+  }, [language, stopSpeechRecognition, abortSpeaking]);
 
   // ── Auto-Start Continuous Hands-free Conversation on Mount or First Interaction ──
   useEffect(() => {
