@@ -1,15 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
-import type { AdviceResponse } from '@/types';
+import type { AdviceResponse, WeatherData, Route, Difficulty } from '@/types';
 import { getSystemPrompt, buildUserPrompt, type AIContext } from '@/lib/prompts';
-import { buildFallbackAdvice } from '@/api/llm';
+import { buildFallbackAdvice, findRouteByQuery } from '@/api/llm';
+import { ROUTES } from '@/data/routes';
 
 export async function POST(req: NextRequest) {
-  let ctx: AIContext;
+  let rawBody: Partial<AIContext>;
   try {
-    ctx = await req.json() as AIContext;
+    rawBody = await req.json() as Partial<AIContext>;
   } catch {
     return NextResponse.json({ error: 'invalid_request_body' }, { status: 400 });
   }
+
+  const effectiveRoute: Route = rawBody.route || (rawBody.userQuery ? findRouteByQuery(rawBody.userQuery) : null) || ROUTES[0];
+  const effectiveWeather: WeatherData = rawBody.weather || {
+    temp_c: 20,
+    weather: '晴れ',
+    weatherCode: 'sunny',
+    windSpeed: 2,
+    rainProbability: 0,
+    precipitationMmh: 0,
+    uvIndex: 3,
+    visibility: 10,
+    updatedAt: new Date().toISOString(),
+  };
+  const effectiveLevel: Difficulty = rawBody.userLevel || 'beginner';
+  const effectiveLang = rawBody.language || 'ja';
+
+  const ctx: AIContext = {
+    ...rawBody,
+    weather: effectiveWeather,
+    route: effectiveRoute,
+    userLevel: effectiveLevel,
+    language: effectiveLang,
+  };
 
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -19,12 +43,12 @@ export async function POST(req: NextRequest) {
       ctx.route,
       ctx.userLevel,
       ctx.userQuery,
-      ctx.language || 'ja'
+      ctx.language
     );
     return NextResponse.json(fallback, { status: 200 });
   }
 
-  const systemPrompt = getSystemPrompt(ctx.language || 'ja');
+  const systemPrompt = getSystemPrompt(ctx.language);
   const userPrompt = buildUserPrompt(ctx);
 
   const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
@@ -54,7 +78,7 @@ export async function POST(req: NextRequest) {
       ctx.route,
       ctx.userLevel,
       ctx.userQuery,
-      ctx.language || 'ja'
+      ctx.language
     );
     return NextResponse.json(fallback, { status: 200 });
   }
@@ -62,7 +86,14 @@ export async function POST(req: NextRequest) {
   if (!openaiRes.ok) {
     const body = await openaiRes.text().catch(() => '');
     console.error('[/api/chat] OpenAI error:', openaiRes.status, body);
-    return NextResponse.json({ error: 'openai_error', status: openaiRes.status }, { status: 502 });
+    const fallback = buildFallbackAdvice(
+      ctx.weather,
+      ctx.route,
+      ctx.userLevel,
+      ctx.userQuery,
+      ctx.language
+    );
+    return NextResponse.json(fallback, { status: 200 });
   }
 
   const raw = await openaiRes.json() as { choices: Array<{ message: { content: string } }> };
@@ -72,7 +103,14 @@ export async function POST(req: NextRequest) {
     advice = JSON.parse(raw.choices[0].message.content) as AdviceResponse;
   } catch {
     console.error('[/api/chat] JSON parse failed, raw content:', raw.choices[0]?.message?.content);
-    return NextResponse.json({ error: 'parse_error' }, { status: 502 });
+    const fallback = buildFallbackAdvice(
+      ctx.weather,
+      ctx.route,
+      ctx.userLevel,
+      ctx.userQuery,
+      ctx.language
+    );
+    return NextResponse.json(fallback, { status: 200 });
   }
 
   return NextResponse.json(advice);

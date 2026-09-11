@@ -106,12 +106,25 @@ export async function getAIAdvice(
 }
 
 export function buildFallbackAdvice(
-  weather: WeatherData,
-  route: Route,
-  userLevel: Difficulty,
+  weatherInput?: WeatherData,
+  routeInput?: Route,
+  userLevelInput?: Difficulty,
   userQuery?: string,
   initialLanguage: Language = 'ja'
 ): AdviceResponse {
+  const weather: WeatherData = weatherInput || {
+    temp_c: 20,
+    weather: '晴れ',
+    weatherCode: 'sunny',
+    windSpeed: 2,
+    rainProbability: 0,
+    precipitationMmh: 0,
+    uvIndex: 3,
+    visibility: 10,
+    updatedAt: new Date().toISOString(),
+  };
+  const route: Route = routeInput || (userQuery ? findRouteByQuery(userQuery) : null) || ROUTES[0];
+  const userLevel: Difficulty = userLevelInput || 'beginner';
   const hasLatinChars = /[a-zA-Z]{2,}/.test(userQuery || '');
   const language: Language = (initialLanguage === 'en' || (hasLatinChars && initialLanguage !== 'zh')) ? 'en' : initialLanguage;
 
