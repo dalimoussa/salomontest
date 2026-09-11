@@ -36,7 +36,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
   const enabled = options?.enabled ?? true;
   const [status, setStatusState] = useState<VoiceStatus>('idle');
   const [transcript, setTranscript] = useState('');
-  const [responseText, setResponseText] = useState('');
+  const [responseText, setResponseTextState] = useState('');
   const [audioLevel, setAudioLevel] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isHandsFree, setIsHandsFree] = useState(true);
@@ -45,6 +45,12 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
   const setStatus = (next: VoiceStatus) => {
     statusRef.current = next;
     setStatusState(next);
+  };
+
+  const responseTextRef = useRef<string>('');
+  const setResponseText = (text: string) => {
+    responseTextRef.current = text;
+    setResponseTextState(text);
   };
 
   const autoLoopRef = useRef<boolean>(true);
@@ -56,9 +62,13 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const currentUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const recognitionRef = useRef<any>(null);
   const localTranscriptRef = useRef<string>('');
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Forward ref for processRecordedAudio to eliminate stale closures
+  const processRecordedAudioRef = useRef<(audioBlob?: Blob | null, directText?: string) => Promise<void>>();
 
   // Turn management and interruption refs
   const resultStartIndexRef = useRef<number>(0);
@@ -82,25 +92,53 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
   }, []);
 
   const abortSpeaking = useCallback(() => {
+    interruptedRef.current = true;
+    generationIdRef.current++;
+
+    // 1. Abort any active promise resolver or watchdog
     if (abortSpeakingRef.current) {
       try {
         abortSpeakingRef.current();
       } catch {}
       abortSpeakingRef.current = null;
     }
+
+    // 2. Safely stop and detach HTML5 Audio element
     if (currentAudioRef.current) {
       try {
-        currentAudioRef.current.pause();
-        currentAudioRef.current.currentTime = 0;
-        currentAudioRef.current.src = '';
+        const audio = currentAudioRef.current;
+        // Detach listeners BEFORE changing src so audio.onerror does not trigger fallback speech!
+        audio.onended = null;
+        audio.onerror = null;
+        audio.pause();
+        audio.currentTime = 0;
+        audio.removeAttribute('src');
+        audio.load();
       } catch {}
       currentAudioRef.current = null;
     }
+
+    // 3. Immediately halt Web Speech API SpeechSynthesis without Chrome audio buffer bleed
     if (typeof window !== 'undefined' && window.speechSynthesis) {
       try {
+        if (currentUtteranceRef.current) {
+          currentUtteranceRef.current.onend = null;
+          currentUtteranceRef.current.onerror = null;
+          currentUtteranceRef.current = null;
+        }
+        window.speechSynthesis.pause();
         window.speechSynthesis.cancel();
+        // Chrome quirk: A delayed second cancel guarantees the audio thread clears
+        setTimeout(() => {
+          try {
+            if (typeof window !== 'undefined' && window.speechSynthesis) {
+              window.speechSynthesis.cancel();
+            }
+          } catch {}
+        }, 35);
       } catch {}
     }
+
     setResponseText('');
   }, []);
 
@@ -157,16 +195,22 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
   };
 
   // Fallback to Web Speech API speechSynthesis if OpenAI TTS unavailable
-  const speakWithBrowserSynth = useCallback((text: string, lang: string): Promise<void> => {
+  const speakWithBrowserSynth = useCallback((text: string, lang?: string): Promise<void> => {
     return new Promise((resolve) => {
       if (typeof window === 'undefined' || !window.speechSynthesis) {
         resolve();
         return;
       }
 
+      if (interruptedRef.current) {
+        resolve();
+        return;
+      }
+
       unlockAudio();
 
-      const targetLang = lang === 'en' ? 'en-US' : lang === 'zh' ? 'zh-CN' : 'ja-JP';
+      const activeLang = lang || useStore.getState().language;
+      const targetLang = activeLang === 'en' ? 'en-US' : activeLang === 'zh' ? 'zh-CN' : 'ja-JP';
 
       let finished = false;
       let watchdog: NodeJS.Timeout | null = null;
@@ -177,6 +221,11 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
           finished = true;
           if (watchdog) clearTimeout(watchdog);
           if (keepAlive) clearInterval(keepAlive);
+          if (currentUtteranceRef.current) {
+            currentUtteranceRef.current.onend = null;
+            currentUtteranceRef.current.onerror = null;
+            currentUtteranceRef.current = null;
+          }
           abortSpeakingRef.current = null;
           resolve();
         }
@@ -185,20 +234,30 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       abortSpeakingRef.current = finish;
 
       const performSpeak = () => {
+        if (interruptedRef.current || finished) {
+          finish();
+          return;
+        }
+
         try {
+          // Clear any previous queued speech
+          window.speechSynthesis.cancel();
+
           const utterance = new SpeechSynthesisUtterance(text);
           utterance.lang = targetLang;
           utterance.rate = 1.0;
           utterance.pitch = 1.0;
           utterance.volume = 1.0;
+          currentUtteranceRef.current = utterance;
 
           // Select best matching voice for the target language
           const voices = window.speechSynthesis.getVoices();
           if (voices.length > 0) {
-            const langPrefix = lang === 'en' ? 'en' : lang === 'zh' ? 'zh' : 'ja';
+            const langPrefix = activeLang === 'en' ? 'en' : activeLang === 'zh' ? 'zh' : 'ja';
             const matchedVoice =
               voices.find((v) => v.lang.toLowerCase() === targetLang.toLowerCase()) ||
               voices.find((v) => v.lang.toLowerCase().replace('_', '-').startsWith(langPrefix)) ||
+              voices.find((v) => v.lang.toLowerCase().startsWith(langPrefix)) ||
               voices.find((v) => v.default);
             if (matchedVoice) {
               utterance.voice = matchedVoice;
@@ -206,17 +265,18 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
           }
 
           utterance.onend = finish;
-          utterance.onerror = () => {
+          utterance.onerror = (e) => {
+            console.warn('[speakWithBrowserSynth] Utterance finished or canceled:', e?.error);
             finish();
           };
 
-          // Chrome speech synthesis watchdog: ensures Promise always resolves even if Chrome drops onend
+          // Chrome speech synthesis watchdog: ensures Promise always resolves
           const maxMs = Math.max(3000, Math.min(25000, text.length * 80 + 2000));
           watchdog = setTimeout(finish, maxMs);
 
-          // Keep-alive timer for Chrome speech synthesis
+          // Keep-alive timer for Chrome speech synthesis (strictly while active and NOT interrupted)
           keepAlive = setInterval(() => {
-            if (finished) {
+            if (finished || interruptedRef.current) {
               if (keepAlive) clearInterval(keepAlive);
             } else if (typeof window !== 'undefined' && window.speechSynthesis?.paused) {
               window.speechSynthesis.resume();
@@ -262,11 +322,13 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     setResponseText(text);
     interruptedRef.current = false;
 
+    const currentLang = useStore.getState().language;
+
     try {
       const res = await fetch('/api/voice/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, language, voice: 'alloy' }),
+        body: JSON.stringify({ text, language: currentLang, voice: 'alloy' }),
       });
 
       // If user interrupted during network request
@@ -295,7 +357,11 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
               resolved = true;
               if (watchdog) clearTimeout(watchdog);
               URL.revokeObjectURL(audioUrl);
-              currentAudioRef.current = null;
+              audio.onended = null;
+              audio.onerror = null;
+              if (currentAudioRef.current === audio) {
+                currentAudioRef.current = null;
+              }
               abortSpeakingRef.current = null;
               resolve();
             }
@@ -306,8 +372,8 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
           audio.onended = finish;
           audio.onerror = async () => {
             finish();
-            if (!interruptedRef.current) {
-              await speakWithBrowserSynth(text, language);
+            if (!interruptedRef.current && statusRef.current === 'speaking') {
+              await speakWithBrowserSynth(text, currentLang);
             }
           };
 
@@ -316,20 +382,20 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
 
           audio.play().catch(async () => {
             finish();
-            if (!interruptedRef.current) {
-              await speakWithBrowserSynth(text, language);
+            if (!interruptedRef.current && statusRef.current === 'speaking') {
+              await speakWithBrowserSynth(text, currentLang);
             }
           });
         });
       } else {
-        if (!interruptedRef.current) {
-          await speakWithBrowserSynth(text, language);
+        if (!interruptedRef.current && statusRef.current === 'speaking') {
+          await speakWithBrowserSynth(text, currentLang);
         }
       }
     } catch (e) {
       console.warn('OpenAI TTS call failed, falling back to browser speech:', e);
-      if (!interruptedRef.current) {
-        await speakWithBrowserSynth(text, language);
+      if (!interruptedRef.current && statusRef.current === 'speaking') {
+        await speakWithBrowserSynth(text, currentLang);
       }
     } finally {
       abortSpeakingRef.current = null;
@@ -338,7 +404,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       // If user interrupted AI during speech, do NOT revert status to idle
       // and do not trigger a delayed startListening that wipes out the new in-progress prompt!
       if (interruptedRef.current) {
-        interruptedRef.current = false;
+        // Leave in interrupted listening state
       } else {
         setStatus('idle');
         setTranscript('');
@@ -353,7 +419,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         }
       }
     }
-  }, [language, speakWithBrowserSynth]);
+  }, [speakWithBrowserSynth]);
 
   // Ensure MediaRecorder is active so user speech audio can be captured
   const ensureMediaRecorderActive = useCallback(async () => {
@@ -389,7 +455,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         const text = localTranscriptRef.current.trim();
         setTimeout(() => {
-          processRecordedAudio(audioBlob, text);
+          processRecordedAudioRef.current?.(audioBlob, text);
         }, 80);
       };
 
@@ -399,11 +465,12 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     } catch (e) {
       console.warn('ensureMediaRecorderActive error:', e);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Process user audio through STT -> LLM -> TTS pipeline
   const processRecordedAudio = async (audioBlob?: Blob | null, directText?: string) => {
+    const currentLang = useStore.getState().language;
+
     // Determine recognized text: prefer directText, then localTranscriptRef, then Whisper
     let recognizedText = directText?.trim() || localTranscriptRef.current?.trim() || '';
 
@@ -415,7 +482,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       try {
         const formData = new FormData();
         formData.append('file', audioBlob, 'speech.webm');
-        formData.append('language', language);
+        formData.append('language', currentLang);
 
         const sttRes = await fetch('/api/voice/stt', {
           method: 'POST',
@@ -445,11 +512,36 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       return;
     }
 
+    // Language safety heuristic: if user chose English or spoke English text, enforce English
+    const hasEnglishWords = /[a-zA-Z]{2,}/.test(recognizedText);
+    const activeLang = (currentLang === 'en' || (hasEnglishWords && currentLang !== 'zh')) ? 'en' : currentLang;
+
     const currentGenId = ++generationIdRef.current;
     setTranscript(recognizedText);
     setStatus('thinking');
     setErrorMessage(null);
     setIsGenerating(true);
+
+    // Safety watchdog: auto-recover from 'thinking' after 20s to prevent infinite spinner
+    const thinkingTimeout = setTimeout(() => {
+      if (statusRef.current === 'thinking' && generationIdRef.current === currentGenId) {
+        console.warn('[useVoiceConversation] Thinking timeout reached (20s), auto-recovering');
+        setErrorMessage(
+          activeLang === 'en' ? 'Response took too long. Please try again.' :
+          activeLang === 'zh' ? '响应时间过长，请重试。' :
+          '応答に時間がかかりすぎました。もう一度お試しください。'
+        );
+        setStatus('idle');
+        setIsGenerating(false);
+        if (autoLoopRef.current) {
+          setTimeout(() => {
+            if (autoLoopRef.current && statusRef.current === 'idle') {
+              startListeningRef.current?.().catch(() => {});
+            }
+          }, 600);
+        }
+      }
+    }, 20_000);
 
     try {
       // Step 1: Synchronize Real UI Actions Based on Voice Intent
@@ -505,8 +597,8 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         updatedAt: new Date().toISOString(),
       };
 
-      const trailStatus = getTrailStatus(language);
-      const facilities = getFacilities(language);
+      const trailStatus = getTrailStatus(activeLang);
+      const facilities = getFacilities(activeLang);
       const season = getCurrentSeason();
 
       const advice = await getAIAdvice(
@@ -516,7 +608,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         trailStatus,
         facilities,
         recognizedText,
-        language
+        activeLang
       );
 
       // If user interrupted while LLM was processing, discard obsolete answer
@@ -532,15 +624,15 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         advice.recommended_gear,
         6,
         targetRoute.category,
-        language
+        activeLang
       );
       setRecommendedProducts(products);
 
       // Add user voice input as chat message with language-tailored quotation marks
       const quoteFormatted =
-        language === 'en'
+        activeLang === 'en'
           ? `"${recognizedText}"`
-          : language === 'zh'
+          : activeLang === 'zh'
           ? `“${recognizedText}”`
           : `「${recognizedText}」`;
       addMessage({
@@ -567,9 +659,9 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       setErrorMessage(
         err instanceof Error
           ? err.message
-          : language === 'en'
+          : activeLang === 'en'
           ? 'Voice processing failed'
-          : language === 'zh'
+          : activeLang === 'zh'
           ? '语音处理失败'
           : '音声処理に失敗しました'
       );
@@ -582,9 +674,13 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         }, 600);
       }
     } finally {
+      clearTimeout(thinkingTimeout);
       setIsGenerating(false);
     }
   };
+
+  // Keep processRecordedAudioRef always fresh
+  processRecordedAudioRef.current = processRecordedAudio;
 
   // Safely commit user speech once silence is detected
   const commitCurrentSpeech = useCallback(() => {
@@ -601,12 +697,11 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         mediaRecorderRef.current.stop();
         mediaRecorderRef.current = null;
       } catch {
-        processRecordedAudio(null, textToProcess);
+        processRecordedAudioRef.current?.(null, textToProcess);
       }
     } else {
-      processRecordedAudio(null, textToProcess);
+      processRecordedAudioRef.current?.(null, textToProcess);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const startListening = useCallback(async () => {
@@ -627,12 +722,14 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       silenceTimerRef.current = null;
     }
 
+    const currentLang = useStore.getState().language;
+
     // Initialize real-time Web Speech Recognition for instant feedback & barge-in interruption
     if (typeof window !== 'undefined') {
       const SpeechRecognition =
         (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (SpeechRecognition) {
-        const targetLang = getTargetRecognitionLang(language);
+        const targetLang = getTargetRecognitionLang(currentLang);
         // If an existing recognition instance is using a different language, tear it down
         if (recognitionRef.current && recognitionRef.current.lang !== targetLang) {
           stopSpeechRecognition();
@@ -655,10 +752,12 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
 
               let fullText = '';
               let isFinalChunk = false;
+              const liveLang = useStore.getState().language;
+
               for (let i = resultStartIndexRef.current; i < event.results.length; ++i) {
                 const chunk = event.results[i][0]?.transcript || '';
                 if (chunk) {
-                  if (fullText && !fullText.endsWith(' ') && !chunk.startsWith(' ') && language === 'en') {
+                  if (fullText && !fullText.endsWith(' ') && !chunk.startsWith(' ') && liveLang === 'en') {
                     fullText += ' ';
                   }
                   fullText += chunk;
@@ -667,6 +766,15 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
               }
               const clean = fullText.trim();
               if (!clean) return;
+
+              // ── Echo suppression: If the AI is currently speaking, do not self-interrupt with speaker bleed ──
+              if (statusRef.current === 'speaking' && responseTextRef.current) {
+                const normClean = clean.toLowerCase().replace(/[\s.,!?、。！？「」'"-]/g, '');
+                const normResp = responseTextRef.current.toLowerCase().replace(/[\s.,!?、。！？「」'"-]/g, '');
+                if (normResp.includes(normClean) && normClean.length >= 4) {
+                  return; // Self-echo, ignore
+                }
+              }
 
               // ── BARGE-IN INTERRUPTION: If AI is speaking or thinking, user speech cuts it off immediately! ──
               if (statusRef.current === 'speaking' || statusRef.current === 'thinking') {
@@ -681,8 +789,8 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
               localTranscriptRef.current = clean;
               setTranscript(clean);
 
-              // Fast commit: 600ms on final recognized chunk, 800ms on interim silence
-              const commitDelay = isFinalChunk ? 600 : 800;
+              // Fast commit: 600ms on final recognized chunk, 850ms on interim silence
+              const commitDelay = isFinalChunk ? 600 : 850;
               if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
               silenceTimerRef.current = setTimeout(() => {
                 commitCurrentSpeech();
@@ -747,7 +855,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         const text = localTranscriptRef.current.trim();
         setTimeout(() => {
-          processRecordedAudio(audioBlob, text);
+          processRecordedAudioRef.current?.(audioBlob, text);
         }, 80);
       };
 
@@ -759,8 +867,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       console.warn('Microphone access standby:', err);
       setStatus('idle');
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [language, selectedRoute, weather, selectedDifficulty, stopSpeechRecognition, abortSpeaking, commitCurrentSpeech, ensureMediaRecorderActive]);
+  }, [selectedRoute, weather, selectedDifficulty, stopSpeechRecognition, abortSpeaking, commitCurrentSpeech, ensureMediaRecorderActive]);
 
   startListeningRef.current = startListening;
 
@@ -826,8 +933,17 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     recognitionResultCountRef.current = 0;
     interruptedRef.current = false;
 
-    // Stop active audio playback and speech synthesis from previous language
+    // Stop active audio playback and speech synthesis from previous language immediately
     abortSpeaking();
+
+    // Stop active mediaRecorder so it does not process with previous language
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      try {
+        mediaRecorderRef.current.onstop = null;
+        mediaRecorderRef.current.stop();
+      } catch {}
+      mediaRecorderRef.current = null;
+    }
 
     // Abort previous speech recognition so the new language acoustic model starts clean
     stopSpeechRecognition();
@@ -839,7 +955,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         if (autoLoopRef.current && statusRef.current === 'idle') {
           startListeningRef.current?.().catch(() => {});
         }
-      }, 100);
+      }, 120);
       return () => clearTimeout(timer);
     }
   }, [language, stopSpeechRecognition, abortSpeaking]);

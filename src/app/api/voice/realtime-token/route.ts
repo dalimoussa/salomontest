@@ -16,6 +16,7 @@
  * Ref: https://platform.openai.com/docs/guides/realtime-webrtc#creating-an-ephemeral-token
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { getRealtimeSystemPrompt } from '@/lib/prompts';
 
 function buildSystemPrompt(language = 'ja'): string {
   if (language === 'en') {
@@ -104,7 +105,7 @@ export async function POST(req: NextRequest) {
   }
 
   const { language = 'ja' } = await req.json().catch(() => ({})) as { language?: string };
-  const systemPrompt = buildSystemPrompt(language);
+  const systemPrompt = getRealtimeSystemPrompt(language as any);
 
   try {
     const res = await fetch('https://api.openai.com/v1/realtime/client_secrets', {

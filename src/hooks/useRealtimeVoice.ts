@@ -22,7 +22,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { useStore } from '@/store/useStore';
 import type { VoiceStatus } from './useVoiceConversation';
 import { unlockAudio } from '@/lib/audioUnlock';
-import { getSystemPrompt } from '@/lib/prompts';
+import { getRealtimeSystemPrompt } from '@/lib/prompts';
 
 export interface UseRealtimeVoiceReturn {
   status: VoiceStatus;
@@ -166,7 +166,6 @@ export function useRealtimeVoice(): UseRealtimeVoiceReturn {
           try {
             remoteAudioRef.current.pause();
             remoteAudioRef.current.currentTime = 0;
-            remoteAudioRef.current.play().catch(() => {});
           } catch {}
         }
         if (dcRef.current && dcRef.current.readyState === 'open') {
@@ -253,7 +252,6 @@ export function useRealtimeVoice(): UseRealtimeVoiceReturn {
           try {
             remoteAudioRef.current.pause();
             remoteAudioRef.current.currentTime = 0;
-            remoteAudioRef.current.play().catch(() => {});
           } catch {}
         }
       }
@@ -437,6 +435,7 @@ export function useRealtimeVoice(): UseRealtimeVoiceReturn {
     }
     if (remoteAudioRef.current) {
       remoteAudioRef.current.pause();
+      remoteAudioRef.current.currentTime = 0;
     }
     setStatus('listening');
   }, []);
@@ -477,7 +476,7 @@ export function useRealtimeVoice(): UseRealtimeVoiceReturn {
           JSON.stringify({
             type: 'session.update',
             session: {
-              instructions: getSystemPrompt(language),
+              instructions: getRealtimeSystemPrompt(language),
             },
           })
         );

@@ -47,8 +47,16 @@ export async function POST(req: NextRequest) {
       signal: AbortSignal.timeout(14_000),
     });
   } catch (err) {
-    console.error('[/api/chat] OpenAI fetch failed:', err);
-    return NextResponse.json({ error: 'openai_timeout' }, { status: 504 });
+    console.error('[/api/chat] OpenAI fetch failed (timeout or network):', err);
+    // Graceful degradation: return local deterministic advice instead of an error
+    const fallback = buildFallbackAdvice(
+      ctx.weather,
+      ctx.route,
+      ctx.userLevel,
+      ctx.userQuery,
+      ctx.language || 'ja'
+    );
+    return NextResponse.json(fallback, { status: 200 });
   }
 
   if (!openaiRes.ok) {
