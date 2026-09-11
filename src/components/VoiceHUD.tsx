@@ -232,7 +232,7 @@ export function VoiceHUD({
             {Array.from({ length: 5 }).map((_, i) => {
               const active = isListening || isSpeaking;
               const h = active
-                ? Math.max(4, Math.min(20, (audioLevel * 40) * (0.6 + (i % 3) * 0.4) + (isSpeaking ? 12 : 6)))
+                ? Math.max(4, Math.min(22, 6 + (audioLevel * 16) * (0.7 + (i % 3) * 0.35) + (isSpeaking ? 6 : 0)))
                 : 4;
               return (
                 <span

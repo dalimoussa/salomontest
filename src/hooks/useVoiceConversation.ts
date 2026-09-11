@@ -155,7 +155,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
   const setSelectedDifficulty = useStore((s) => s.setSelectedDifficulty);
   const setActiveModal = useStore((s) => s.setActiveModal);
 
-  // Audio level visualizer loop
+  // Audio level visualizer loop — boosted high-sensitivity sensor
   const startLevelMeter = (stream: MediaStream) => {
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
@@ -164,16 +164,24 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       audioContextRef.current = ctx;
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 64;
+      analyser.smoothingTimeConstant = 0.2;
       analyserRef.current = analyser;
+
+      // 3.5x gain amplification so quiet and soft voices register dynamically on the sensor
       const source = ctx.createMediaStreamSource(stream);
-      source.connect(analyser);
+      const gainNode = ctx.createGain();
+      gainNode.gain.value = 3.5;
+      source.connect(gainNode);
+      gainNode.connect(analyser);
 
       const data = new Uint8Array(analyser.frequencyBinCount);
       const updateLevel = () => {
         analyser.getByteFrequencyData(data);
         const sum = data.reduce((acc, val) => acc + val, 0);
         const avg = sum / data.length;
-        setAudioLevel(Math.min(1, avg / 100));
+        // Non-linear power curve that magnifies low speaking levels significantly
+        const normalized = Math.min(1, Math.max(0, Math.pow(avg / 25, 0.65)));
+        setAudioLevel(normalized);
         animFrameRef.current = requestAnimationFrame(updateLevel);
       };
       updateLevel();
@@ -517,15 +525,16 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     const activeLang = (currentLang === 'en' || (hasEnglishWords && currentLang !== 'zh')) ? 'en' : currentLang;
 
     const currentGenId = ++generationIdRef.current;
+    interruptedRef.current = false; // Always clear interruption state on new turn!
     setTranscript(recognizedText);
     setStatus('thinking');
     setErrorMessage(null);
     setIsGenerating(true);
 
-    // Safety watchdog: auto-recover from 'thinking' after 20s to prevent infinite spinner
+    // Safety watchdog: auto-recover from 'thinking' after 10s to prevent infinite spinner
     const thinkingTimeout = setTimeout(() => {
       if (statusRef.current === 'thinking' && generationIdRef.current === currentGenId) {
-        console.warn('[useVoiceConversation] Thinking timeout reached (20s), auto-recovering');
+        console.warn('[useVoiceConversation] Thinking timeout reached (10s), auto-recovering');
         setErrorMessage(
           activeLang === 'en' ? 'Response took too long. Please try again.' :
           activeLang === 'zh' ? '响应时间过长，请重试。' :
@@ -538,10 +547,10 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
             if (autoLoopRef.current && statusRef.current === 'idle') {
               startListeningRef.current?.().catch(() => {});
             }
-          }, 600);
+          }, 400);
         }
       }
-    }, 20_000);
+    }, 10_000);
 
     try {
       // Step 1: Synchronize Real UI Actions Based on Voice Intent
@@ -611,9 +620,18 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         activeLang
       );
 
-      // If user interrupted while LLM was processing, discard obsolete answer
+      // If user interrupted while LLM was processing, discard obsolete answer and safely recover
       if (generationIdRef.current !== currentGenId || interruptedRef.current) {
         console.log('[useVoiceConversation] Stale response discarded due to barge-in');
+        setStatus('idle');
+        setIsGenerating(false);
+        if (autoLoopRef.current) {
+          setTimeout(() => {
+            if (autoLoopRef.current && statusRef.current === 'idle') {
+              startListeningRef.current?.().catch(() => {});
+            }
+          }, 300);
+        }
         return;
       }
 
@@ -676,6 +694,17 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     } finally {
       clearTimeout(thinkingTimeout);
       setIsGenerating(false);
+      // Fail-safe: guarantee UI never remains permanently stranded in 'thinking'
+      if (statusRef.current === 'thinking') {
+        setStatus('idle');
+        if (autoLoopRef.current) {
+          setTimeout(() => {
+            if (autoLoopRef.current && statusRef.current === 'idle') {
+              startListeningRef.current?.().catch(() => {});
+            }
+          }, 300);
+        }
+      }
     }
   };
 
@@ -687,6 +716,11 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = null;
+    }
+
+    // Never commit or launch redundant advice while already thinking or speaking
+    if (statusRef.current === 'thinking' || statusRef.current === 'speaking') {
+      return;
     }
 
     const textToProcess = localTranscriptRef.current.trim();
@@ -776,14 +810,19 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
                 }
               }
 
-              // ── BARGE-IN INTERRUPTION: If AI is speaking or thinking, user speech cuts it off immediately! ──
-              if (statusRef.current === 'speaking' || statusRef.current === 'thinking') {
+              // ── BARGE-IN INTERRUPTION: Only user speech while the AI is ACTUALLY SPEAKING cuts it off! ──
+              if (statusRef.current === 'speaking') {
                 console.log('[useVoiceConversation] User interrupted AI with new query:', clean);
                 interruptedRef.current = true;
                 abortSpeaking();
                 setResponseText('');
                 setStatus('listening');
                 ensureMediaRecorderActive();
+              }
+
+              // If currently thinking, do not allow intermediate speech chunks to abort or restart processing
+              if (statusRef.current === 'thinking') {
+                return;
               }
 
               localTranscriptRef.current = clean;

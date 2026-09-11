@@ -93,7 +93,7 @@ export async function getAIAdvice(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(ctx),
-      signal: AbortSignal.timeout(15_000),
+      signal: AbortSignal.timeout(8_000),
     });
     if (res.ok) {
       const data = await res.json() as AdviceResponse;

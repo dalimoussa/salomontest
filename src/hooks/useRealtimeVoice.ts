@@ -65,7 +65,7 @@ export function useRealtimeVoice(): UseRealtimeVoiceReturn {
   const animFrameRef = useRef<number | null>(null);
   const sessionActiveRef = useRef(false);
 
-  // ── Audio level meter ──
+  // ── Audio level meter — boosted high-sensitivity sensor ──
   const startLevelMeter = (stream: MediaStream) => {
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
@@ -74,13 +74,23 @@ export function useRealtimeVoice(): UseRealtimeVoiceReturn {
       audioCtxRef.current = ctx;
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 64;
+      analyser.smoothingTimeConstant = 0.2;
       analyserRef.current = analyser;
-      ctx.createMediaStreamSource(stream).connect(analyser);
+
+      // 3.5x gain amplification for quiet/soft voice detection
+      const source = ctx.createMediaStreamSource(stream);
+      const gainNode = ctx.createGain();
+      gainNode.gain.value = 3.5;
+      source.connect(gainNode);
+      gainNode.connect(analyser);
+
       const data = new Uint8Array(analyser.frequencyBinCount);
       const tick = () => {
         analyser.getByteFrequencyData(data);
-        const avg = data.reduce((a, b) => a + b, 0) / data.length;
-        setAudioLevel(Math.min(1, avg / 80));
+        const sum = data.reduce((a, b) => a + b, 0);
+        const avg = sum / data.length;
+        const normalized = Math.min(1, Math.max(0, Math.pow(avg / 25, 0.65)));
+        setAudioLevel(normalized);
         animFrameRef.current = requestAnimationFrame(tick);
       };
       tick();

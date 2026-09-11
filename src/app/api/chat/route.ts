@@ -65,10 +65,10 @@ export async function POST(req: NextRequest) {
           { role: 'user',   content: userPrompt },
         ],
         temperature: 0.7,
-        max_tokens: 500,
+        max_tokens: 300,
         response_format: { type: 'json_object' },
       }),
-      signal: AbortSignal.timeout(14_000),
+      signal: AbortSignal.timeout(7_000),
     });
   } catch (err) {
     console.error('[/api/chat] OpenAI fetch failed (timeout or network):', err);
