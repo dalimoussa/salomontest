@@ -73,6 +73,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
   // Turn management and interruption refs
   const resultStartIndexRef = useRef<number>(0);
   const recognitionResultCountRef = useRef<number>(0);
+  const pendingCommittedTextRef = useRef<string>('');
   const abortSpeakingRef = useRef<(() => void) | null>(null);
   const interruptedRef = useRef<boolean>(false);
   const generationIdRef = useRef<number>(0);
@@ -330,6 +331,11 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     setResponseText(text);
     interruptedRef.current = false;
 
+    // Fast-forward recognition index and clear transcripts so previous prompts never bleed into this or future turns
+    setTranscript('');
+    localTranscriptRef.current = '';
+    resultStartIndexRef.current = recognitionResultCountRef.current;
+
     const currentLang = useStore.getState().language;
 
     try {
@@ -412,11 +418,13 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       // If user interrupted AI during speech, do NOT revert status to idle
       // and do not trigger a delayed startListening that wipes out the new in-progress prompt!
       if (interruptedRef.current) {
-        // Leave in interrupted listening state
+        // User interrupted AI during speech: leave in listening state for Prompt 2
       } else {
         setStatus('idle');
         setTranscript('');
         localTranscriptRef.current = '';
+        // Clean up speech recognition session so the next turn starts completely fresh
+        stopSpeechRecognition();
 
         if (autoLoopRef.current) {
           setTimeout(() => {
@@ -427,7 +435,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         }
       }
     }
-  }, [speakWithBrowserSynth]);
+  }, [speakWithBrowserSynth, stopSpeechRecognition]);
 
   // Ensure MediaRecorder is active so user speech audio can be captured
   const ensureMediaRecorderActive = useCallback(async () => {
@@ -461,7 +469,8 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       mediaRecorder.onstop = () => {
         stopLevelMeter();
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        const text = localTranscriptRef.current.trim();
+        const text = pendingCommittedTextRef.current || localTranscriptRef.current.trim();
+        pendingCommittedTextRef.current = '';
         setTimeout(() => {
           processRecordedAudioRef.current?.(audioBlob, text);
         }, 80);
@@ -726,14 +735,21 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     const textToProcess = localTranscriptRef.current.trim();
     if (!textToProcess) return;
 
+    // Snapshot committed text and immediately mark recognition index as consumed
+    pendingCommittedTextRef.current = textToProcess;
+    resultStartIndexRef.current = recognitionResultCountRef.current;
+    localTranscriptRef.current = '';
+
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       try {
         mediaRecorderRef.current.stop();
         mediaRecorderRef.current = null;
       } catch {
+        pendingCommittedTextRef.current = '';
         processRecordedAudioRef.current?.(null, textToProcess);
       }
     } else {
+      pendingCommittedTextRef.current = '';
       processRecordedAudioRef.current?.(null, textToProcess);
     }
   }, []);
@@ -779,16 +795,39 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
             recognition.onresult = (event: any) => {
               recognitionResultCountRef.current = event.results.length;
 
-              // If recognition was restarted internally by browser, reset start index
-              if (event.results.length <= resultStartIndexRef.current) {
+              // Only reset start index if recognition was restarted from scratch by browser
+              // (strictly fewer results than previous start index, NEVER <=)
+              if (event.results.length < resultStartIndexRef.current) {
                 resultStartIndexRef.current = 0;
+              }
+
+              // ── BARGE-IN INTERRUPTION: Only user speech while the AI is ACTUALLY SPEAKING cuts it off! ──
+              if (statusRef.current === 'speaking') {
+                console.log('[useVoiceConversation] User interrupted AI with fresh query');
+                interruptedRef.current = true;
+                abortSpeaking();
+                setResponseText('');
+                setStatus('listening');
+                ensureMediaRecorderActive();
+
+                // Completely isolate this interruption turn from previous speech:
+                // Fast-forward resultStartIndexRef to this latest chunk!
+                resultStartIndexRef.current = Math.max(0, event.results.length - 1);
+                localTranscriptRef.current = '';
+                setTranscript('');
+              }
+
+              // If currently thinking, do not allow intermediate speech chunks to abort or restart processing
+              if (statusRef.current === 'thinking') {
+                return;
               }
 
               let fullText = '';
               let isFinalChunk = false;
               const liveLang = useStore.getState().language;
 
-              for (let i = resultStartIndexRef.current; i < event.results.length; ++i) {
+              const startIndex = Math.max(0, Math.min(resultStartIndexRef.current, event.results.length - 1));
+              for (let i = startIndex; i < event.results.length; ++i) {
                 const chunk = event.results[i][0]?.transcript || '';
                 if (chunk) {
                   if (fullText && !fullText.endsWith(' ') && !chunk.startsWith(' ') && liveLang === 'en') {
@@ -801,28 +840,13 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
               const clean = fullText.trim();
               if (!clean) return;
 
-              // ── Echo suppression: If the AI is currently speaking, do not self-interrupt with speaker bleed ──
-              if (statusRef.current === 'speaking' && responseTextRef.current) {
+              // ── Echo suppression: If the AI was speaking, do not self-interrupt with speaker bleed ──
+              if (responseTextRef.current) {
                 const normClean = clean.toLowerCase().replace(/[\s.,!?、。！？「」'"-]/g, '');
                 const normResp = responseTextRef.current.toLowerCase().replace(/[\s.,!?、。！？「」'"-]/g, '');
                 if (normResp.includes(normClean) && normClean.length >= 4) {
                   return; // Self-echo, ignore
                 }
-              }
-
-              // ── BARGE-IN INTERRUPTION: Only user speech while the AI is ACTUALLY SPEAKING cuts it off! ──
-              if (statusRef.current === 'speaking') {
-                console.log('[useVoiceConversation] User interrupted AI with new query:', clean);
-                interruptedRef.current = true;
-                abortSpeaking();
-                setResponseText('');
-                setStatus('listening');
-                ensureMediaRecorderActive();
-              }
-
-              // If currently thinking, do not allow intermediate speech chunks to abort or restart processing
-              if (statusRef.current === 'thinking') {
-                return;
               }
 
               localTranscriptRef.current = clean;
@@ -892,7 +916,8 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       mediaRecorder.onstop = () => {
         stopLevelMeter();
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        const text = localTranscriptRef.current.trim();
+        const text = pendingCommittedTextRef.current || localTranscriptRef.current.trim();
+        pendingCommittedTextRef.current = '';
         setTimeout(() => {
           processRecordedAudioRef.current?.(audioBlob, text);
         }, 80);
