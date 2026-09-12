@@ -327,6 +327,10 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
   // Text-To-Speech pipeline
   const speakText = useCallback(async (text: string) => {
     if (!text || text.trim() === '') return;
+
+    // Concurrency guard: instantly halt any active playback so multiple voices NEVER overlap
+    abortSpeaking();
+
     setStatus('speaking');
     setResponseText(text);
     interruptedRef.current = false;
@@ -385,6 +389,11 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
 
           audio.onended = finish;
           audio.onerror = async () => {
+            try {
+              audio.pause();
+              audio.removeAttribute('src');
+              audio.load();
+            } catch {}
             finish();
             if (!interruptedRef.current && statusRef.current === 'speaking') {
               await speakWithBrowserSynth(text, currentLang);
@@ -395,6 +404,11 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
           watchdog = setTimeout(finish, 20000);
 
           audio.play().catch(async () => {
+            try {
+              audio.pause();
+              audio.removeAttribute('src');
+              audio.load();
+            } catch {}
             finish();
             if (!interruptedRef.current && statusRef.current === 'speaking') {
               await speakWithBrowserSynth(text, currentLang);
@@ -435,7 +449,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         }
       }
     }
-  }, [speakWithBrowserSynth, stopSpeechRecognition]);
+  }, [abortSpeaking, speakWithBrowserSynth, stopSpeechRecognition]);
 
   // Ensure MediaRecorder is active so user speech audio can be captured
   const ensureMediaRecorderActive = useCallback(async () => {

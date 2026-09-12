@@ -38,13 +38,14 @@ export interface UseRealtimeVoiceReturn {
   speakText: (text: string) => Promise<void>; // no-op in realtime mode
 }
 
-export function useRealtimeVoice(): UseRealtimeVoiceReturn {
+export function useRealtimeVoice(options?: { enabled?: boolean }): UseRealtimeVoiceReturn {
+  const enabled = options?.enabled ?? false;
   const [status, setStatusState] = useState<VoiceStatus>('idle');
   const [transcript, setTranscript] = useState('');
   const [responseText, setResponseText] = useState('');
   const [audioLevel, setAudioLevel] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [available, setAvailable] = useState(true); // optimistic; set false on 503
+  const [available, setAvailable] = useState(false); // only active if explicitly enabled
 
   const statusRef = useRef<VoiceStatus>('idle');
   const setStatus = (next: VoiceStatus) => {
@@ -137,6 +138,10 @@ export function useRealtimeVoice(): UseRealtimeVoiceReturn {
 
   // Proactive check on mount to discover if Realtime Token endpoint is available
   useEffect(() => {
+    if (!enabled) {
+      setAvailable(false);
+      return;
+    }
     let mounted = true;
     fetch('/api/voice/realtime-token', {
       method: 'POST',
@@ -161,7 +166,7 @@ export function useRealtimeVoice(): UseRealtimeVoiceReturn {
       mounted = false;
       teardown();
     };
-  }, [teardown]);
+  }, [enabled, teardown]);
 
   // ── Handle incoming DataChannel events from OpenAI ──
   const handleDataChannelMessage = useCallback((event: MessageEvent) => {
@@ -498,6 +503,8 @@ export function useRealtimeVoice(): UseRealtimeVoiceReturn {
 
   // Auto-start on mount (first interaction unlocks autoplay)
   useEffect(() => {
+    if (!enabled) return;
+
     const handleFirstInteraction = () => {
       if (!sessionActiveRef.current && statusRef.current === 'idle' && available) {
         startListening().catch(() => {});
@@ -521,7 +528,7 @@ export function useRealtimeVoice(): UseRealtimeVoiceReturn {
       teardown();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [enabled]);
 
   return {
     status,

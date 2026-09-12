@@ -5,7 +5,7 @@ import { MapPinned, TrainFront, ListChecks, ParkingCircle } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { ROUTES } from '@/data/routes';
 import { useVoiceConversation } from '@/hooks/useVoiceConversation';
-import { useRealtimeVoice } from '@/hooks/useRealtimeVoice';
+import { usePeriodicCallout } from '@/hooks/usePeriodicCallout';
 import { useT } from '@/lib/i18n';
 import { unlockAudio } from '@/lib/audioUnlock';
 import { initCameraPresenceBridge } from '@/lib/cameraPresence';
@@ -24,14 +24,13 @@ export function QuickActions() {
     { icon: ListChecks,   label: t('quickActions.chipChecklist'), action: 'checklist' },
   ];
 
-  // ── Voice engine selection ──────────────────────────────────────────────────
-  // Primary: OpenAI Realtime API (WebRTC) — true free-flowing conversation,
-  //          sub-second latency, server-side VAD, natural interruption support.
-  // Fallback: Legacy record-based pipeline (useVoiceConversation) — used when
-  //           the Realtime API is unavailable (no API key, older browser, etc.)
-  const realtime  = useRealtimeVoice();
-  const legacy    = useVoiceConversation({ enabled: !realtime.available });
-  const voice     = realtime.available ? realtime : legacy;
+  // ── Unified Single Voice Engine ─────────────────────────────────────────────
+  // useVoiceConversation: Complete Salomon Kiosk interactive pipeline:
+  // - 3D terrain map route synchronization (findRouteByVoiceQuery -> setSelectedRoute)
+  // - Real-time difficulty setting & modal triggering (equipment, cable car, staff)
+  // - High-sensitivity audio visualizer (3.5x GainNode)
+  // - Barge-in interruption & single-person vocal playback via OpenAI TTS / browser synth
+  const voice = useVoiceConversation({ enabled: true });
 
   const {
     status,
@@ -39,20 +38,31 @@ export function QuickActions() {
     responseText,
     audioLevel,
     errorMessage,
+    startListening,
     stopListening,
     cancelConversation,
+    speakText,
   } = voice;
+
+  // ── Periodic Standby Attract Callout & Conversation Lifecycle ───────────────
+  // 1. 通常時待機中: 75秒（60〜120秒）ごとに自動呼びかけ発話
+  //    「高尾山やおすすめルート、装備について、ご質問があれば話しかけてください。」
+  // 2. ユーザーが話しかけた時: 呼びかけタイマー停止 → 会話モードへ
+  // 3. 会話終了後: 40秒（30〜60秒）無操作で通常待機へ自動復帰 → 呼びかけ再開
+  usePeriodicCallout({
+    enabled: true,
+    voiceStatus: status,
+    transcript,
+    speakText,
+    cancelConversation,
+    language,
+    calloutIntervalMs: 75_000,
+    conversationTimeoutMs: 40_000,
+  });
 
   const handleStartListening = async () => {
     unlockAudio();
-    if (realtime.available) {
-      const started = await realtime.startListening();
-      if (!started) {
-        await legacy.startListening();
-      }
-    } else {
-      await legacy.startListening();
-    }
+    await startListening();
   };
 
   // ── AI Camera Presence Bridge Integration ───────────────────────────────────
@@ -62,9 +72,9 @@ export function QuickActions() {
     const cleanup = initCameraPresenceBridge(
       async (greetingText) => {
         unlockAudio();
-        if (voice.status === 'idle') {
-          await voice.speakText(greetingText);
-          if (voice.status === 'idle') {
+        if (status === 'idle') {
+          await speakText(greetingText);
+          if (status === 'idle') {
             await handleStartListening();
           }
         }
@@ -72,7 +82,7 @@ export function QuickActions() {
       () => language
     );
     return cleanup;
-  }, [language, voice]);
+  }, [language, status, speakText]);
 
   const handleClick = (action: string) => {
     if (action === 'checklist') {

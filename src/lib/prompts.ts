@@ -254,15 +254,18 @@ export function buildUserPrompt(ctx: AIContext): string {
       : '';
 
     const queryLine = userQuery ? `[User Voice Question] "${userQuery}"` : '';
+    const instructionLine = userQuery
+      ? 'CRITICAL INSTRUCTION: The user has asked a specific question above. Answer the user question DIRECTLY, warmly, and concisely. Do NOT recite unrequested statistics of the currently selected trail unless the user specifically asked about that trail.'
+      : 'Instruction: Reply in clear, welcoming English adhering to the JSON schema.';
 
     return [
+      queryLine,
       `[Current Weather] Condition: ${weather.weather}, Temp: ${weather.temp_c}°C, Rain Prob: ${weather.rainProbability}%, Wind: ${weather.windSpeed}m/s, UV Index: ${weather.uvIndex}`,
       `[Selected Trail] ${routeName}, Distance: ${route.distanceKm}km, Elevation Gain: ${route.elevationM}m, Duration: ${route.durationMin}min, Features: ${routeFeatures.join(', ')}`,
       `[Hiker Level] ${LEVEL_LABEL.en[userLevel] || userLevel}`,
-      queryLine,
       trailLines,
       facilityLines,
-      'Instruction: Reply in clear, welcoming English adhering to the JSON schema.',
+      instructionLine,
     ].filter(Boolean).join('\n');
   }
 
@@ -276,15 +279,18 @@ export function buildUserPrompt(ctx: AIContext): string {
       : '';
 
     const queryLine = userQuery ? `【顾客语音提问】“${userQuery}”` : '';
+    const instructionLine = userQuery
+      ? '【核心指令】顾客提出了上方具体问题。请首要、直接、亲切地回答该问题。除非顾客专门询问选中路线，否则切勿机械报读所选路线的背景距离或时间数据。'
+      : '指令要求: 请使用地道流畅的中文回答，并严格遵循JSON格式输出。';
 
     return [
+      queryLine,
       `【当前天气】天气: ${weather.weather}, 气温: ${weather.temp_c}℃, 降水概率: ${weather.rainProbability}%, 风速: ${weather.windSpeed}m/s, 紫外线指数: ${weather.uvIndex}`,
       `【选择路线】${routeName}, 距离: ${route.distanceKm}公里, 爬升: ${route.elevationM}米, 预计耗时: ${route.durationMin}分钟, 特点: ${routeFeatures.join('、')}`,
       `【顾客水平】${LEVEL_LABEL.zh[userLevel] || userLevel}`,
-      queryLine,
       trailLines,
       facilityLines,
-      '指令要求: 请使用地道流畅的中文回答，并严格遵循JSON格式输出。',
+      instructionLine,
     ].filter(Boolean).join('\n');
   }
 
@@ -297,13 +303,17 @@ export function buildUserPrompt(ctx: AIContext): string {
     : '';
 
   const queryLine = userQuery ? `【来店者の質問・要望（音声入力）】「${userQuery}」` : '';
+  const instructionLine = userQuery
+    ? '【最優先回答指示】来店者の質問内容に直接的・的確・親切にお答えください。質問と関係ない場合は、現在画面で選択されているルートの数値や概要を機械的に並列して読み上げないでください。'
+    : '【指示】選択ルートと現在の山頂天候に基づき、登山者の安全と魅力を伝える的確なアドバイスを提供してください。';
 
   return [
+    queryLine,
     `【現在の天気】天気: ${weather.weather}, 気温: ${weather.temp_c}℃, 降水確率: ${weather.rainProbability}%, 風速: ${weather.windSpeed}m/s, UV指数: ${weather.uvIndex}`,
     `【選択ルート】${routeName}, 距離: ${route.distanceKm}km, 標高差: ${route.elevationM}m, 所要: ${route.durationMin}分, 特徴: ${routeFeatures.join('・')}`,
     `【来店者レベル】${LEVEL_LABEL.ja[userLevel] || userLevel}`,
-    queryLine,
     trailLines,
     facilityLines,
+    instructionLine,
   ].filter(Boolean).join('\n');
 }
