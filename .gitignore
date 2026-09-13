@@ -18,3 +18,8 @@ public/mobile_*.png
 public/m_*.png
 public/audit_kiosk.png
 public/admin_gate.png
+
+# Antigravity local agent skills (ignored from repo push per user requirement)
+.agents/
+.agents
+
