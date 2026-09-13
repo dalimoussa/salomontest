@@ -8,6 +8,18 @@
 
 let isUnlocked = false;
 let sharedAudioCtx: AudioContext | null = null;
+const unlockListeners = new Set<(unlocked: boolean) => void>();
+
+export function isAudioUnlocked(): boolean {
+  if (typeof window === 'undefined') return false;
+  return isUnlocked;
+}
+
+export function onAudioUnlock(cb: (unlocked: boolean) => void): () => void {
+  unlockListeners.add(cb);
+  cb(isUnlocked);
+  return () => unlockListeners.delete(cb);
+}
 
 export function getSharedAudioContext(): AudioContext | null {
   if (typeof window === 'undefined') return null;
@@ -23,7 +35,8 @@ export function getSharedAudioContext(): AudioContext | null {
 }
 
 export function unlockAudio(): void {
-  if (typeof window === 'undefined' || isUnlocked) return;
+  if (typeof window === 'undefined') return;
+  if (isUnlocked) return;
 
   try {
     const ctx = getSharedAudioContext();
@@ -53,6 +66,10 @@ export function unlockAudio(): void {
     }
 
     isUnlocked = true;
+    unlockListeners.forEach(cb => {
+      try { cb(true); } catch {}
+    });
+    console.log('[audioUnlock] Audio pipeline unlocked successfully');
   } catch (e) {
     console.warn('[audioUnlock] Audio unlock encountered minor error:', e);
   }
@@ -66,9 +83,11 @@ if (typeof window !== 'undefined') {
     window.removeEventListener('touchstart', handler);
     window.removeEventListener('click', handler);
     window.removeEventListener('keydown', handler);
+    window.removeEventListener('wheel', handler);
   };
   window.addEventListener('pointerdown', handler, { passive: true, once: true });
   window.addEventListener('touchstart', handler, { passive: true, once: true });
   window.addEventListener('click', handler, { passive: true, once: true });
   window.addEventListener('keydown', handler, { passive: true, once: true });
+  window.addEventListener('wheel', handler, { passive: true, once: true });
 }

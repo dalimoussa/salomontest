@@ -14,6 +14,7 @@ interface VoiceHUDProps {
   onStopListening: () => void;
   onCancel: () => void;
   language: 'ja' | 'en' | 'zh';
+  isCalloutSpeaking?: boolean;
 }
 
 export function VoiceHUD({
@@ -25,6 +26,7 @@ export function VoiceHUD({
   onStartListening,
   onCancel,
   language,
+  isCalloutSpeaking = false,
 }: VoiceHUDProps) {
   const isListening    = status === 'listening';
   const isThinking     = status === 'thinking';
@@ -40,7 +42,9 @@ export function VoiceHUD({
   };
 
   // Localized status labels
-  const titleText = isListening
+  const titleText = isCalloutSpeaking && isSpeaking
+    ? (language === 'en' ? 'AI Attract Callout' : language === 'zh' ? 'AI自动呼出中' : 'AI自動呼びかけ中')
+    : isListening
     ? (language === 'en' ? 'Listening... LIVE' : language === 'zh' ? '正在倾听... LIVE' : '聞いています… LIVE')
     : isThinking
     ? (language === 'en' ? 'AI Thinking...' : language === 'zh' ? 'AI思考中...' : 'AI山守が考え中…')
@@ -48,7 +52,9 @@ export function VoiceHUD({
     ? (language === 'en' ? 'AI Speaking' : language === 'zh' ? 'AI回答中' : 'AI音声案内中')
     : (language === 'en' ? 'Voice AI Ready' : language === 'zh' ? '语音AI就绪' : '音声AI待機中');
 
-  const subtitleText = isListening
+  const subtitleText = isCalloutSpeaking && isSpeaking
+    ? (language === 'en' ? 'Speak anytime to start conversation' : language === 'zh' ? '随时说话即可开始对话' : '話しかけると会話モードが始まります')
+    : isListening
     ? (transcript
         ? formatQuote(transcript)
         : language === 'en'
