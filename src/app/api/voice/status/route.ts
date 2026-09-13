@@ -11,7 +11,7 @@ export async function GET() {
     model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
     tts_voice: 'alloy',
     tts_model: 'tts-1',
-    mode: hasKey ? 'openai_studio_voice' : 'browser_speech_synth',
+    mode: hasKey ? 'openai_studio_voice' : 'neural_tts_and_cached_audio',
     timestamp: new Date().toISOString(),
   });
 }

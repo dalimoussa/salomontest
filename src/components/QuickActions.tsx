@@ -183,7 +183,7 @@ export function QuickActions() {
           {/* Instant Test Callout */}
           <button
             onClick={() => {
-              unlockAudio();
+              unlockAudio(true);
               triggerCallout();
             }}
             className="px-2 py-0.5 rounded bg-white/10 hover:bg-salomon-cyan/20 border border-white/15 hover:border-salomon-cyan/50 text-[10px] text-white transition-all flex items-center gap-1"
@@ -196,7 +196,7 @@ export function QuickActions() {
           {/* Audio Unlock indicator if browser blocked autoplay */}
           {!unlocked && (
             <button
-              onClick={() => unlockAudio()}
+              onClick={() => unlockAudio(true)}
               className="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/50 text-[10px] text-amber-300 font-medium transition-all animate-pulse flex items-center gap-1"
               title="ブラウザの自動再生制限を解除"
             >
@@ -210,16 +210,16 @@ export function QuickActions() {
               className={`px-1.5 py-0.5 rounded text-[9px] font-mono border flex items-center gap-1 ${
                 openaiConfigured
                   ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300'
-                  : 'bg-amber-950/60 border-amber-500/40 text-amber-300'
+                  : 'bg-salomon-cyan/15 border-salomon-cyan/30 text-salomon-cyan'
               }`}
               title={
                 openaiConfigured
                   ? 'OpenAI Studio Neural Voice (alloy) & GPT-4o-mini active'
-                  : 'OpenAI API key not set in .env.local — using browser speech synthesis'
+                  : 'High-availability neural TTS & pre-rendered attract audio active'
               }
             >
-              <span className={`w-1.5 h-1.5 rounded-full ${openaiConfigured ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-              {openaiConfigured ? 'OpenAI TTS' : 'Web Speech'}
+              <span className={`w-1.5 h-1.5 rounded-full ${openaiConfigured ? 'bg-emerald-400' : 'bg-salomon-cyan'}`} />
+              {openaiConfigured ? 'OpenAI TTS' : 'Audio Ready'}
             </span>
           )}
         </div>
