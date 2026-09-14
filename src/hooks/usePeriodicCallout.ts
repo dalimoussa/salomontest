@@ -69,9 +69,6 @@ export function usePeriodicCallout({
   const isCalloutSpeakingRef = useRef<boolean>(false);
   isCalloutSpeakingRef.current = isCalloutSpeaking;
 
-  // Guard against parallel trigger calls while async audio request is running
-  const isTriggeringRef = useRef<boolean>(false);
-
   const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
   const standbyRecoveryTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -86,33 +83,15 @@ export function usePeriodicCallout({
   // ── Execute Periodic Callout ────────────────────────────────────────────────
   const triggerCallout = useCallback(async () => {
     if (!enabled) return;
-    if (isTriggeringRef.current || isCalloutSpeakingRef.current) return;
     // Do not speak if already in active user conversation
     if (modeRef.current !== 'standby') return;
-    // Do not speak if user is asking a question or AI is processing/answering; defer by 15s
-    if (voiceStatus === 'thinking') {
-      setSecondsRemaining(15);
-      secondsRemainingRef.current = 15;
-      return;
-    }
-    if (voiceStatus === 'speaking' && !isCalloutSpeakingRef.current) {
-      setSecondsRemaining(15);
-      secondsRemainingRef.current = 15;
-      return;
-    }
-    if (transcript && transcript.trim().length > 0) {
-      setSecondsRemaining(15);
-      secondsRemainingRef.current = 15;
-      return;
-    }
-    // Do not speak if modal (e.g. equipment, cable car) is open; defer by 20s
-    if (useStore.getState().activeModal) {
-      setSecondsRemaining(20);
-      secondsRemainingRef.current = 20;
-      return;
-    }
+    // Do not speak if user is asking a question or AI is processing/answering
+    if (voiceStatus === 'thinking') return;
+    if (voiceStatus === 'speaking' && !isCalloutSpeakingRef.current) return;
+    if (transcript && transcript.trim().length > 0) return;
+    // Do not speak if modal (e.g. equipment, cable car) is open
+    if (useStore.getState().activeModal) return;
 
-    isTriggeringRef.current = true;
     unlockAudio();
     const message = CALLOUT_MESSAGES[language] || CALLOUT_MESSAGES.ja;
     console.log(`[usePeriodicCallout] Triggering attract callout (${language}, interval=${intervalSecondsRef.current}s):`, message);
@@ -126,7 +105,6 @@ export function usePeriodicCallout({
     } finally {
       isCalloutSpeakingRef.current = false;
       setIsCalloutSpeaking(false);
-      isTriggeringRef.current = false;
       // Reset countdown to the full interval after callout finishes
       setSecondsRemaining(intervalSecondsRef.current);
       secondsRemainingRef.current = intervalSecondsRef.current;
@@ -142,7 +120,6 @@ export function usePeriodicCallout({
     }
     isCalloutSpeakingRef.current = false;
     setIsCalloutSpeaking(false);
-    isTriggeringRef.current = false;
     if (standbyRecoveryTimerRef.current) {
       clearTimeout(standbyRecoveryTimerRef.current);
       standbyRecoveryTimerRef.current = null;
@@ -205,7 +182,7 @@ export function usePeriodicCallout({
 
     countdownTimerRef.current = setInterval(() => {
       if (modeRef.current !== 'standby') return;
-      if (isCalloutSpeakingRef.current || isTriggeringRef.current) return;
+      if (isCalloutSpeakingRef.current) return;
       if (voiceStatus === 'thinking' || (voiceStatus === 'speaking' && !isCalloutSpeakingRef.current)) return;
       if (transcript && transcript.trim().length > 0) return;
       if (useStore.getState().activeModal) return;

@@ -310,15 +310,6 @@ export function ProductEditor() {
         )}
       </div>
 
-      {/* Note */}
-      <div className="rounded-xl bg-blue-500/10 border border-blue-500/20 px-4 py-3">
-        <p className="text-xs text-blue-300 leading-relaxed">
-          <span className="font-bold">📝 DEMO版について：</span>
-          変更はこのブラウザの localStorage に保存されます。
-          本番環境ではAPIで自動取得 + 手動上書きの両方に対応予定です。
-        </p>
-      </div>
-
       {/* ── Add / Edit modal ────────────────────────────────────────── */}
       {modalMode && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center

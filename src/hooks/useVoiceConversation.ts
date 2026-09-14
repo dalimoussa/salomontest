@@ -8,7 +8,7 @@ import { getCurrentSeason } from '@/lib/season';
 import { getTrailStatus } from '@/data/trailStatus';
 import { getFacilities } from '@/data/facilities';
 import { ROUTES } from '@/data/routes';
-import { unlockAudio, playPreloadedCalloutAudio } from '@/lib/audioUnlock';
+import { unlockAudio } from '@/lib/audioUnlock';
 import type { WeatherData } from '@/types';
 
 export type VoiceStatus = 'idle' | 'listening' | 'thinking' | 'speaking';
@@ -63,7 +63,6 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
   const animFrameRef = useRef<number | null>(null);
   const currentAudioRef = useRef<HTMLAudioElement | null>(null);
   const currentUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
-  const currentBufferStopRef = useRef<(() => void) | null>(null);
   const recognitionRef = useRef<any>(null);
   const localTranscriptRef = useRef<string>('');
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -78,10 +77,6 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
   const abortSpeakingRef = useRef<(() => void) | null>(null);
   const interruptedRef = useRef<boolean>(false);
   const generationIdRef = useRef<number>(0);
-  const speakStartTimeRef = useRef<number>(0);
-  const isCalloutSpeakingRef = useRef<boolean>(false);
-  const userSpeakingStartRef = useRef<number>(0);
-  const vadSilenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const stopSpeechRecognition = useCallback(() => {
     if (recognitionRef.current) {
@@ -109,15 +104,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       abortSpeakingRef.current = null;
     }
 
-    // 2. Safely stop preloaded Web Audio buffer playback
-    if (currentBufferStopRef.current) {
-      try {
-        currentBufferStopRef.current();
-      } catch {}
-      currentBufferStopRef.current = null;
-    }
-
-    // 3. Safely stop and detach HTML5 Audio element
+    // 2. Safely stop and detach HTML5 Audio element
     if (currentAudioRef.current) {
       try {
         const audio = currentAudioRef.current;
@@ -132,7 +119,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       currentAudioRef.current = null;
     }
 
-    // 4. Immediately halt Web Speech API SpeechSynthesis without Chrome audio buffer bleed
+    // 3. Immediately halt Web Speech API SpeechSynthesis without Chrome audio buffer bleed
     if (typeof window !== 'undefined' && window.speechSynthesis) {
       try {
         if (currentUtteranceRef.current) {
@@ -169,10 +156,8 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
   const setSelectedDifficulty = useStore((s) => s.setSelectedDifficulty);
   const setActiveModal = useStore((s) => s.setActiveModal);
 
-  // Audio level visualizer loop — boosted high-sensitivity sensor with leak protection & VAD
+  // Audio level visualizer loop — boosted high-sensitivity sensor
   const startLevelMeter = (stream: MediaStream) => {
-    stopLevelMeter();
-
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioCtx) return;
@@ -198,40 +183,6 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         // Non-linear power curve that magnifies low speaking levels significantly
         const normalized = Math.min(1, Math.max(0, Math.pow(avg / 25, 0.65)));
         setAudioLevel(normalized);
-
-        // Voice Activity Detection (VAD) & Loud/Quiet Speaker Watchdog
-        if (statusRef.current === 'listening') {
-          if (normalized > 0.14) {
-            // Voice energy detected (supports both soft whisper and loud speech)
-            if (!userSpeakingStartRef.current) {
-              userSpeakingStartRef.current = Date.now();
-            }
-            if (vadSilenceTimeoutRef.current) {
-              clearTimeout(vadSilenceTimeoutRef.current);
-              vadSilenceTimeoutRef.current = null;
-            }
-          } else if (normalized < 0.08 && userSpeakingStartRef.current > 0) {
-            // Silence after speech began
-            if (!vadSilenceTimeoutRef.current) {
-              vadSilenceTimeoutRef.current = setTimeout(() => {
-                const speechDuration = Date.now() - userSpeakingStartRef.current;
-                userSpeakingStartRef.current = 0;
-                vadSilenceTimeoutRef.current = null;
-
-                if (speechDuration > 350 && statusRef.current === 'listening') {
-                  commitCurrentSpeech();
-                }
-              }, 700);
-            }
-          }
-        } else {
-          userSpeakingStartRef.current = 0;
-          if (vadSilenceTimeoutRef.current) {
-            clearTimeout(vadSilenceTimeoutRef.current);
-            vadSilenceTimeoutRef.current = null;
-          }
-        }
-
         animFrameRef.current = requestAnimationFrame(updateLevel);
       };
       updateLevel();
@@ -245,15 +196,8 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       cancelAnimationFrame(animFrameRef.current);
       animFrameRef.current = null;
     }
-    if (vadSilenceTimeoutRef.current) {
-      clearTimeout(vadSilenceTimeoutRef.current);
-      vadSilenceTimeoutRef.current = null;
-    }
-    userSpeakingStartRef.current = 0;
     if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-      try {
-        audioContextRef.current.close().catch(() => {});
-      } catch {}
+      audioContextRef.current.close().catch(() => {});
       audioContextRef.current = null;
     }
     setAudioLevel(0);
@@ -305,6 +249,9 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         }
 
         try {
+          // Clear any previous queued speech
+          window.speechSynthesis.cancel();
+
           const utterance = new SpeechSynthesisUtterance(text);
           utterance.lang = targetLang;
           utterance.rate = 1.0;
@@ -345,25 +292,11 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
             }
           }, 500);
 
-          const startUtterance = () => {
-            if (finished || interruptedRef.current) {
-              finish();
-              return;
-            }
-            speakStartTimeRef.current = Date.now();
-            if (window.speechSynthesis.paused) {
-              window.speechSynthesis.resume();
-            }
-            window.speechSynthesis.speak(utterance);
-          };
-
-          // If speech synthesis is actively speaking, clear with 40ms grace before starting
-          if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
-            window.speechSynthesis.cancel();
-            setTimeout(startUtterance, 40);
-          } else {
-            startUtterance();
+          if (window.speechSynthesis.paused) {
+            window.speechSynthesis.resume();
           }
+
+          window.speechSynthesis.speak(utterance);
         } catch (e) {
           console.warn('[speakWithBrowserSynth] Execution failed:', e);
           finish();
@@ -408,65 +341,28 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     resultStartIndexRef.current = recognitionResultCountRef.current;
 
     const currentLang = useStore.getState().language;
-    const cleanText = text.trim();
-
-    // Check if this speech is the attract callout announcement
-    const isCallout =
-      cleanText.includes('高尾山やおすすめルート') ||
-      cleanText.includes('Mt. Takao') ||
-      cleanText.includes('Mount Takao') ||
-      cleanText.includes('关于高尾山');
-
-    isCalloutSpeakingRef.current = isCallout;
 
     try {
-      // For attract callouts, first attempt instant preloaded Web Audio buffer playback
-      if (isCallout) {
-        const preloaded = playPreloadedCalloutAudio(currentLang as 'ja' | 'en' | 'zh');
-        if (preloaded) {
-          currentBufferStopRef.current = preloaded.stop;
-          speakStartTimeRef.current = Date.now();
-          const played = await preloaded.promise;
-          currentBufferStopRef.current = null;
-          if (played && !interruptedRef.current) {
-            return;
-          }
-        }
+      const res = await fetch('/api/voice/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, language: currentLang, voice: 'alloy' }),
+      });
+
+      // If user interrupted during network request
+      if (interruptedRef.current || statusRef.current !== 'speaking') {
+        return;
       }
 
-      const calloutAudioPath = isCallout ? `/audio/callout_${currentLang}.mp3` : null;
-
-      let audioBlobUrl: string | null = null;
-      let shouldRevokeBlob = false;
-
-      if (calloutAudioPath) {
-        audioBlobUrl = calloutAudioPath;
-      } else {
-        const res = await fetch('/api/voice/tts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text, language: currentLang, voice: 'alloy' }),
-        });
-
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('audio')) {
+        const blob = await res.blob();
         if (interruptedRef.current || statusRef.current !== 'speaking') {
           return;
         }
 
-        const contentType = res.headers.get('content-type') || '';
-        if (res.ok && contentType.includes('audio')) {
-          const blob = await res.blob();
-          if (interruptedRef.current || statusRef.current !== 'speaking') {
-            return;
-          }
-          audioBlobUrl = URL.createObjectURL(blob);
-          shouldRevokeBlob = true;
-        }
-      }
-
-      if (audioBlobUrl) {
-        const audio = new Audio(audioBlobUrl);
-        audio.volume = 1.0;
-        audio.preload = 'auto';
+        const audioUrl = URL.createObjectURL(blob);
+        const audio = new Audio(audioUrl);
         (audio as any).playsInline = true;
         audio.setAttribute('playsinline', 'true');
         currentAudioRef.current = audio;
@@ -478,9 +374,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
             if (!resolved) {
               resolved = true;
               if (watchdog) clearTimeout(watchdog);
-              if (shouldRevokeBlob && audioBlobUrl) {
-                try { URL.revokeObjectURL(audioBlobUrl); } catch {}
-              }
+              URL.revokeObjectURL(audioUrl);
               audio.onended = null;
               audio.onerror = null;
               if (currentAudioRef.current === audio) {
@@ -500,33 +394,25 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
               audio.removeAttribute('src');
               audio.load();
             } catch {}
-            if (!interruptedRef.current && statusRef.current === 'speaking') {
-              try {
-                await speakWithBrowserSynth(text, currentLang);
-              } catch {}
-            }
             finish();
+            if (!interruptedRef.current && statusRef.current === 'speaking') {
+              await speakWithBrowserSynth(text, currentLang);
+            }
           };
 
-          // Audio playback safety watchdog (25s)
-          watchdog = setTimeout(finish, 25000);
+          // Audio playback safety watchdog
+          watchdog = setTimeout(finish, 20000);
 
-          // Mark start time at the exact moment audio playback begins!
-          speakStartTimeRef.current = Date.now();
-
-          audio.play().catch(async (playErr) => {
-            console.warn('[useVoiceConversation] audio.play() rejected (autoplay or device restriction):', playErr?.message || playErr);
+          audio.play().catch(async () => {
             try {
               audio.pause();
               audio.removeAttribute('src');
               audio.load();
             } catch {}
-            if (!interruptedRef.current && statusRef.current === 'speaking') {
-              try {
-                await speakWithBrowserSynth(text, currentLang);
-              } catch {}
-            }
             finish();
+            if (!interruptedRef.current && statusRef.current === 'speaking') {
+              await speakWithBrowserSynth(text, currentLang);
+            }
           });
         });
       } else {
@@ -535,12 +421,11 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         }
       }
     } catch (e) {
-      console.warn('TTS playback failed, falling back to browser speech:', e);
+      console.warn('OpenAI TTS call failed, falling back to browser speech:', e);
       if (!interruptedRef.current && statusRef.current === 'speaking') {
         await speakWithBrowserSynth(text, currentLang);
       }
     } finally {
-      isCalloutSpeakingRef.current = false;
       abortSpeakingRef.current = null;
       setResponseText('');
 
@@ -862,17 +747,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     }
 
     const textToProcess = localTranscriptRef.current.trim();
-    if (!textToProcess) {
-      // If Web Speech API has not returned text, check if MediaRecorder captured speech chunks
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording' && audioChunksRef.current.length > 0) {
-        console.log('[useVoiceConversation] VAD end-of-speech: Web Speech empty, committing MediaRecorder audio to Whisper STT');
-        try {
-          mediaRecorderRef.current.stop();
-          mediaRecorderRef.current = null;
-        } catch {}
-      }
-      return;
-    }
+    if (!textToProcess) return;
 
     // Snapshot committed text and immediately mark recognition index as consumed
     pendingCommittedTextRef.current = textToProcess;
@@ -940,6 +815,22 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
                 resultStartIndexRef.current = 0;
               }
 
+              // ── BARGE-IN INTERRUPTION: Only user speech while the AI is ACTUALLY SPEAKING cuts it off! ──
+              if (statusRef.current === 'speaking') {
+                console.log('[useVoiceConversation] User interrupted AI with fresh query');
+                interruptedRef.current = true;
+                abortSpeaking();
+                setResponseText('');
+                setStatus('listening');
+                ensureMediaRecorderActive();
+
+                // Completely isolate this interruption turn from previous speech:
+                // Fast-forward resultStartIndexRef to this latest chunk!
+                resultStartIndexRef.current = Math.max(0, event.results.length - 1);
+                localTranscriptRef.current = '';
+                setTranscript('');
+              }
+
               // If currently thinking, do not allow intermediate speech chunks to abort or restart processing
               if (statusRef.current === 'thinking') {
                 return;
@@ -963,52 +854,13 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
               const clean = fullText.trim();
               if (!clean) return;
 
-              // ── BARGE-IN INTERRUPTION WITH ACOUSTIC ECHO PROTECTION ──
-              // While the AI is speaking (whether attract callout or answering advice):
-              // NEVER allow the AI's own voice through the speakers to interrupt itself!
-              if (statusRef.current === 'speaking') {
-                // Attract callout speech is never interrupted via microphone
-                if (isCalloutSpeakingRef.current) {
-                  return;
+              // ── Echo suppression: If the AI was speaking, do not self-interrupt with speaker bleed ──
+              if (responseTextRef.current) {
+                const normClean = clean.toLowerCase().replace(/[\s.,!?、。！？「」'"-]/g, '');
+                const normResp = responseTextRef.current.toLowerCase().replace(/[\s.,!?、。！？「」'"-]/g, '');
+                if (normResp.includes(normClean) && normClean.length >= 4) {
+                  return; // Self-echo, ignore
                 }
-
-                // Grace period: ignore initial 1.5s after audio starts to allow audio levels to stabilize
-                const speakElapsed = Date.now() - (speakStartTimeRef.current || 0);
-                if (speakElapsed < 1500) {
-                  return;
-                }
-
-                // Only allow barge-in if user explicitly speaks a clear interrupt command
-                const lowerClean = clean.toLowerCase();
-                const isExplicitInterrupt =
-                  lowerClean.includes('ストップ') ||
-                  lowerClean.includes('stop') ||
-                  lowerClean.includes('キャンセル') ||
-                  lowerClean.includes('cancel') ||
-                  lowerClean.includes('待って') ||
-                  lowerClean.includes('wait') ||
-                  lowerClean.includes('ちょっと待って') ||
-                  lowerClean.includes('停止') ||
-                  lowerClean.includes('等一下') ||
-                  lowerClean.includes('やめて');
-
-                if (!isExplicitInterrupt) {
-                  // Any other audio heard while speaking is acoustic feedback from speakers or room echo.
-                  // Discard it completely so the AI NEVER interrupts itself mid-speech!
-                  return;
-                }
-
-                console.log('[useVoiceConversation] User explicitly interrupted AI with stop command:', clean);
-                interruptedRef.current = true;
-                abortSpeaking();
-                setResponseText('');
-                setStatus('listening');
-                ensureMediaRecorderActive();
-
-                resultStartIndexRef.current = Math.max(0, event.results.length - 1);
-                localTranscriptRef.current = '';
-                setTranscript('');
-                return;
               }
 
               localTranscriptRef.current = clean;
@@ -1023,25 +875,18 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
             };
 
             recognition.onerror = (e: any) => {
-              if (e.error === 'aborted') return;
-              if (e.error === 'no-speech') {
-                // When Chrome emits no-speech, gently stop recognition so onend restarts a fresh connection
-                if (autoLoopRef.current && statusRef.current === 'listening') {
-                  try { recognition.stop(); } catch {}
-                }
-                return;
-              }
+              if (e.error === 'no-speech' || e.error === 'aborted') return;
               console.warn('[useVoiceConversation] Speech recognition error:', e.error);
             };
 
             // Continuous recognition lifecycle: only restart if this instance is still active
             recognition.onend = () => {
-              if (autoLoopRef.current && statusRef.current === 'listening' && recognitionRef.current === recognition) {
+              if (autoLoopRef.current && statusRef.current !== 'thinking' && recognitionRef.current === recognition) {
                 try {
                   recognition.start();
                 } catch {
                   setTimeout(() => {
-                    if (autoLoopRef.current && statusRef.current === 'listening' && recognitionRef.current === recognition) {
+                    if (autoLoopRef.current && statusRef.current !== 'thinking' && recognitionRef.current === recognition) {
                       try { recognition.start(); } catch {}
                     }
                   }, 150);
@@ -1070,7 +915,6 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         });
         streamRef.current = stream;
       }
-
 
       audioChunksRef.current = [];
       const mediaRecorder = new MediaRecorder(stream, {
@@ -1134,11 +978,6 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     }
-    if (vadSilenceTimeoutRef.current) {
-      clearTimeout(vadSilenceTimeoutRef.current);
-      vadSilenceTimeoutRef.current = null;
-    }
-    userSpeakingStartRef.current = 0;
     stopLevelMeter();
     setStatus('idle');
     setTranscript('');
@@ -1231,7 +1070,6 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
 
     return () => {
       clearTimeout(initialTimer);
-      if (vadSilenceTimeoutRef.current) clearTimeout(vadSilenceTimeoutRef.current);
       window.removeEventListener('pointerdown', handleFirstTouch);
       window.removeEventListener('keydown', handleFirstTouch);
     };
