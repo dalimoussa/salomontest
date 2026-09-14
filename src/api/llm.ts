@@ -9,6 +9,7 @@ import type { WeatherData, Route, Difficulty, AdviceResponse, TrailStatus, Facil
 import { buildUserPrompt, type AIContext } from '@/lib/prompts';
 import { ROUTES } from '@/data/routes';
 import type { Language } from '@/lib/i18n';
+import { useAdminStore } from '@/store/useAdminStore';
 
 export function findRouteByQuery(query: string): Route | null {
   const s = query.toLowerCase();
@@ -201,12 +202,30 @@ export function buildFallbackAdvice(
   }
 
   // 1. Beginner Route Question
-  if (q.includes('初心者') || q.includes('beginner') || q.includes('easy') || q.includes('初級') || q.includes('おすすめのルート')) {
+  if (q.includes('初心者') || q.includes('beginner') || q.includes('easy') || q.includes('初級') || q.includes('おすすめのルート') || q.includes('おすすめルート')) {
     recommended_gear.push('footwear', 'apparel');
+    const routeSettings = useAdminStore.getState().routeSettings;
+    const oneStarRoute =
+      ROUTES.find(r => (routeSettings[r.id]?.stars ?? r.difficultyRating ?? 1) === 1) ||
+      ROUTES.find(r => r.id === 'route_1') ||
+      ROUTES[0];
+    const adminSetting = routeSettings[oneStarRoute.id];
+    const starCount = adminSetting?.stars ?? oneStarRoute.difficultyRating ?? 1;
+    const targetName = language === 'en'
+      ? (oneStarRoute.name_en || oneStarRoute.name)
+      : language === 'zh'
+      ? (oneStarRoute.name_zh || oneStarRoute.name)
+      : oneStarRoute.name;
+    const effComment = language === 'en'
+      ? (adminSetting?.comment_en || adminSetting?.comment || oneStarRoute.description_en)
+      : language === 'zh'
+      ? (adminSetting?.comment_zh || adminSetting?.comment || oneStarRoute.description_zh)
+      : (adminSetting?.comment || oneStarRoute.description);
+
     if (language === 'en') {
       return {
-        advice_text: `For beginners, I highly recommend Trail 1 (Omotesando Trail)! It is 3.8km long, fully paved, and takes about 90 minutes. You will pass scenic tea houses, Yakuo-in Temple, and can also take the cable car halfway up if you get tired. Salomon X Ultra 4 GTX shoes are ideal for comfortable grip.`,
-        advice_short: `Trail 1 (Omotesando) is the best choice for beginners! Paved and scenic (90 min).`,
+        advice_text: `For beginners, I highly recommend "${targetName}", which is configured with a 1-star difficulty rating (★${starCount}) in our system settings! ${effComment} It is ${oneStarRoute.distanceKm}km long with gentle paving, restrooms, and teahouses. Salomon X Ultra 4 GTX shoes are ideal for comfortable grip.`,
+        advice_short: `"${targetName}" (★${starCount}) is the best choice for beginners!`,
         safety_flags,
         recommended_gear,
         mood: 'good',
@@ -214,16 +233,16 @@ export function buildFallbackAdvice(
     }
     if (language === 'zh') {
       return {
-        advice_text: `对于初学者，首推“高尾山1号路（表参道）”！全长3.8公里，全程铺装路面，约需90分钟。途经药王院与传统茶屋，体力不足时还可搭乘缆车轻松上山。推荐穿着抓地防滑的Salomon越野鞋。`,
-        advice_short: `初学者首选1号路（表参道）！路况优良平稳，约90分钟登顶。`,
+        advice_text: `对于初学者，最推荐在管理设置中被评定为1星难度（★${starCount}）的「${targetName}」！${effComment} 全长${oneStarRoute.distanceKm}公里，全程铺装平缓，沿途设施齐备。推荐穿着防滑抓地的Salomon X Ultra 4徒步鞋。`,
+        advice_short: `初学者首选1星难度「${targetName}」！平稳安全。`,
         safety_flags,
         recommended_gear,
         mood: 'good',
       };
     }
     return {
-      advice_text: `初心者の方には、舗装路で歩きやすい「1号路（表参道コース）」が最もおすすめです！全長3.8km、約90分で薬王院や茶屋を巡りながら安心して山頂へ行けます。疲れたらケーブルカーも利用可能です。足元は安定感抜群のサロモン X ULTRA 4 GORE-TEX がぴったりです。`,
-      advice_short: `初心者には1号路（表参道）が一番おすすめ！舗装路で安心です。`,
+      advice_text: `初心者の方には、管理画面の設定で難易度星${starCount}つ（★${starCount}）に指定されている「${targetName}」が最もおすすめです！${effComment} 全長${oneStarRoute.distanceKm}kmの舗装路で茶屋やトイレも充実しており、普段着やスニーカーでも安心して楽しめます。サロモン X ULTRA 4 GORE-TEX がぴったりです。`,
+      advice_short: `難易度星${starCount}つ（★${starCount}）の「${targetName}」が初心者におすすめです！`,
       safety_flags,
       recommended_gear,
       mood: 'good',

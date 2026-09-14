@@ -1,20 +1,26 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { MapPinned, TrainFront, ListChecks, ParkingCircle, Volume2 } from 'lucide-react';
+import { MapPinned, ListChecks, Volume2 } from 'lucide-react';
 import { useStore } from '@/store/useStore';
+import { useAdminStore } from '@/store/useAdminStore';
 import { ROUTES } from '@/data/routes';
+import { getRecommendedProducts } from '@/data/products';
+import { getCurrentSeason } from '@/lib/season';
 import { useVoiceConversation } from '@/hooks/useVoiceConversation';
 import { usePeriodicCallout } from '@/hooks/usePeriodicCallout';
 import { useT } from '@/lib/i18n';
 import { unlockAudio, isAudioUnlocked, onAudioUnlock } from '@/lib/audioUnlock';
 import { initCameraPresenceBridge } from '@/lib/cameraPresence';
 import { VoiceHUD } from './VoiceHUD';
+import type { Difficulty } from '@/types';
 
 export function QuickActions() {
   const setActiveModal        = useStore(s => s.setActiveModal);
   const setSelectedRoute      = useStore(s => s.setSelectedRoute);
   const setSelectedDifficulty = useStore(s => s.setSelectedDifficulty);
+  const addMessage            = useStore(s => s.addMessage);
+  const setRecommendedProducts = useStore(s => s.setRecommendedProducts);
   const { t, language }       = useT();
 
   const [unlocked, setUnlocked] = React.useState<boolean>(isAudioUnlocked());
@@ -30,10 +36,8 @@ export function QuickActions() {
   }, []);
 
   const ACTIONS = [
-    { icon: MapPinned,    label: t('quickActions.chipBeginner'),  action: 'route_beginner' },
-    { icon: TrainFront,   label: t('quickActions.chipCablecar'),  action: 'cablecar' },
-    { icon: ParkingCircle,label: t('quickActions.chipParking'),   action: 'parking' },
-    { icon: ListChecks,   label: t('quickActions.chipChecklist'), action: 'checklist' },
+    { icon: MapPinned,  label: t('quickActions.chipBeginner'),  action: 'route_beginner' },
+    { icon: ListChecks, label: t('quickActions.chipChecklist'), action: 'checklist' },
   ];
 
   // ── Unified Single Voice Engine ─────────────────────────────────────────────
@@ -103,17 +107,111 @@ export function QuickActions() {
     return cleanup;
   }, [language, status, speakText]);
 
-  const handleClick = (action: string) => {
+  const handleClick = async (action: string) => {
     if (action === 'checklist') {
       setActiveModal('equipment');
-    } else if (action === 'cablecar') {
-      setActiveModal('cablecar');
     } else if (action === 'route_beginner') {
-      setSelectedDifficulty('beginner');
-      const r1 = ROUTES.find(r => r.id === 'route_1');
-      if (r1) setSelectedRoute(r1);
-    } else if (action === 'parking') {
-      setActiveModal('staff');
+      // 1. Ensure audio playback is enabled in browser
+      unlockAudio();
+
+      // 2. Resolve the 1-star route dynamically according to administrator page settings
+      const routeSettings = useAdminStore.getState().routeSettings;
+
+      // Find route configured with stars === 1 in admin settings (or fallback to route_1)
+      const oneStarRoute =
+        ROUTES.find(r => (routeSettings[r.id]?.stars ?? r.difficultyRating ?? 1) === 1) ||
+        ROUTES.find(r => r.id === 'route_1') ||
+        ROUTES[0];
+
+      const adminSetting = routeSettings[oneStarRoute.id];
+      const targetDifficulty: Difficulty = adminSetting?.difficulty ?? oneStarRoute.difficulty ?? 'beginner';
+      const starCount: number = adminSetting?.stars ?? oneStarRoute.difficultyRating ?? 1;
+
+      // 3. Highlight and select route in UI and 3D map
+      setSelectedRoute(oneStarRoute);
+      setSelectedDifficulty(targetDifficulty);
+
+      // 4. Extract localized names and admin staff comments
+      const routeName = language === 'en'
+        ? (oneStarRoute.name_en || oneStarRoute.name)
+        : language === 'zh'
+        ? (oneStarRoute.name_zh || oneStarRoute.name)
+        : oneStarRoute.name;
+
+      const comment = language === 'en'
+        ? (adminSetting?.comment_en || adminSetting?.comment || oneStarRoute.description_en || oneStarRoute.description)
+        : language === 'zh'
+        ? (adminSetting?.comment_zh || adminSetting?.comment || oneStarRoute.description_zh || oneStarRoute.description)
+        : (adminSetting?.comment || oneStarRoute.description);
+
+      // 5. Build localized response text with explicit 1-star definition
+      let userQuestion = '';
+      let answerText = '';
+      let shortAdvice = '';
+
+      if (language === 'en') {
+        userQuestion = 'Recommended trail for beginners?';
+        answerText = `For beginners, "${routeName}" is highly recommended, configured with a 1-star difficulty rating (★${starCount}) in our system settings! ${comment} It is fully paved and comfortable to walk, with plenty of rest stops and amenities along the way. Salomon X Ultra 4 GORE-TEX shoes provide great stability!`;
+        shortAdvice = `Recommended: "${routeName}" (★${starCount} Beginner)`;
+      } else if (language === 'zh') {
+        userQuestion = '初学者推荐走哪条路线？';
+        answerText = `对于初学者，最推荐走管理设置中评定为1星难度（★${starCount}）的「${routeName}」！${comment} 全程铺装路面平缓好走，沿途茶社与洗手间设施齐全，穿着运动鞋也能安全舒适地登山游览。推荐穿着萨洛蒙 X Ultra 4 徒步鞋！`;
+        shortAdvice = `推荐走难度★${starCount}的「${routeName}」。`;
+      } else {
+        userQuestion = '初心者におすすめのルートは？';
+        answerText = `初心者の方には、管理画面の設定で難易度星${starCount}つ（★${starCount}）に指定されている「${routeName}」が最もおすすめです！${comment} 全線舗装されて歩きやすく、途中に茶屋やトイレも充実しているため、スニーカーでも安心して登山をお楽しみいただけます。サロモンの X ULTRA 4 GORE-TEX がぴったりです！`;
+        shortAdvice = `難易度★${starCount}の「${routeName}」が初心者におすすめです！`;
+      }
+
+      // 6. Update recommended products for beginner hiking footwear
+      const activeWeather = useStore.getState().weather || {
+        weather: '快晴',
+        weatherCode: 'sunny' as const,
+        temp_c: 20,
+        rainProbability: 0,
+        precipitationMmh: 0,
+        windSpeed: 2.0,
+        uvIndex: 5,
+        visibility: 20,
+        updatedAt: new Date().toISOString(),
+      };
+      const season = getCurrentSeason();
+      const products = getRecommendedProducts(
+        targetDifficulty,
+        activeWeather.weatherCode,
+        season,
+        ['footwear', 'apparel'],
+        6,
+        oneStarRoute.category,
+        language
+      );
+      setRecommendedProducts(products);
+
+      // 7. Add conversation messages to Right Panel
+      addMessage({
+        id: crypto.randomUUID(),
+        role: 'system',
+        text: language === 'en' ? `🎤 "${userQuestion}"` : language === 'zh' ? `🎤 “${userQuestion}”` : `🎤 「${userQuestion}」`,
+        timestamp: new Date(),
+      });
+
+      addMessage({
+        id: crypto.randomUUID(),
+        role: 'ai',
+        text: answerText,
+        advice: {
+          advice_text: answerText,
+          advice_short: shortAdvice,
+          safety_flags: [],
+          recommended_gear: ['trail_shoes_beginner', 'hat'],
+          mood: 'good',
+        },
+        products,
+        timestamp: new Date(),
+      });
+
+      // 8. Trigger voice AI speech output
+      await speakText(answerText);
     }
   };
 
@@ -225,10 +323,10 @@ export function QuickActions() {
         </div>
       </div>
 
-      {/* 4 action chips and Push-to-Talk Voice Concierge Button */}
+      {/* Action chips and Push-to-Talk Voice Concierge Button */}
       <div className="flex flex-col md:flex-row items-center justify-between gap-3">
         {/* Prompt chips (min-h-[48px] touch targets for 110" kiosk display) */}
-        <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-2 w-full">
+        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-xl w-full">
           {ACTIONS.map((a, i) => {
             const Icon = a.icon;
             return (

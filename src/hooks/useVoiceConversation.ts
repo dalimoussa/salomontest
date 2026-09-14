@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useStore } from '@/store/useStore';
+import { useAdminStore } from '@/store/useAdminStore';
 import { getAIAdvice } from '@/api/llm';
 import { getRecommendedProducts } from '@/data/products';
 import { getCurrentSeason } from '@/lib/season';
@@ -585,13 +586,16 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         targetRoute = matchedRoute;
         setSelectedRoute(matchedRoute);
         setSelectedDifficulty(matchedRoute.difficulty);
-      } else if (q.includes('初心者') || q.includes('beginner') || q.includes('easy')) {
-        setSelectedDifficulty('beginner');
-        const r1 = ROUTES.find((r) => r.id === 'route_1');
-        if (r1) {
-          targetRoute = r1;
-          setSelectedRoute(r1);
-        }
+      } else if (q.includes('初心者') || q.includes('beginner') || q.includes('easy') || q.includes('初級')) {
+        const routeSettings = useAdminStore.getState().routeSettings;
+        const oneStarRoute =
+          ROUTES.find((r) => (routeSettings[r.id]?.stars ?? r.difficultyRating ?? 1) === 1) ||
+          ROUTES.find((r) => r.id === 'route_1') ||
+          ROUTES[0];
+        const targetDiff = routeSettings[oneStarRoute.id]?.difficulty ?? oneStarRoute.difficulty ?? 'beginner';
+        setSelectedDifficulty(targetDiff);
+        targetRoute = oneStarRoute;
+        setSelectedRoute(oneStarRoute);
       } else if (q.includes('中級') || q.includes('intermediate')) {
         setSelectedDifficulty('intermediate');
         const r4 = ROUTES.find((r) => r.id === 'route_4');
