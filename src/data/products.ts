@@ -1,5 +1,6 @@
 import type { Product, RouteCategory } from '@/types';
 import type { Language } from '@/lib/i18n';
+export { getCurrentSeason } from '@/lib/season';
 
 export const PRODUCTS: Product[] = [
   {
