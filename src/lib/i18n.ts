@@ -92,10 +92,12 @@ export const TRANSLATIONS = {
     // QuickActions
     'quickActions.prompt': '他に聞きたいことはありますか？',
     'quickActions.voiceBadge': '🎙️ リアルタイム常時音声対話（ボタン不要・ハンズフリー）',
-    'quickActions.chipBeginner': '初心者におすすめのルートは？',
+    'quickActions.chipBeginner': '初心者おすすめルート（2大コース）',
+    'quickActions.chipBeginnerSub': '1号路 (表参道) & 2号路 (霞台ループ) ★1',
     'quickActions.chipCablecar': 'ケーブルカーの運行状況は？',
     'quickActions.chipParking': '駐車場の状況は？',
-    'quickActions.chipChecklist': '持ち物チェックリスト',
+    'quickActions.chipChecklist': '持ち物・必需品チェックリスト',
+    'quickActions.chipChecklistSub': '雨具・水分・防寒着・シューズの準備',
 
     // VoiceHUD
     'voice.idleLabel': '🎙️ 音声AI対話スタンバイ（そのまま話しかけてください）',
@@ -288,10 +290,12 @@ export const TRANSLATIONS = {
     // QuickActions
     'quickActions.prompt': 'Have more questions about the mountain?',
     'quickActions.voiceBadge': '🎙️ Real-time Voice AI (Hands-free / Always-on)',
-    'quickActions.chipBeginner': 'Recommended trail for beginners?',
+    'quickActions.chipBeginner': 'Recommended Trails for Beginners (Top 2)',
+    'quickActions.chipBeginnerSub': 'Trail 1 (Omotesando) & Trail 2 (Kasumidai Loop) ★1',
     'quickActions.chipCablecar': 'Cable car status & hours?',
     'quickActions.chipParking': 'Current parking availability?',
-    'quickActions.chipChecklist': 'Essential packing checklist',
+    'quickActions.chipChecklist': 'Essential Packing Checklist',
+    'quickActions.chipChecklistSub': 'Footwear, rain gear, hydration & safety checklist',
 
     // VoiceHUD
     'voice.idleLabel': '🎙️ Voice AI Standby (Just speak naturally)',
@@ -484,10 +488,12 @@ export const TRANSLATIONS = {
     // QuickActions
     'quickActions.prompt': '还有其他想了解的内容吗？',
     'quickActions.voiceBadge': '🎙️ 实时智能语音对讲（免按键・全自动）',
-    'quickActions.chipBeginner': '初学者推荐走哪条路线？',
+    'quickActions.chipBeginner': '初学者推荐路线（两大经典）',
+    'quickActions.chipBeginnerSub': '1号路 (表参道) 与 2号路 (霞台环线) ★1',
     'quickActions.chipCablecar': '缆车运营状况？',
     'quickActions.chipParking': '山脚停车场还有车位吗？',
     'quickActions.chipChecklist': '必备装备与行李检查清单',
+    'quickActions.chipChecklistSub': '防雨冲锋衣、饮水补给与徒步鞋检查',
 
     // VoiceHUD
     'voice.idleLabel': '🎙️ 语音AI待命中（请直接开口说话）',

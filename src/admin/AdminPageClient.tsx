@@ -1,55 +1,120 @@
 'use client';
 
 /**
- * AdminPageClient — wraps AdminApp in a PIN-gate.
+ * AdminPageClient — High-Security Server-Authenticated Admin Console Gate.
  *
- * The PIN is set via NEXT_PUBLIC_ADMIN_PIN environment variable.
- * Default PIN is 1234 when the variable is not set (development only).
- *
- * Production deployment should set NEXT_PUBLIC_ADMIN_PIN to a strong
- * numeric PIN in Vercel environment settings.
- *
- * For true authentication (session tokens, role-based access), replace
- * this with NextAuth or a similar server-side solution in Phase 2.
+ * Security features:
+ * - Zero client PIN exposure (no NEXT_PUBLIC_ADMIN_PIN).
+ * - Server-side verification via /api/admin/auth with rate limiting & brute-force lock.
+ * - HTTP-only SameSite=Strict HMAC signed session cookies.
+ * - Constant-time comparison on the server to prevent timing attacks.
  */
 
-import { useState, useRef } from 'react';
-import { Lock, Eye, EyeOff, ShieldCheck } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Lock, Eye, EyeOff, ShieldCheck, LogOut, Loader2 } from 'lucide-react';
 import { AdminApp } from '@/admin/AdminApp';
 
-const ADMIN_PIN = process.env.NEXT_PUBLIC_ADMIN_PIN ?? '1234';
-const MAX_ATTEMPTS = 5;
-
 export function AdminPageClient() {
+  const [checkingAuth, setCheckingAuth]   = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
-  const [pin, setPin]           = useState('');
-  const [showPin, setShowPin]   = useState(false);
-  const [error, setError]       = useState('');
-  const [attempts, setAttempts] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [pin, setPin]                     = useState('');
+  const [showPin, setShowPin]             = useState(false);
+  const [error, setError]                 = useState('');
+  const [loading, setLoading]             = useState(false);
+  const [locked, setLocked]               = useState(false);
+  const inputRef                          = useRef<HTMLInputElement>(null);
 
-  const locked = attempts >= MAX_ATTEMPTS;
+  // Check active server session on load
+  useEffect(() => {
+    fetch('/api/admin/check')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.authenticated) {
+          setAuthenticated(true);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setCheckingAuth(false));
+  }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (locked) return;
+    if (locked || loading || !pin) return;
 
-    if (pin === ADMIN_PIN) {
-      setAuthenticated(true);
-    } else {
-      const next = attempts + 1;
-      setAttempts(next);
-      setPin('');
-      setError(
-        next >= MAX_ATTEMPTS
-          ? `試行回数が上限（${MAX_ATTEMPTS}回）に達しました。ページを更新してください。`
-          : `PINが正しくありません。残り${MAX_ATTEMPTS - next}回。`
-      );
-      inputRef.current?.focus();
+    setLoading(true);
+    setError('');
+
+    try {
+      const res = await fetch('/api/admin/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        setAuthenticated(true);
+        setPin('');
+      } else if (res.status === 429) {
+        setLocked(true);
+        setError(data.message || '試行回数上限に達したためロックされました。時間をおいて再度お試しください。');
+      } else {
+        setPin('');
+        if (data.locked) {
+          setLocked(true);
+        }
+        setError(
+          data.message ||
+            (data.remainingAttempts !== undefined
+              ? `PINが正しくありません。残り試行回数: ${data.remainingAttempts}回。`
+              : '認証に失敗しました。')
+        );
+        inputRef.current?.focus();
+      }
+    } catch {
+      setError('サーバー通信エラーが発生しました。');
+    } finally {
+      setLoading(false);
     }
   };
 
-  if (authenticated) return <AdminApp />;
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/admin/auth', { method: 'DELETE' });
+    } catch {}
+    setAuthenticated(false);
+  };
+
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen bg-[#080E20] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-salomon-cyan animate-spin" />
+      </div>
+    );
+  }
+
+  if (authenticated) {
+    return (
+      <div className="relative min-h-screen">
+        {/* Top security bar with logout for staff */}
+        <div className="bg-[#050A18] border-b border-white/10 px-4 py-2 flex items-center justify-between z-50">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-xs font-mono text-slate-300">Staff Session Active (Secured)</span>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-red-500/15 hover:bg-red-500/25 text-red-300 border border-red-500/30 text-xs font-semibold transition-colors"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>ログアウト</span>
+          </button>
+        </div>
+        <AdminApp />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#080E20] flex items-center justify-center px-4">
@@ -68,8 +133,8 @@ export function AdminPageClient() {
           </div>
           <div>
             <p className="text-xs font-mono text-salomon-cyan tracking-widest uppercase">SALOMON AI CONCIERGE</p>
-            <h1 className="text-lg font-bold text-white mt-1">管理者ログイン</h1>
-            <p className="text-xs text-slate-400 mt-0.5">Admin Console — スタッフ専用</p>
+            <h1 className="text-lg font-bold text-white mt-1">スタッフ管理認証</h1>
+            <p className="text-xs text-slate-400 mt-0.5">Authorized Personnel Only</p>
           </div>
         </div>
 
@@ -87,11 +152,11 @@ export function AdminPageClient() {
                 type={showPin ? 'text' : 'password'}
                 inputMode="numeric"
                 value={pin}
-                onChange={e => {
+                onChange={(e) => {
                   setError('');
                   setPin(e.target.value.replace(/\D/g, '').slice(0, 8));
                 }}
-                disabled={locked}
+                disabled={locked || loading}
                 placeholder="• • • •"
                 className="w-full pl-10 pr-10 py-3 rounded-xl text-sm font-mono tracking-widest bg-white/5 border border-white/15 text-white placeholder:text-slate-600 focus:outline-none focus:border-salomon-cyan/60 disabled:opacity-50 transition-colors"
                 autoFocus
@@ -108,21 +173,28 @@ export function AdminPageClient() {
             </div>
           </div>
 
-          {error && (
-            <p className="text-xs text-red-400 text-center">{error}</p>
-          )}
+          {error && <p className="text-xs text-red-400 text-center leading-relaxed">{error}</p>}
 
           <button
             type="submit"
-            disabled={locked || pin.length === 0}
-            className="w-full py-3 rounded-xl bg-salomon-cyan text-salomon-black text-sm font-bold hover:bg-salomon-cyan/90 active:scale-98 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            disabled={locked || loading || pin.length === 0}
+            className="w-full py-3 rounded-xl bg-salomon-cyan text-salomon-black text-sm font-bold hover:bg-salomon-cyan/90 active:scale-98 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            {locked ? 'アカウントをロック中' : '管理画面へ'}
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>認証中...</span>
+              </>
+            ) : locked ? (
+              '一時ロック中'
+            ) : (
+              '管理画面へ'
+            )}
           </button>
         </form>
 
-        <p className="text-center text-[10px] text-slate-600">
-          PINが分からない場合はサロモン高尾店スタッフへお問い合わせください。
+        <p className="text-center text-[10px] text-slate-500">
+          スタッフ専用ポータルです。一般のお客様はご利用いただけません。
         </p>
       </div>
     </div>

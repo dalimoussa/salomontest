@@ -36,8 +36,20 @@ export function QuickActions() {
   }, []);
 
   const ACTIONS = [
-    { icon: MapPinned,  label: t('quickActions.chipBeginner'),  action: 'route_beginner' },
-    { icon: ListChecks, label: t('quickActions.chipChecklist'), action: 'checklist' },
+    {
+      icon: MapPinned,
+      label: t('quickActions.chipBeginner'),
+      subLabel: t('quickActions.chipBeginnerSub'),
+      badge: '★1 × 2選',
+      action: 'route_beginner',
+    },
+    {
+      icon: ListChecks,
+      label: t('quickActions.chipChecklist'),
+      subLabel: t('quickActions.chipChecklistSub'),
+      badge: '必携品ガイド',
+      action: 'checklist',
+    },
   ];
 
   // ── Unified Single Voice Engine ─────────────────────────────────────────────
@@ -114,53 +126,50 @@ export function QuickActions() {
       // 1. Ensure audio playback is enabled in browser
       unlockAudio();
 
-      // 2. Resolve the 1-star route dynamically according to administrator page settings
+      // 2. Resolve the TWO 1-star / beginner routes dynamically according to administrator settings
       const routeSettings = useAdminStore.getState().routeSettings;
 
-      // Find route configured with stars === 1 in admin settings (or fallback to route_1)
-      const oneStarRoute =
-        ROUTES.find(r => (routeSettings[r.id]?.stars ?? r.difficultyRating ?? 1) === 1) ||
+      // Primary beginner trail: Trail 1 (Omotesando)
+      const trail1 =
         ROUTES.find(r => r.id === 'route_1') ||
+        ROUTES.find(r => (routeSettings[r.id]?.stars ?? r.difficultyRating ?? 1) === 1) ||
         ROUTES[0];
 
-      const adminSetting = routeSettings[oneStarRoute.id];
-      const targetDifficulty: Difficulty = adminSetting?.difficulty ?? oneStarRoute.difficulty ?? 'beginner';
-      const starCount: number = adminSetting?.stars ?? oneStarRoute.difficultyRating ?? 1;
+      // Secondary beginner trail: Trail 2 (Kasumidai Loop) or other 1-star route
+      const trail2 =
+        ROUTES.find(r => r.id === 'route_2') ||
+        ROUTES.find(r => r.id !== trail1.id && (routeSettings[r.id]?.stars ?? r.difficultyRating ?? 1) === 1) ||
+        ROUTES.find(r => r.id === 'route_4') ||
+        ROUTES[1];
+
+      const adminSetting1 = routeSettings[trail1.id];
+      const star1 = adminSetting1?.stars ?? trail1.difficultyRating ?? 1;
 
       // 3. Highlight and select route in UI and 3D map
-      setSelectedRoute(oneStarRoute);
-      setSelectedDifficulty(targetDifficulty);
+      setSelectedRoute(trail1);
+      setSelectedDifficulty('beginner');
 
-      // 4. Extract localized names and admin staff comments
-      const routeName = language === 'en'
-        ? (oneStarRoute.name_en || oneStarRoute.name)
-        : language === 'zh'
-        ? (oneStarRoute.name_zh || oneStarRoute.name)
-        : oneStarRoute.name;
+      // 4. Extract localized names
+      const name1 = language === 'en' ? (trail1.name_en || trail1.name) : language === 'zh' ? (trail1.name_zh || trail1.name) : trail1.name;
+      const name2 = language === 'en' ? (trail2.name_en || trail2.name) : language === 'zh' ? (trail2.name_zh || trail2.name) : trail2.name;
 
-      const comment = language === 'en'
-        ? (adminSetting?.comment_en || adminSetting?.comment || oneStarRoute.description_en || oneStarRoute.description)
-        : language === 'zh'
-        ? (adminSetting?.comment_zh || adminSetting?.comment || oneStarRoute.description_zh || oneStarRoute.description)
-        : (adminSetting?.comment || oneStarRoute.description);
-
-      // 5. Build localized response text with explicit 1-star definition
+      // 5. Build localized response text with explicit 2-trail recommendation
       let userQuestion = '';
       let answerText = '';
       let shortAdvice = '';
 
       if (language === 'en') {
-        userQuestion = 'Recommended trail for beginners?';
-        answerText = `For beginners, "${routeName}" is highly recommended, configured with a 1-star difficulty rating (★${starCount}) in our system settings! ${comment} It is fully paved and comfortable to walk, with plenty of rest stops and amenities along the way. Salomon X Ultra 4 GORE-TEX shoes provide great stability!`;
-        shortAdvice = `Recommended: "${routeName}" (★${starCount} Beginner)`;
+        userQuestion = 'Recommended trails for beginners?';
+        answerText = `For beginners, we highly recommend two top trails both rated with a 1-star difficulty (★${star1}):\n1. "${name1}": Fully paved main route to Yakuo-in Temple with 5 rest areas, teahouses, and famous Tengu-yaki dumplings. Safe and comfortable for sneakers!\n2. "${name2}": A gentle 40-minute scenic loop around Takaosan Station surrounded by lush nature and tranquil forests.\nFor footwear, Salomon X Ultra 4 GORE-TEX shoes provide outstanding stability and grip!`;
+        shortAdvice = `Recommended: "${name1}" & "${name2}" (★1 Beginner Trails)`;
       } else if (language === 'zh') {
-        userQuestion = '初学者推荐走哪条路线？';
-        answerText = `对于初学者，最推荐走管理设置中评定为1星难度（★${starCount}）的「${routeName}」！${comment} 全程铺装路面平缓好走，沿途茶社与洗手间设施齐全，穿着运动鞋也能安全舒适地登山游览。推荐穿着萨洛蒙 X Ultra 4 徒步鞋！`;
-        shortAdvice = `推荐走难度★${starCount}的「${routeName}」。`;
+        userQuestion = '初学者推荐走哪两条路线？';
+        answerText = `对于初学者，我们重点推荐管理评定为1星难度（★${star1}）的两大经典路线：\n①「${name1}」：通往药王院的经典表参道，全程铺装路面，沿途茶社与洗手间齐全（共5处），普通运动鞋即可轻松体验，还可品尝特色天狗烧！\n②「${name2}」：环绕高尾山缆车站约40分钟的平缓环形林道，适合避开人流、悠闲享受森林浴。\n推荐穿着具有出色稳定支撑的萨洛蒙 X Ultra 4 徒步鞋！`;
+        shortAdvice = `推荐走「${name1}」与「${name2}」（难度★1）。`;
       } else {
-        userQuestion = '初心者におすすめのルートは？';
-        answerText = `初心者の方には、管理画面の設定で難易度星${starCount}つ（★${starCount}）に指定されている「${routeName}」が最もおすすめです！${comment} 全線舗装されて歩きやすく、途中に茶屋やトイレも充実しているため、スニーカーでも安心して登山をお楽しみいただけます。サロモンの X ULTRA 4 GORE-TEX がぴったりです！`;
-        shortAdvice = `難易度★${starCount}の「${routeName}」が初心者におすすめです！`;
+        userQuestion = '初心者におすすめの2大ルートは？';
+        answerText = `初心者の方には、難易度星1つ（★${star1}）に指定されている2大おすすめコース「${name1}」と「${name2}」が最もおすすめです！\n①「${name1}」は全線舗装路で茶屋やトイレ（5箇所）が充実しており、スニーカーでも安心して薬王院や山頂を目指せます。名物天狗焼も楽しめます！\n②「${name2}」は高尾山駅周辺を約40分で周回できる平坦な散策路で、豊かな自然観察に最適です。\n足元には安定性に優れたサロモンの「X ULTRA 4 GORE-TEX」がぴったりです！`;
+        shortAdvice = `難易度★1の「${name1}」と「${name2}」の2コースが初心者におすすめです！`;
       }
 
       // 6. Update recommended products for beginner hiking footwear
@@ -177,12 +186,12 @@ export function QuickActions() {
       };
       const season = getCurrentSeason();
       const products = getRecommendedProducts(
-        targetDifficulty,
+        trail1.difficulty ?? 'beginner',
         activeWeather.weatherCode,
         season,
         ['footwear', 'apparel'],
         6,
-        oneStarRoute.category,
+        trail1.category,
         language
       );
       setRecommendedProducts(products);
@@ -323,29 +332,39 @@ export function QuickActions() {
         </div>
       </div>
 
-      {/* Action chips and Push-to-Talk Voice Concierge Button */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-3">
-        {/* Prompt chips (min-h-[48px] touch targets for 110" kiosk display) */}
-        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-xl w-full">
+      {/* Action cards and Push-to-Talk Voice Concierge Button */}
+      <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3 w-full">
+        {/* Flexible Action Cards (Spans across available width, eliminating empty space with rich UI/UX) */}
+        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full">
           {ACTIONS.map((a, i) => {
             const Icon = a.icon;
             return (
               <button
                 key={i}
                 onClick={() => handleClick(a.action)}
-                className="flex items-center gap-2.5 p-3 rounded-xl
+                className="relative flex items-center gap-3 p-3 rounded-xl
                            bg-white/8 border border-salomon-border
-                           hover:border-salomon-cyan/60 hover:bg-white/12
-                           active:scale-95 transition-all duration-200 group text-left min-h-[50px]"
+                           hover:border-salomon-cyan/70 hover:bg-white/12
+                           active:scale-[0.98] transition-all duration-200 group text-left min-h-[58px] overflow-hidden"
               >
-                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-salomon-cyan/20 to-salomon-teal/10
-                                border border-salomon-cyan/30 flex items-center justify-center flex-shrink-0
-                                group-hover:shadow-glow-cyan transition-shadow duration-200">
-                  <Icon className="w-4 h-4 text-salomon-cyan" strokeWidth={1.8} />
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-salomon-cyan/25 to-salomon-teal/15
+                                border border-salomon-cyan/35 flex items-center justify-center flex-shrink-0
+                                group-hover:shadow-glow-cyan group-hover:scale-105 transition-all duration-200">
+                  <Icon className="w-4 h-4 text-salomon-cyan" strokeWidth={2} />
                 </div>
-                <span className="text-salomon-text text-xs leading-snug font-medium group-hover:text-white transition-colors line-clamp-2">
-                  {a.label}
-                </span>
+                <div className="flex-1 min-w-0 pr-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-white text-xs sm:text-[13px] font-bold group-hover:text-salomon-cyan transition-colors truncate">
+                      {a.label}
+                    </span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-salomon-cyan/15 text-salomon-cyan border border-salomon-cyan/30 flex-shrink-0">
+                      {a.badge}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 group-hover:text-slate-200 transition-colors truncate mt-0.5">
+                    {a.subLabel}
+                  </p>
+                </div>
               </button>
             );
           })}

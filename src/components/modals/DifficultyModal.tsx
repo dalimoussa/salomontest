@@ -157,30 +157,22 @@ export function DifficultyModal() {
           <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 text-xs text-slate-300 space-y-1.5">
             <div className="flex items-center gap-2 text-salomon-cyan font-bold">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>コース選択と設定について</span>
+              <span>コース選択と表示について</span>
             </div>
             <p className="text-[11px] text-slate-400 leading-relaxed">
-              コースをタップすると3Dマップ上でルートが強調表示され、詳細情報や推奨装備をご確認いただけます。難易度やスタッフメモは管理画面（Admin）にて手動で変更可能です。
+              コースをタップすると3Dマップ上でルートが強調表示され、距離・標高差・標準タイムや最新の推奨装備をご確認いただけます。
             </p>
           </div>
         </div>
 
-        {/* Modal Footer with Direct Admin Link */}
-        <div className="px-6 py-4 bg-black/40 border-t border-white/8 flex items-center justify-between">
+        {/* Modal Footer */}
+        <div className="px-6 py-4 bg-black/40 border-t border-white/8 flex items-center justify-end">
           <button
             onClick={() => setActiveModal(null)}
-            className="px-4 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 transition-colors"
+            className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-white/10 hover:bg-white/20 transition-colors"
           >
             閉じる
           </button>
-
-          <a
-            href="/admin"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-salomon-black bg-salomon-cyan hover:bg-salomon-cyan/90 transition-colors shadow-glow-cyan/30"
-          >
-            <span>管理画面で編集</span>
-            <ExternalLink className="w-3.5 h-3.5" />
-          </a>
         </div>
 
       </div>

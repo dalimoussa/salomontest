@@ -85,9 +85,8 @@ export function usePeriodicCallout({
     if (!enabled) return;
     // Do not speak if already in active user conversation
     if (modeRef.current !== 'standby') return;
-    // Do not speak if user is asking a question or AI is processing/answering
-    if (voiceStatus === 'thinking') return;
-    if (voiceStatus === 'speaking' && !isCalloutSpeakingRef.current) return;
+    // Do not speak if voice status is not strictly idle
+    if (voiceStatus !== 'idle') return;
     if (transcript && transcript.trim().length > 0) return;
     // Do not speak if modal (e.g. equipment, cable car) is open
     if (useStore.getState().activeModal) return;

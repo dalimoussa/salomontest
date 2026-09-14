@@ -79,6 +79,14 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
   const interruptedRef = useRef<boolean>(false);
   const generationIdRef = useRef<number>(0);
 
+  // Concurrency mutex token: strictly prevents two voices from speaking simultaneously
+  const activeSpeechTokenRef = useRef<number>(0);
+
+  // Energy-based Voice Activity Detection (VAD) fallback refs
+  const hasSpokenEnergyRef = useRef<boolean>(false);
+  const lastVoiceEnergyTimestampRef = useRef<number>(0);
+  const energySilenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   const stopSpeechRecognition = useCallback(() => {
     if (recognitionRef.current) {
       try {
@@ -96,6 +104,8 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
   const abortSpeaking = useCallback(() => {
     interruptedRef.current = true;
     generationIdRef.current++;
+    // Monotonically increment speech token to immediately invalidate any pending TTS fetches or playbacks
+    activeSpeechTokenRef.current++;
 
     // 1. Abort any active promise resolver or watchdog
     if (abortSpeakingRef.current) {
@@ -184,6 +194,29 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         // Non-linear power curve that magnifies low speaking levels significantly
         const normalized = Math.min(1, Math.max(0, Math.pow(avg / 25, 0.65)));
         setAudioLevel(normalized);
+
+        // Hybrid Energy VAD: Detect voice presence even if Web Speech API is unresponsive
+        if (statusRef.current === 'listening') {
+          if (normalized > 0.12) {
+            hasSpokenEnergyRef.current = true;
+            lastVoiceEnergyTimestampRef.current = Date.now();
+            if (energySilenceTimerRef.current) {
+              clearTimeout(energySilenceTimerRef.current);
+              energySilenceTimerRef.current = null;
+            }
+          } else if (hasSpokenEnergyRef.current) {
+            const silenceElapsed = Date.now() - lastVoiceEnergyTimestampRef.current;
+            if (silenceElapsed > 900 && !energySilenceTimerRef.current) {
+              energySilenceTimerRef.current = setTimeout(() => {
+                if (statusRef.current === 'listening' && hasSpokenEnergyRef.current) {
+                  hasSpokenEnergyRef.current = false;
+                  commitCurrentSpeech();
+                }
+              }, 100);
+            }
+          }
+        }
+
         animFrameRef.current = requestAnimationFrame(updateLevel);
       };
       updateLevel();
@@ -193,6 +226,11 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
   };
 
   const stopLevelMeter = () => {
+    if (energySilenceTimerRef.current) {
+      clearTimeout(energySilenceTimerRef.current);
+      energySilenceTimerRef.current = null;
+    }
+    hasSpokenEnergyRef.current = false;
     if (animFrameRef.current) {
       cancelAnimationFrame(animFrameRef.current);
       animFrameRef.current = null;
@@ -332,6 +370,8 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     // Concurrency guard: instantly halt any active playback so multiple voices NEVER overlap
     abortSpeaking();
 
+    const speechToken = ++activeSpeechTokenRef.current;
+
     setStatus('speaking');
     setResponseText(text);
     interruptedRef.current = false;
@@ -350,15 +390,15 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         body: JSON.stringify({ text, language: currentLang, voice: 'alloy' }),
       });
 
-      // If user interrupted during network request
-      if (interruptedRef.current || statusRef.current !== 'speaking') {
+      // Token check: if user interrupted or another speakText was called during network request
+      if (speechToken !== activeSpeechTokenRef.current || interruptedRef.current || statusRef.current !== 'speaking') {
         return;
       }
 
       const contentType = res.headers.get('content-type') || '';
       if (res.ok && contentType.includes('audio')) {
         const blob = await res.blob();
-        if (interruptedRef.current || statusRef.current !== 'speaking') {
+        if (speechToken !== activeSpeechTokenRef.current || interruptedRef.current || statusRef.current !== 'speaking') {
           return;
         }
 
@@ -396,13 +436,13 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
               audio.load();
             } catch {}
             finish();
-            if (!interruptedRef.current && statusRef.current === 'speaking') {
+            if (speechToken === activeSpeechTokenRef.current && !interruptedRef.current && statusRef.current === 'speaking') {
               await speakWithBrowserSynth(text, currentLang);
             }
           };
 
-          // Audio playback safety watchdog
-          watchdog = setTimeout(finish, 20000);
+          // Audio playback safety watchdog (15s max)
+          watchdog = setTimeout(finish, 15000);
 
           audio.play().catch(async () => {
             try {
@@ -411,42 +451,42 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
               audio.load();
             } catch {}
             finish();
-            if (!interruptedRef.current && statusRef.current === 'speaking') {
+            if (speechToken === activeSpeechTokenRef.current && !interruptedRef.current && statusRef.current === 'speaking') {
               await speakWithBrowserSynth(text, currentLang);
             }
           });
         });
       } else {
-        if (!interruptedRef.current && statusRef.current === 'speaking') {
+        if (speechToken === activeSpeechTokenRef.current && !interruptedRef.current && statusRef.current === 'speaking') {
           await speakWithBrowserSynth(text, currentLang);
         }
       }
     } catch (e) {
       console.warn('OpenAI TTS call failed, falling back to browser speech:', e);
-      if (!interruptedRef.current && statusRef.current === 'speaking') {
+      if (speechToken === activeSpeechTokenRef.current && !interruptedRef.current && statusRef.current === 'speaking') {
         await speakWithBrowserSynth(text, currentLang);
       }
     } finally {
-      abortSpeakingRef.current = null;
-      setResponseText('');
+      // ONLY the active speech token is permitted to finalize speech state!
+      if (speechToken === activeSpeechTokenRef.current) {
+        abortSpeakingRef.current = null;
+        setResponseText('');
 
-      // If user interrupted AI during speech, do NOT revert status to idle
-      // and do not trigger a delayed startListening that wipes out the new in-progress prompt!
-      if (interruptedRef.current) {
-        // User interrupted AI during speech: leave in listening state for Prompt 2
-      } else {
-        setStatus('idle');
-        setTranscript('');
-        localTranscriptRef.current = '';
-        // Clean up speech recognition session so the next turn starts completely fresh
-        stopSpeechRecognition();
+        if (interruptedRef.current) {
+          // User interrupted AI during speech: leave in listening state
+        } else {
+          setStatus('idle');
+          setTranscript('');
+          localTranscriptRef.current = '';
+          stopSpeechRecognition();
 
-        if (autoLoopRef.current) {
-          setTimeout(() => {
-            if (autoLoopRef.current && statusRef.current === 'idle') {
-              startListeningRef.current?.().catch(() => {});
-            }
-          }, 300);
+          if (autoLoopRef.current) {
+            setTimeout(() => {
+              if (autoLoopRef.current && statusRef.current === 'idle') {
+                startListeningRef.current?.().catch(() => {});
+              }
+            }, 250);
+          }
         }
       }
     }
@@ -586,16 +626,16 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         targetRoute = matchedRoute;
         setSelectedRoute(matchedRoute);
         setSelectedDifficulty(matchedRoute.difficulty);
-      } else if (q.includes('初心者') || q.includes('beginner') || q.includes('easy') || q.includes('初級')) {
+      } else if (q.includes('初心者') || q.includes('beginner') || q.includes('easy') || q.includes('初級') || q.includes('初学者') || q.includes('新手')) {
         const routeSettings = useAdminStore.getState().routeSettings;
-        const oneStarRoute =
-          ROUTES.find((r) => (routeSettings[r.id]?.stars ?? r.difficultyRating ?? 1) === 1) ||
+        const trail1 =
           ROUTES.find((r) => r.id === 'route_1') ||
+          ROUTES.find((r) => (routeSettings[r.id]?.stars ?? r.difficultyRating ?? 1) === 1) ||
           ROUTES[0];
-        const targetDiff = routeSettings[oneStarRoute.id]?.difficulty ?? oneStarRoute.difficulty ?? 'beginner';
+        const targetDiff = routeSettings[trail1.id]?.difficulty ?? trail1.difficulty ?? 'beginner';
         setSelectedDifficulty(targetDiff);
-        targetRoute = oneStarRoute;
-        setSelectedRoute(oneStarRoute);
+        targetRoute = trail1;
+        setSelectedRoute(trail1);
       } else if (q.includes('中級') || q.includes('intermediate')) {
         setSelectedDifficulty('intermediate');
         const r4 = ROUTES.find((r) => r.id === 'route_4');
@@ -744,6 +784,10 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = null;
     }
+    if (energySilenceTimerRef.current) {
+      clearTimeout(energySilenceTimerRef.current);
+      energySilenceTimerRef.current = null;
+    }
 
     // Never commit or launch redundant advice while already thinking or speaking
     if (statusRef.current === 'thinking' || statusRef.current === 'speaking') {
@@ -751,24 +795,41 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     }
 
     const textToProcess = localTranscriptRef.current.trim();
-    if (!textToProcess) return;
 
-    // Snapshot committed text and immediately mark recognition index as consumed
-    pendingCommittedTextRef.current = textToProcess;
-    resultStartIndexRef.current = recognitionResultCountRef.current;
-    localTranscriptRef.current = '';
+    // Fast-path: Web Speech API provided transcribed text
+    if (textToProcess) {
+      hasSpokenEnergyRef.current = false;
+      pendingCommittedTextRef.current = textToProcess;
+      resultStartIndexRef.current = recognitionResultCountRef.current;
+      localTranscriptRef.current = '';
 
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-      try {
-        mediaRecorderRef.current.stop();
-        mediaRecorderRef.current = null;
-      } catch {
-        pendingCommittedTextRef.current = '';
-        processRecordedAudioRef.current?.(null, textToProcess);
-      }
-    } else {
-      pendingCommittedTextRef.current = '';
+      // Immediately process recognized text with sub-second latency
       processRecordedAudioRef.current?.(null, textToProcess);
+
+      // Stop mediaRecorder cleanly in background
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        try {
+          mediaRecorderRef.current.onstop = null;
+          mediaRecorderRef.current.stop();
+          mediaRecorderRef.current = null;
+        } catch {}
+      }
+      return;
+    }
+
+    // Hybrid Energy VAD Fallback:
+    // Web Speech API was silent/unsupported, but user spoke (sound energy detected)!
+    if (hasSpokenEnergyRef.current) {
+      hasSpokenEnergyRef.current = false;
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        try {
+          // Stopping media recorder fires onstop to dispatch audio blob to Whisper STT (/api/voice/stt)
+          mediaRecorderRef.current.stop();
+          mediaRecorderRef.current = null;
+        } catch {
+          setStatus('idle');
+        }
+      }
     }
   }, []);
 
@@ -870,8 +931,8 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
               localTranscriptRef.current = clean;
               setTranscript(clean);
 
-              // Fast commit: 600ms on final recognized chunk, 850ms on interim silence
-              const commitDelay = isFinalChunk ? 600 : 850;
+              // Fast commit: 350ms on final recognized chunk, 650ms on interim silence
+              const commitDelay = isFinalChunk ? 350 : 650;
               if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
               silenceTimerRef.current = setTimeout(() => {
                 commitCurrentSpeech();

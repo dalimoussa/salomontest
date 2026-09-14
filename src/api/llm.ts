@@ -153,6 +153,47 @@ export function buildFallbackAdvice(
   const q = (userQuery || '').toLowerCase();
 
   // ── General Question Intent Responses ──
+  // 00. Beginner Recommended Trails (Top 2 Trails: Trail 1 Omotesando & Trail 2 Kasumidai Loop)
+  if (
+    q.includes('beginner') ||
+    q.includes('easy trail') ||
+    q.includes('easy route') ||
+    q.includes('recommended trail') ||
+    q.includes('recommended route') ||
+    q.includes('初心者') ||
+    q.includes('初級') ||
+    q.includes('はじめて') ||
+    q.includes('初めて') ||
+    q.includes('初学者') ||
+    q.includes('新手')
+  ) {
+    if (language === 'en') {
+      return {
+        advice_text: `For beginners, we highly recommend two top trails with a 1-star difficulty rating (★1):\n1. Trail 1 (Omotesando): Fully paved main route to Yakuo-in Temple with 5 rest areas, teahouses, and famous Tengu-yaki dumplings. Safe and comfortable for sneakers!\n2. Trail 2 (Kasumidai Loop): A gentle 40-minute scenic loop around Takaosan Station surrounded by lush nature and tranquil forests.\nFor footwear, Salomon X Ultra 4 GORE-TEX shoes provide outstanding stability, comfort, and grip!`,
+        advice_short: `Recommended: Trail 1 (Omotesando) & Trail 2 (Kasumidai Loop) (★1 Beginner Trails)`,
+        safety_flags,
+        recommended_gear: ['trail_shoes_beginner', 'hat'],
+        mood: 'good',
+      };
+    }
+    if (language === 'zh') {
+      return {
+        advice_text: `对于初学者，我们重点推荐评定为1星难度（★1）的两大经典路线：\n①「1号路 表参道」：通往药王院的经典主路线，全程铺装路面，沿途茶社与洗手间齐全（共5处），穿着普通运动鞋也能安全舒适地游览药王院与山顶，还可品尝特色天狗烧！\n②「2号路 霞台环线」：环绕高尾山缆车站约40分钟的平缓环形林道，绿树成荫，适合轻松享受森林浴。\n鞋款推荐穿着具有出色稳定支撑的萨洛蒙 X Ultra 4 徒步鞋！`,
+        advice_short: `推荐走「1号路 表参道」与「2号路 霞台环线」（难度★1）。`,
+        safety_flags,
+        recommended_gear: ['trail_shoes_beginner', 'hat'],
+        mood: 'good',
+      };
+    }
+    return {
+      advice_text: `初心者の方には、難易度星1つ（★1）に指定されている2大おすすめコース「1号路 表参道」と「2号路 霞台ループ」が最もおすすめです！\n①「1号路」は全線舗装路で茶屋やトイレ（5箇所）が充実しており、スニーカーでも安心して薬王院や山頂を目指せます。名物天狗焼も楽しめます！\n②「2号路」は高尾山駅周辺を約40分で周回できる平坦な散策路で、豊かな自然観察に最適です。\n足元には安定性に優れたサロモンの「X ULTRA 4 GORE-TEX」がぴったりです！`,
+      advice_short: `難易度★1の「1号路 表参道」と「2号路 霞台ループ」の2コースが初心者におすすめです！`,
+      safety_flags,
+      recommended_gear: ['trail_shoes_beginner', 'hat'],
+      mood: 'good',
+    };
+  }
+
   // 0. Course Count / Total Trails Question (e.g. "How many hiking courses are there in total?")
   if (
     q.includes('how many') ||
