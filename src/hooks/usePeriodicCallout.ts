@@ -85,8 +85,9 @@ export function usePeriodicCallout({
     if (!enabled) return;
     // Do not speak if already in active user conversation
     if (modeRef.current !== 'standby') return;
-    // Do not speak if voice status is not strictly idle
-    if (voiceStatus !== 'idle') return;
+    // Do not speak if user is asking a question or AI is processing/answering
+    if (voiceStatus === 'thinking') return;
+    if (voiceStatus === 'speaking' && !isCalloutSpeakingRef.current) return;
     if (transcript && transcript.trim().length > 0) return;
     // Do not speak if modal (e.g. equipment, cable car) is open
     if (useStore.getState().activeModal) return;
@@ -169,9 +170,11 @@ export function usePeriodicCallout({
       return;
     }
 
-    // 2. User finished talking and AI is back to idle while in conversation mode
-    if (voiceStatus === 'idle' && modeRef.current === 'conversation') {
-      scheduleStandbyRecovery();
+    // 2. When in conversation mode and user is not actively speaking, ensure standby recovery countdown runs
+    if (modeRef.current === 'conversation') {
+      if ((voiceStatus !== 'speaking' || isCalloutSpeakingRef.current) && (!transcript || transcript.trim().length === 0)) {
+        scheduleStandbyRecovery();
+      }
     }
   }, [enabled, voiceStatus, transcript, enterConversationMode, scheduleStandbyRecovery]);
 
@@ -213,9 +216,11 @@ export function usePeriodicCallout({
         // Extend conversation mode timer if user touches screen
         scheduleStandbyRecovery();
       } else if (modeRef.current === 'standby') {
-        // Delay scheduled callout so we don't speak over someone touching the screen
-        setSecondsRemaining(intervalSecondsRef.current);
-        secondsRemainingRef.current = intervalSecondsRef.current;
+        // Only bump back to full interval if within 10s of triggering to avoid speaking right during an interaction
+        if (secondsRemainingRef.current < 10) {
+          setSecondsRemaining(intervalSecondsRef.current);
+          secondsRemainingRef.current = intervalSecondsRef.current;
+        }
       }
     };
 
