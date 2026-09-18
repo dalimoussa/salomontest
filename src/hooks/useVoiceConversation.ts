@@ -87,6 +87,32 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
   const lastVoiceEnergyTimestampRef = useRef<number>(0);
   const energySilenceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // ── Kiosk Echo / Self-Recognition Prevention ────────────────────────────────
+  // On a 110" open-speaker kiosk there is no hardware AEC. These constants define
+  // the hard-mute window that prevents the AI from hearing its own voice output.
+
+  /** Block ALL mic recognition for this many ms after AI finishes speaking */
+  const POST_SPEECH_GUARD_MS = 1200;
+
+  /** Do not commit silence during the first N ms of a new listening session.
+   *  Allows users to say "Hello" + natural pause + full question without early cutoff. */
+  const LISTENING_WARMUP_MS = 2000;
+
+  /** Silence after a FINAL recognition result before committing (raised from 350 → 600ms) */
+  const COMMIT_DELAY_FINAL_MS = 600;
+
+  /** Silence after an INTERIM recognition result before committing (raised from 650 → 1200ms) */
+  const COMMIT_DELAY_INTERIM_MS = 1200;
+
+  /** True while AI is outputting TTS audio AND during the post-speech guard window */
+  const isSpeakingRef = useRef<boolean>(false);
+
+  /** Cancels any pending post-speech guard timer when a new turn begins */
+  const postSpeechGuardTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  /** Timestamp when the current listening session started — used for warmup guard */
+  const listeningStartTimestampRef = useRef<number>(0);
+
   const stopSpeechRecognition = useCallback(() => {
     if (recognitionRef.current) {
       try {
@@ -195,8 +221,9 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         const normalized = Math.min(1, Math.max(0, Math.pow(avg / 25, 0.65)));
         setAudioLevel(normalized);
 
-        // Hybrid Energy VAD: Detect voice presence even if Web Speech API is unresponsive
-        if (statusRef.current === 'listening') {
+        // Hybrid Energy VAD: Detect voice presence even if Web Speech API is unresponsive.
+        // Skip entirely while isSpeakingRef is true — speaker bleed would trigger false positives.
+        if (statusRef.current === 'listening' && !isSpeakingRef.current) {
           if (normalized > 0.12) {
             hasSpokenEnergyRef.current = true;
             lastVoiceEnergyTimestampRef.current = Date.now();
@@ -208,7 +235,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
             const silenceElapsed = Date.now() - lastVoiceEnergyTimestampRef.current;
             if (silenceElapsed > 900 && !energySilenceTimerRef.current) {
               energySilenceTimerRef.current = setTimeout(() => {
-                if (statusRef.current === 'listening' && hasSpokenEnergyRef.current) {
+                if (statusRef.current === 'listening' && hasSpokenEnergyRef.current && !isSpeakingRef.current) {
                   hasSpokenEnergyRef.current = false;
                   commitCurrentSpeech();
                 }
@@ -372,6 +399,14 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
 
     const speechToken = ++activeSpeechTokenRef.current;
 
+    // ── Echo Prevention: Hard-mute mic recognition for the full TTS duration ──
+    // Cancel any pending post-speech guard so the new speech session starts clean
+    if (postSpeechGuardTimerRef.current) {
+      clearTimeout(postSpeechGuardTimerRef.current);
+      postSpeechGuardTimerRef.current = null;
+    }
+    isSpeakingRef.current = true;
+
     setStatus('speaking');
     setResponseText(text);
     interruptedRef.current = false;
@@ -473,20 +508,31 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         setResponseText('');
 
         if (interruptedRef.current) {
-          // User interrupted AI during speech: leave in listening state
+          // User interrupted AI during speech: isSpeakingRef already cleared by abortSpeaking path.
+          // Clear the guard immediately so barge-in voice is processed without delay.
+          isSpeakingRef.current = false;
+          if (postSpeechGuardTimerRef.current) {
+            clearTimeout(postSpeechGuardTimerRef.current);
+            postSpeechGuardTimerRef.current = null;
+          }
         } else {
           setStatus('idle');
           setTranscript('');
           localTranscriptRef.current = '';
           stopSpeechRecognition();
 
-          if (autoLoopRef.current) {
-            setTimeout(() => {
-              if (autoLoopRef.current && statusRef.current === 'idle') {
-                startListeningRef.current?.().catch(() => {});
-              }
-            }, 250);
-          }
+          // ── POST_SPEECH_GUARD: keep isSpeakingRef=true for POST_SPEECH_GUARD_MS ──
+          // Prevents the microphone from picking up speaker bleed (echo) from the 110" kiosk
+          // speakers after TTS ends. Only after this guard window do we re-enable listening.
+          postSpeechGuardTimerRef.current = setTimeout(() => {
+            isSpeakingRef.current = false;
+            postSpeechGuardTimerRef.current = null;
+            // Reset recognition index so a fresh listening session starts completely clean
+            resultStartIndexRef.current = recognitionResultCountRef.current;
+            if (autoLoopRef.current && statusRef.current === 'idle') {
+              startListeningRef.current?.().catch(() => {});
+            }
+          }, POST_SPEECH_GUARD_MS);
         }
       }
     }
@@ -794,6 +840,28 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       return;
     }
 
+    // ── ECHO GUARD: if AI is still in its post-speech mute window, drop this commit ──
+    if (isSpeakingRef.current) {
+      console.log('[VoiceAI] commitCurrentSpeech blocked — still in post-speech echo guard');
+      localTranscriptRef.current = '';
+      setTranscript('');
+      return;
+    }
+
+    // ── WARMUP GUARD: do not commit during the first LISTENING_WARMUP_MS of a session ──
+    // This lets users complete a full sentence like "Hello [pause] What is the weather?"
+    // without the early pause triggering a premature commit on just "Hello".
+    const msListening = Date.now() - listeningStartTimestampRef.current;
+    if (msListening < LISTENING_WARMUP_MS && localTranscriptRef.current.trim()) {
+      console.log(`[VoiceAI] Warmup active (${Math.round(msListening)}ms / ${LISTENING_WARMUP_MS}ms) — deferring commit`);
+      // Re-arm silence timer with the remaining warmup time so we revisit when warmup is done
+      const remaining = LISTENING_WARMUP_MS - msListening;
+      silenceTimerRef.current = setTimeout(() => {
+        commitCurrentSpeech();
+      }, remaining + 150);
+      return;
+    }
+
     const textToProcess = localTranscriptRef.current.trim();
 
     // Fast-path: Web Speech API provided transcribed text
@@ -836,12 +904,20 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
   const startListening = useCallback(async () => {
     if (statusRef.current === 'thinking') return;
     if (statusRef.current === 'listening' && mediaRecorderRef.current?.state === 'recording') return;
+    // Do not begin listening if still in post-speech echo guard window
+    if (isSpeakingRef.current) {
+      console.log('[VoiceAI] startListening deferred — still in post-speech echo guard');
+      return;
+    }
 
     unlockAudio();
     setErrorMessage(null);
     setTranscript('');
     localTranscriptRef.current = '';
     interruptedRef.current = false;
+
+    // Record start timestamp for the warmup guard
+    listeningStartTimestampRef.current = Date.now();
 
     // Fast-forward starting result index so any previous turn results in event.results are ignored!
     resultStartIndexRef.current = recognitionResultCountRef.current;
@@ -880,17 +956,35 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
                 resultStartIndexRef.current = 0;
               }
 
-              // ── BARGE-IN INTERRUPTION: Only user speech while the AI is ACTUALLY SPEAKING cuts it off! ──
+              // ── HARD ECHO BLOCK: Drop ALL recognition results while AI is speaking or in guard window ──
+              // This is the primary defence against self-recognition on open 110" kiosk speakers.
+              // It is stronger than string-match echo suppression because it fires before text is even
+              // compared — preventing the AI from being startled by its own voice in any scenario.
+              if (isSpeakingRef.current) {
+                console.log('[VoiceAI] Recognition result dropped — AI speaking (echo guard active)');
+                // Advance the result index so these echo results are never processed later
+                resultStartIndexRef.current = event.results.length;
+                return;
+              }
+
+              // ── BARGE-IN INTERRUPTION: Only real user speech while AI is ACTUALLY SPEAKING cuts it off ──
+              // Note: isSpeakingRef guard above already handles the echo case.
+              // This path only triggers when the user genuinely interrupts mid-speech (barge-in).
               if (statusRef.current === 'speaking') {
-                console.log('[useVoiceConversation] User interrupted AI with fresh query');
+                console.log('[VoiceAI] User barge-in detected — interrupting AI');
                 interruptedRef.current = true;
+                // Clear the post-speech guard so user speech is not blocked after interruption
+                isSpeakingRef.current = false;
+                if (postSpeechGuardTimerRef.current) {
+                  clearTimeout(postSpeechGuardTimerRef.current);
+                  postSpeechGuardTimerRef.current = null;
+                }
                 abortSpeaking();
                 setResponseText('');
                 setStatus('listening');
                 ensureMediaRecorderActive();
 
-                // Completely isolate this interruption turn from previous speech:
-                // Fast-forward resultStartIndexRef to this latest chunk!
+                // Completely isolate this interruption turn from previous speech results
                 resultStartIndexRef.current = Math.max(0, event.results.length - 1);
                 localTranscriptRef.current = '';
                 setTranscript('');
@@ -919,20 +1013,12 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
               const clean = fullText.trim();
               if (!clean) return;
 
-              // ── Echo suppression: If the AI was speaking, do not self-interrupt with speaker bleed ──
-              if (responseTextRef.current) {
-                const normClean = clean.toLowerCase().replace(/[\s.,!?、。！？「」'"-]/g, '');
-                const normResp = responseTextRef.current.toLowerCase().replace(/[\s.,!?、。！？「」'"-]/g, '');
-                if (normResp.includes(normClean) && normClean.length >= 4) {
-                  return; // Self-echo, ignore
-                }
-              }
-
               localTranscriptRef.current = clean;
               setTranscript(clean);
 
-              // Fast commit: 350ms on final recognized chunk, 650ms on interim silence
-              const commitDelay = isFinalChunk ? 350 : 650;
+              // Raised silence thresholds: 600ms on final result, 1200ms on interim.
+              // Gives users time to pause naturally within a single question.
+              const commitDelay = isFinalChunk ? COMMIT_DELAY_FINAL_MS : COMMIT_DELAY_INTERIM_MS;
               if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
               silenceTimerRef.current = setTimeout(() => {
                 commitCurrentSpeech();

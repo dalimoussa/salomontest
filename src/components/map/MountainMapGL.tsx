@@ -17,19 +17,32 @@ import { useGsiTerrainSource } from 'maplibre-gl-gsi-terrain';
 import type { FeatureCollection } from 'geojson';
 import { useStore } from '@/store/useStore';
 import { useMapStore } from '@/store/mapStore';
+import { useAdminStore } from '@/store/useAdminStore';
+import { ROUTES } from '@/data/routes';
+import { getRecommendedProducts, getCurrentSeason } from '@/data/products';
 import { getWaypointsForRoute } from '@/data/routeWaypoints';
+import { TAKAO_TRAILS_GEOJSON } from '@/data/takaoTrailsGeoJson';
+import { SURROUNDING_TRAILS_GEOJSON } from '@/data/surroundingTrailsGeoJson';
+import { TAKAO_POIS_GEOJSON } from '@/data/takaoPoisGeoJson';
 
 const TAKAO_SUMMIT: LngLatLike = [139.2485, 35.6275];
 
 const TRAIL_SOURCE                = 'takao-trails-source';
+const TRAIL_CASING_LAYER          = 'trail-lines-casing';
 const TRAIL_LINE_LAYER            = 'trail-lines';
+const TRAIL_HIT_LAYER             = 'trail-lines-hit';
+const TRAIL_HIGHLIGHT_GLOW        = 'trail-highlight-glow';
+const TRAIL_HIGHLIGHT_INNER       = 'trail-highlight-inner';
 const TRAIL_HIGHLIGHT_LAYER       = 'trail-highlight';
+const TRAIL_HIGHLIGHT_DASH        = 'trail-highlight-dash';
 
 const SURROUNDING_TRAIL_SOURCE    = 'surrounding-trails-source';
 const SURROUNDING_TRAIL_LAYER     = 'surrounding-trails-layer';
+const SURROUNDING_HIGHLIGHT_GLOW  = 'surrounding-trail-highlight-glow';
 const SURROUNDING_HIGHLIGHT_LAYER = 'surrounding-trail-highlight';
 
 const POI_SOURCE            = 'takao-pois-source';
+const POI_POINT_OUTER_LAYER = 'poi-points-outer';
 const POI_POINT_LAYER       = 'poi-points';
 const POI_LABEL_LAYER       = 'poi-labels';
 
@@ -49,31 +62,35 @@ const ROUTE_COLOR_MAP: Record<string, string> = {
   inariyama:        '#00C8FF', // Ice blue (Inariyama)
   route_inariyama:  '#00C8FF',
   route_3_traverse: '#FB923C', // Amber orange (Kagenobuyama)
+  route_kagenobu:   '#FB923C',
   route_jinba:      '#E8002D', // Salomon red (Jinba traverse)
-  path_segment:     'rgba(255,255,255,0.3)',
+  path_segment:     'rgba(255,255,255,0.4)',
 };
 
 // Preset camera viewing angles tailored to each course/trail for 110" 4K impact
+// Centered and elevated to keep trails prominently visible in the safe upper-central corridor
 const ROUTE_CAMERA_VIEWS: Record<string, { center: [number, number]; zoom: number; pitch: number; bearing: number }> = {
-  route_1:          { center: [139.255, 35.630], zoom: 14.1, pitch: 56, bearing: -20 },
-  route_2:          { center: [139.260, 35.632], zoom: 15.2, pitch: 52, bearing: -18 },
-  route_3:          { center: [139.250, 35.626], zoom: 14.8, pitch: 55, bearing: -24 },
-  route_4:          { center: [139.250, 35.629], zoom: 14.9, pitch: 57, bearing: -28 },
-  route_5:          { center: [139.244, 35.625], zoom: 15.6, pitch: 50, bearing: -15 },
-  route_6:          { center: [139.256, 35.628], zoom: 14.0, pitch: 58, bearing: -15 },
-  route_inariyama:  { center: [139.254, 35.628], zoom: 14.0, pitch: 58, bearing: -22 },
-  route_kagenobu:   { center: [139.235, 35.638], zoom: 12.8, pitch: 60, bearing: -30 },
-  route_jinba:      { center: [139.205, 35.645], zoom: 11.8, pitch: 62, bearing: -35 },
+  route_1:          { center: [139.255, 35.630], zoom: 14.2, pitch: 56, bearing: -20 },
+  route_2:          { center: [139.255, 35.630], zoom: 15.0, pitch: 52, bearing: -18 },
+  route_3:          { center: [139.249, 35.626], zoom: 14.9, pitch: 55, bearing: -24 },
+  route_4:          { center: [139.249, 35.628], zoom: 14.9, pitch: 57, bearing: -28 },
+  route_5:          { center: [139.243, 35.625], zoom: 15.5, pitch: 50, bearing: -15 },
+  route_6:          { center: [139.256, 35.627], zoom: 14.2, pitch: 58, bearing: -15 },
+  route_inariyama:  { center: [139.255, 35.626], zoom: 14.1, pitch: 58, bearing: -22 },
+  inariyama:        { center: [139.255, 35.626], zoom: 14.1, pitch: 58, bearing: -22 },
+  route_kagenobu:   { center: [139.225, 35.635], zoom: 13.0, pitch: 60, bearing: -30 },
+  route_3_traverse: { center: [139.225, 35.635], zoom: 13.0, pitch: 60, bearing: -30 },
+  route_jinba:      { center: [139.205, 35.645], zoom: 12.0, pitch: 62, bearing: -35 },
 
   // Surrounding trails
-  trail_gongen:     { center: [139.262, 35.608], zoom: 13.0, pitch: 60, bearing: -10 },
+  trail_gongen:     { center: [139.262, 35.608], zoom: 13.2, pitch: 60, bearing: -10 },
   trail_minamitakao:{ center: [139.268, 35.620], zoom: 13.8, pitch: 58, bearing: -15 },
-  trail_misawa:     { center: [139.266, 35.605], zoom: 13.2, pitch: 59, bearing: -20 },
-  trail_kitaapproach:{ center: [139.248, 35.648], zoom: 13.7, pitch: 55, bearing: -25 },
-  trail_taiko:      { center: [139.252, 35.655], zoom: 13.5, pitch: 57, bearing: -30 },
-  trail_kogezawa:   { center: [139.238, 35.642], zoom: 13.6, pitch: 58, bearing: -28 },
-  trail_tengu:      { center: [139.230, 35.630], zoom: 12.2, pitch: 62, bearing: -32 },
-  trail_meio:       { center: [139.198, 35.635], zoom: 12.6, pitch: 60, bearing: -35 },
+  trail_misawa:     { center: [139.266, 35.605], zoom: 13.4, pitch: 59, bearing: -20 },
+  trail_kitaapproach:{ center: [139.248, 35.648], zoom: 13.8, pitch: 55, bearing: -25 },
+  trail_taiko:      { center: [139.252, 35.655], zoom: 13.6, pitch: 57, bearing: -30 },
+  trail_kogezawa:   { center: [139.238, 35.642], zoom: 13.7, pitch: 58, bearing: -28 },
+  trail_tengu:      { center: [139.230, 35.630], zoom: 12.6, pitch: 62, bearing: -32 },
+  trail_meio:       { center: [139.198, 35.635], zoom: 12.8, pitch: 60, bearing: -35 },
 };
 
 // GSI Official Tile Sources
@@ -135,8 +152,375 @@ function getSunSkyConfig(hour: number): SunSkyConfig {
   }
 }
 
+/** Maps app route IDs to GeoJSON feature route_id values */
+function routeIdToGeoJsonId(routeId: string): string | null {
+  const idMap: Record<string, string> = {
+    route_1:          'route_1',
+    route_2:          'route_2',
+    route_3:          'route_3',
+    route_4:          'route_4',
+    route_5:          'route_5',
+    route_6:          'route_6',
+    route_inariyama:  'inariyama',
+    inariyama:        'inariyama',
+    route_kagenobu:   'route_3_traverse',
+    route_3_traverse: 'route_3_traverse',
+    route_jinba:      'route_jinba',
+  };
+  return idMap[routeId] ?? routeId;
+}
+
+/** Maps GeoJSON feature route_id values back to app route IDs */
+function geoJsonIdToAppRouteId(geoJsonId: string): string {
+  const reverseMap: Record<string, string> = {
+    route_1:          'route_1',
+    route_2:          'route_2',
+    route_3:          'route_3',
+    route_4:          'route_4',
+    route_5:          'route_5',
+    route_6:          'route_6',
+    inariyama:        'route_inariyama',
+    route_inariyama:  'route_inariyama',
+    route_3_traverse: 'route_kagenobu',
+    route_kagenobu:   'route_kagenobu',
+    route_jinba:      'route_jinba',
+  };
+  return reverseMap[geoJsonId] ?? geoJsonId;
+}
+
+function buildWaypointGeoJson(routeId: string, lang: 'ja' | 'en' | 'zh'): FeatureCollection {
+  const wps = getWaypointsForRoute(routeId);
+  return {
+    type: 'FeatureCollection',
+    features: wps.map((wp) => {
+      const wpName = lang === 'en' ? wp.nameEn : lang === 'zh' ? (wp.nameZh || wp.name) : wp.name;
+      return {
+        type: 'Feature',
+        properties: {
+          id: wp.id,
+          seq: wp.seq.toString(),
+          label: `${wp.seq}. ${wpName} (${wp.altitude})`,
+          isLandmark: wp.isLandmark ? 'true' : 'false',
+        },
+        geometry: {
+          type: 'Point',
+          coordinates: wp.coordinates,
+        },
+      };
+    }),
+  };
+}
+
+function buildMapStyle(sunSky: SunSkyConfig, initialGeoId: string, initialLang: 'ja' | 'en' | 'zh'): StyleSpecification {
+  return {
+    version: 8,
+    glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+    sources: {
+      'gsi-photo': {
+        type: 'raster',
+        tiles: [GSI_PHOTO_TILE],
+        tileSize: 256,
+        attribution: '© 国土地理院',
+        maxzoom: 18,
+      },
+      [TRAIL_SOURCE]: {
+        type: 'geojson',
+        data: TAKAO_TRAILS_GEOJSON,
+      },
+      [SURROUNDING_TRAIL_SOURCE]: {
+        type: 'geojson',
+        data: SURROUNDING_TRAILS_GEOJSON,
+      },
+      [POI_SOURCE]: {
+        type: 'geojson',
+        data: TAKAO_POIS_GEOJSON,
+      },
+      [WAYPOINT_SOURCE]: {
+        type: 'geojson',
+        data: buildWaypointGeoJson('route_1', initialLang),
+      },
+    },
+    layers: [
+      {
+        id: 'background',
+        type: 'background',
+        paint: { 'background-color': '#080E20' },
+      },
+      {
+        id: 'gsi-photo-layer',
+        type: 'raster',
+        source: 'gsi-photo',
+        paint: {
+          'raster-opacity': 1.0,
+          'raster-resampling': 'linear',
+          'raster-fade-duration': 100,
+        },
+      },
+      // ── 1. Trail lines base casing (dark underlayer ensures contrast against all terrain) ──
+      {
+        id: TRAIL_CASING_LAYER,
+        type: 'line',
+        source: TRAIL_SOURCE,
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: {
+          'line-color': '#020617',
+          'line-width': 8.5,
+          'line-opacity': 0.85,
+          'line-blur': 1,
+        },
+      },
+      // ── 2. Surrounding trails ──
+      {
+        id: SURROUNDING_TRAIL_LAYER,
+        type: 'line',
+        source: SURROUNDING_TRAIL_SOURCE,
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: {
+          'line-color': ['coalesce', ['get', 'color'], '#38BDF8'],
+          'line-width': 4.0,
+          'line-opacity': 0.85,
+          'line-dasharray': [2, 1],
+        },
+      },
+      // ── 3. Base official trail lines (Vivid neon colors matching reference PoC) ──
+      {
+        id: TRAIL_LINE_LAYER,
+        type: 'line',
+        source: TRAIL_SOURCE,
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: {
+          'line-color': [
+            'match', ['get', 'route_id'],
+            'route_1',          ROUTE_COLOR_MAP.route_1,
+            'route_2',          ROUTE_COLOR_MAP.route_2,
+            'route_3',          ROUTE_COLOR_MAP.route_3,
+            'route_4',          ROUTE_COLOR_MAP.route_4,
+            'route_5',          ROUTE_COLOR_MAP.route_5,
+            'route_6',          ROUTE_COLOR_MAP.route_6,
+            'inariyama',        ROUTE_COLOR_MAP.inariyama,
+            'route_inariyama',  ROUTE_COLOR_MAP.inariyama,
+            'route_3_traverse', ROUTE_COLOR_MAP.route_3_traverse,
+            'route_jinba',      ROUTE_COLOR_MAP.route_jinba,
+            ['coalesce', ['get', 'color'], '#0AFFE0'],
+          ],
+          'line-width': 5.5,
+          'line-opacity': 0.95,
+        },
+      },
+      // ── 4. Highlighted Surrounding Trail ──
+      {
+        id: SURROUNDING_HIGHLIGHT_GLOW,
+        type: 'line',
+        source: SURROUNDING_TRAIL_SOURCE,
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        filter: ['==', ['get', 'route_id'], ''],
+        paint: {
+          'line-color': ['coalesce', ['get', 'color'], '#0AFFE0'],
+          'line-width': 28,
+          'line-opacity': 0.75,
+          'line-blur': 12,
+        },
+      },
+      {
+        id: SURROUNDING_HIGHLIGHT_LAYER,
+        type: 'line',
+        source: SURROUNDING_TRAIL_SOURCE,
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        filter: ['==', ['get', 'route_id'], ''],
+        paint: {
+          'line-color': ['coalesce', ['get', 'color'], '#0AFFE0'],
+          'line-width': 7.0,
+          'line-opacity': 1.0,
+        },
+      },
+      // ── 5. Highlighted Official Trail Multi-Layer Glow (Reference PoC standard) ──
+      {
+        id: TRAIL_HIGHLIGHT_GLOW,
+        type: 'line',
+        source: TRAIL_SOURCE,
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        filter: ['==', ['get', 'route_id'], initialGeoId],
+        paint: {
+          'line-color': '#0AFFE0',
+          'line-width': 32,
+          'line-opacity': 0.85,
+          'line-blur': 12,
+        },
+      },
+      {
+        id: TRAIL_HIGHLIGHT_INNER,
+        type: 'line',
+        source: TRAIL_SOURCE,
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        filter: ['==', ['get', 'route_id'], initialGeoId],
+        paint: {
+          'line-color': '#E0FFFF',
+          'line-width': 14,
+          'line-opacity': 0.95,
+          'line-blur': 3,
+        },
+      },
+      {
+        id: TRAIL_HIGHLIGHT_LAYER,
+        type: 'line',
+        source: TRAIL_SOURCE,
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        filter: ['==', ['get', 'route_id'], initialGeoId],
+        paint: {
+          'line-color': '#FFFFFF',
+          'line-width': 5.5,
+          'line-opacity': 1.0,
+        },
+      },
+      {
+        id: TRAIL_HIGHLIGHT_DASH,
+        type: 'line',
+        source: TRAIL_SOURCE,
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        filter: ['==', ['get', 'route_id'], initialGeoId],
+        paint: {
+          'line-color': '#0AFFE0',
+          'line-width': 7.5,
+          'line-opacity': 1.0,
+          'line-dasharray': [1, 2],
+        },
+      },
+      // ── 6. Touch Hit-Target for 110" Screen ──
+      {
+        id: TRAIL_HIT_LAYER,
+        type: 'line',
+        source: TRAIL_SOURCE,
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: {
+          'line-width': 28,
+          'line-opacity': 0,
+        },
+      },
+      // ── 7. POI Beacon Rings & Core ──
+      {
+        id: POI_POINT_OUTER_LAYER,
+        type: 'circle',
+        source: POI_SOURCE,
+        paint: {
+          'circle-radius': [
+            'match', ['get', 'category'],
+            'summit', 18,
+            'transit', 14,
+            'temple', 14,
+            12,
+          ],
+          'circle-color': [
+            'match', ['get', 'category'],
+            'summit', 'rgba(10, 255, 224, 0.3)',
+            'transit', 'rgba(0, 200, 255, 0.3)',
+            'temple', 'rgba(251, 146, 60, 0.3)',
+            'teahouse', 'rgba(250, 204, 21, 0.3)',
+            'rgba(255, 255, 255, 0.25)',
+          ],
+          'circle-stroke-color': [
+            'match', ['get', 'category'],
+            'summit', '#0AFFE0',
+            'transit', '#00C8FF',
+            'temple', '#FB923C',
+            'teahouse', '#FACC15',
+            '#FFFFFF',
+          ],
+          'circle-stroke-width': 2.5,
+        },
+      },
+      {
+        id: POI_POINT_LAYER,
+        type: 'circle',
+        source: POI_SOURCE,
+        paint: {
+          'circle-radius': [
+            'match', ['get', 'category'],
+            'summit', 7,
+            'transit', 5,
+            'temple', 5,
+            4,
+          ],
+          'circle-color': '#FFFFFF',
+        },
+      },
+      {
+        id: POI_LABEL_LAYER,
+        type: 'symbol',
+        source: POI_SOURCE,
+        layout: {
+          'text-field': ['concat', ['get', 'name'], ' ', ['get', 'altitude']],
+          'text-size': [
+            'match', ['get', 'category'],
+            'summit', 14,
+            'transit', 12,
+            'temple', 12,
+            11,
+          ],
+          'text-offset': [0, 1.4],
+          'text-anchor': 'top',
+          'text-font': ['Noto Sans Regular'],
+          'text-allow-overlap': true,
+        },
+        paint: {
+          'text-color': '#FFFFFF',
+          'text-halo-color': '#080E20',
+          'text-halo-width': 2.5,
+        },
+      },
+      // ── 8. Route Sequence Waypoint Markers ──
+      {
+        id: WAYPOINT_OUTER_LAYER,
+        type: 'circle',
+        source: WAYPOINT_SOURCE,
+        paint: {
+          'circle-radius': 14,
+          'circle-color': 'rgba(10, 255, 224, 0.25)',
+          'circle-stroke-color': '#0AFFE0',
+          'circle-stroke-width': 2,
+        },
+      },
+      {
+        id: WAYPOINT_CIRCLE_LAYER,
+        type: 'circle',
+        source: WAYPOINT_SOURCE,
+        paint: {
+          'circle-radius': 8,
+          'circle-color': '#0AFFE0',
+          'circle-stroke-color': '#FFFFFF',
+          'circle-stroke-width': 1.5,
+        },
+      },
+      {
+        id: WAYPOINT_LABEL_LAYER,
+        type: 'symbol',
+        source: WAYPOINT_SOURCE,
+        layout: {
+          'text-field': ['get', 'label'],
+          'text-size': 11,
+          'text-offset': [0, 1.2],
+          'text-anchor': 'top',
+          'text-font': ['Noto Sans Regular'],
+          'text-allow-overlap': true,
+        },
+        paint: {
+          'text-color': '#E0FFFF',
+          'text-halo-color': '#080E20',
+          'text-halo-width': 2.5,
+        },
+      },
+    ],
+    sky: {
+      'sky-color': sunSky.skyColor,
+      'sky-horizon-blend': 0.65,
+      'horizon-color': sunSky.horizonColor,
+      'horizon-fog-blend': 0.75,
+      'fog-color': sunSky.fogColor,
+      'fog-ground-blend': 0.45,
+    },
+  };
+}
+
 interface MountainMapGLProps {
-  /** Exposes the MapLibre instance upward so zoom buttons and reset work */
   onMapReady: (map: Map) => void;
 }
 
@@ -144,14 +528,44 @@ export function MountainMapGL({ onMapReady }: MountainMapGLProps) {
   const containerRef   = useRef<HTMLDivElement>(null);
   const mapRef         = useRef<Map | null>(null);
   const popupRef       = useRef<Popup | null>(null);
+  const animFrameRef   = useRef<number | null>(null);
   const [webglError, setWebglError] = useState<string | null>(null);
 
-  const selectedRoute        = useStore((s) => s.selectedRoute);
-  const language             = useStore((s) => s.language);
-  const weather              = useStore((s) => s.weather);
-  const highlightedRouteId   = useMapStore((s) => s.highlightedRouteId);
-  const setUserMovedCamera   = useMapStore((s) => s.setUserMovedCamera);
-  const isRainOverlayVisible = useMapStore((s) => s.isRainOverlayVisible);
+  const selectedRoute          = useStore((s) => s.selectedRoute);
+  const setSelectedRoute       = useStore((s) => s.setSelectedRoute);
+  const setSelectedDifficulty  = useStore((s) => s.setSelectedDifficulty);
+  const setRecommendedProducts = useStore((s) => s.setRecommendedProducts);
+  const addMessage             = useStore((s) => s.addMessage);
+  const language               = useStore((s) => s.language);
+  const weather                = useStore((s) => s.weather);
+  const highlightedRouteId     = useMapStore((s) => s.highlightedRouteId);
+  const setUserMovedCamera     = useMapStore((s) => s.setUserMovedCamera);
+  const isRainOverlayVisible   = useMapStore((s) => s.isRainOverlayVisible);
+  const routeSettings          = useAdminStore((s) => s.routeSettings);
+
+  const languageRef = useRef(language);
+  languageRef.current = language;
+
+  const selectedRouteRef = useRef(selectedRoute);
+  selectedRouteRef.current = selectedRoute;
+
+  const routeSettingsRef = useRef(routeSettings);
+  routeSettingsRef.current = routeSettings;
+
+  const setSelectedRouteRef = useRef(setSelectedRoute);
+  setSelectedRouteRef.current = setSelectedRoute;
+
+  const setSelectedDifficultyRef = useRef(setSelectedDifficulty);
+  setSelectedDifficultyRef.current = setSelectedDifficulty;
+
+  const setRecommendedProductsRef = useRef(setRecommendedProducts);
+  setRecommendedProductsRef.current = setRecommendedProducts;
+
+  const addMessageRef = useRef(addMessage);
+  addMessageRef.current = addMessage;
+
+  const weatherRef = useRef(weather);
+  weatherRef.current = weather;
 
   // ── Map initialisation ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -159,14 +573,16 @@ export function MountainMapGL({ onMapReady }: MountainMapGLProps) {
 
     const hour = new Date().getHours();
     const sunSky = getSunSkyConfig(hour);
+    const initRouteId = selectedRouteRef.current?.id ?? 'route_1';
+    const initGeoId = routeIdToGeoJsonId(initRouteId) ?? 'route_1';
 
     let map: Map;
     try {
       map = new Map({
         container: containerRef.current!,
-        style: buildMapStyle(sunSky),
+        style: buildMapStyle(sunSky, initGeoId, languageRef.current),
         center: TAKAO_SUMMIT,
-        zoom: 13.7,
+        zoom: 13.8,
         pitch: 58,
         bearing: -22,
         maxPitch: 85,
@@ -188,7 +604,6 @@ export function MountainMapGL({ onMapReady }: MountainMapGLProps) {
       return;
     }
 
-    // Prevent default context menu on right-click drag so 3D rotation is completely smooth
     const canvas = map.getCanvas();
     const handleContextMenu = (e: MouseEvent) => e.preventDefault();
     canvas.addEventListener('contextmenu', handleContextMenu);
@@ -203,16 +618,14 @@ export function MountainMapGL({ onMapReady }: MountainMapGLProps) {
     map.on('zoomstart', () => setUserMovedCamera(true));
 
     map.on('load', async () => {
-      // ── 1. High-Resolution GSI DEM5A 3D Terrain Elevation (5m mesh with fallback) ──
+      // ── High-Resolution GSI DEM5A 3D Terrain Elevation ──
       try {
-        // High-resolution DEM5A proxy with automatic fallback to DEM10B
         const gsiTerrainSource = useGsiTerrainSource(addProtocol, {
           tileUrl: '/api/dem-tile/{z}/{x}/{y}',
           maxzoom: 15,
           attribution: '© 国土地理院 (DEM5A/10B)',
         });
         map.addSource('gsi-dem', gsiTerrainSource as any);
-        // Exaggeration tuned to 1.65x for CG-quality 3D ridgeline clarity on 110" 4K display
         map.setTerrain({ source: 'gsi-dem', exaggeration: 1.65 });
       } catch (err) {
         console.warn('GSI terrain source init error:', err);
@@ -220,325 +633,164 @@ export function MountainMapGL({ onMapReady }: MountainMapGLProps) {
 
       // Dynamic 3D Directional Sunlight
       try {
-        (map as any).setLight({
+        (map as any).setLight?.({
           anchor: 'viewport',
           color: sunSky.lightColor,
           intensity: sunSky.lightIntensity,
           position: sunSky.lightPosition,
         });
-      } catch (e) {
-        // Light API is optional depending on version
+      } catch {
+        // light is optional
       }
 
-      // ── 2. Official Takao Trails GeoJSON Layer ─────────────────────────────
-      try {
-        const trailGeoJson: FeatureCollection = await fetchGeoJson('/data/takao-trails.geojson');
-        map.addSource(TRAIL_SOURCE, { type: 'geojson', data: trailGeoJson });
+      // ── Trail Interactive Click & Selection Listener ──
+      const handleTrailClick = (e: MapMouseEvent & { features?: MapGeoJSONFeature[] }) => {
+        if (!e.features || e.features.length === 0) return;
+        const feature = e.features[0];
+        const rawId = (feature.properties?.route_id || feature.properties?.id) as string | undefined;
+        if (!rawId) return;
 
-        // Base official trail lines
-        map.addLayer({
-          id: TRAIL_LINE_LAYER,
-          type: 'line',
-          source: TRAIL_SOURCE,
-          layout: { 'line-join': 'round', 'line-cap': 'round' },
-          paint: {
-            'line-color': [
-              'match', ['get', 'route_id'],
-              'route_1',          ROUTE_COLOR_MAP.route_1,
-              'route_2',          ROUTE_COLOR_MAP.route_2,
-              'route_3',          ROUTE_COLOR_MAP.route_3,
-              'route_4',          ROUTE_COLOR_MAP.route_4,
-              'route_5',          ROUTE_COLOR_MAP.route_5,
-              'route_6',          ROUTE_COLOR_MAP.route_6,
-              'inariyama',        ROUTE_COLOR_MAP.inariyama,
-              'route_inariyama',  ROUTE_COLOR_MAP.inariyama,
-              'route_3_traverse', ROUTE_COLOR_MAP.route_3_traverse,
-              'route_jinba',      ROUTE_COLOR_MAP.route_jinba,
-              ROUTE_COLOR_MAP.path_segment,
-            ],
-            'line-width': 4.0,
-            'line-opacity': 0.8,
-          },
-        });
+        const targetAppId = geoJsonIdToAppRouteId(rawId);
+        const foundRoute = ROUTES.find((r) => r.id === targetAppId) || ROUTES.find((r) => r.id === rawId);
+        if (!foundRoute) return;
 
-        // Highlighted route glowing halo
-        map.addLayer({
-          id: `${TRAIL_HIGHLIGHT_LAYER}-glow`,
-          type: 'line',
-          source: TRAIL_SOURCE,
-          layout: { 'line-join': 'round', 'line-cap': 'round' },
-          filter: ['==', ['get', 'route_id'], 'route_1'] as FilterSpecification,
-          paint: {
-            'line-color': '#0AFFE0',
-            'line-width': 26,
-            'line-opacity': 0.65,
-            'line-blur': 10,
-          },
-        });
+        setSelectedRouteRef.current(foundRoute);
+        const effDiff = routeSettingsRef.current[foundRoute.id]?.difficulty ?? foundRoute.difficulty;
+        setSelectedDifficultyRef.current(effDiff);
 
-        // Highlighted route sharp line
-        map.addLayer({
-          id: TRAIL_HIGHLIGHT_LAYER,
-          type: 'line',
-          source: TRAIL_SOURCE,
-          layout: { 'line-join': 'round', 'line-cap': 'round' },
-          filter: ['==', ['get', 'route_id'], 'route_1'] as FilterSpecification,
-          paint: {
-            'line-color': '#0AFFE0',
-            'line-width': 6.5,
-            'line-opacity': 1,
-          },
-        });
-      } catch (e) {
-        console.error('Failed to load official trail GeoJSON:', e);
-      }
+        const season = getCurrentSeason();
+        const weatherCode = weatherRef.current?.weatherCode ?? 'partly_cloudy';
+        const lang = languageRef.current;
+        const products = getRecommendedProducts(effDiff, weatherCode, season, [], 3, foundRoute.category, lang);
+        setRecommendedProductsRef.current(products);
 
-      // ── 3. Surrounding Trails (Takao Manners) GeoJSON Layer ────────────────
-      try {
-        const surroundingGeoJson: FeatureCollection = await fetchGeoJson('/data/surrounding-trails.geojson');
-        map.addSource(SURROUNDING_TRAIL_SOURCE, { type: 'geojson', data: surroundingGeoJson });
-
-        // Base surrounding trail lines
-        map.addLayer({
-          id: SURROUNDING_TRAIL_LAYER,
-          type: 'line',
-          source: SURROUNDING_TRAIL_SOURCE,
-          layout: { 'line-join': 'round', 'line-cap': 'round' },
-          paint: {
-            'line-color': ['coalesce', ['get', 'color'], '#38BDF8'],
-            'line-width': 3.5,
-            'line-opacity': 0.75,
-            'line-dasharray': [2, 1],
-          },
-        });
-
-        // Surrounding trail glowing halo
-        map.addLayer({
-          id: `${SURROUNDING_HIGHLIGHT_LAYER}-glow`,
-          type: 'line',
-          source: SURROUNDING_TRAIL_SOURCE,
-          layout: { 'line-join': 'round', 'line-cap': 'round' },
-          filter: ['==', ['get', 'route_id'], ''] as FilterSpecification,
-          paint: {
-            'line-color': ['coalesce', ['get', 'color'], '#0AFFE0'],
-            'line-width': 26,
-            'line-opacity': 0.65,
-            'line-blur': 10,
-          },
-        });
-
-        // Surrounding trail highlighted sharp line
-        map.addLayer({
-          id: SURROUNDING_HIGHLIGHT_LAYER,
-          type: 'line',
-          source: SURROUNDING_TRAIL_SOURCE,
-          layout: { 'line-join': 'round', 'line-cap': 'round' },
-          filter: ['==', ['get', 'route_id'], ''] as FilterSpecification,
-          paint: {
-            'line-color': ['coalesce', ['get', 'color'], '#0AFFE0'],
-            'line-width': 6.5,
-            'line-opacity': 1,
-          },
-        });
-      } catch (e) {
-        console.error('Failed to load surrounding trails GeoJSON:', e);
-      }
-
-      // ── 4. POI & Waypoints Layer ──────────────────────────────────────────
-      try {
-        const poiGeoJson: FeatureCollection = await fetchGeoJson('/data/takao-pois.geojson');
-        map.addSource(POI_SOURCE, { type: 'geojson', data: poiGeoJson });
-
-        // Outer beacon ring
-        map.addLayer({
-          id: `${POI_POINT_LAYER}-outer`,
-          type: 'circle',
-          source: POI_SOURCE,
-          paint: {
-            'circle-radius': [
-              'match', ['get', 'category'],
-              'summit', 16,
-              'transit', 13,
-              'temple', 13,
-              11,
-            ],
-            'circle-color': [
-              'match', ['get', 'category'],
-              'summit', 'rgba(10, 255, 224, 0.25)',
-              'transit', 'rgba(0, 200, 255, 0.25)',
-              'temple', 'rgba(251, 146, 60, 0.25)',
-              'teahouse', 'rgba(250, 204, 21, 0.25)',
-              'rgba(255, 255, 255, 0.2)',
-            ],
-            'circle-stroke-color': [
-              'match', ['get', 'category'],
-              'summit', '#0AFFE0',
-              'transit', '#00C8FF',
-              'temple', '#FB923C',
-              'teahouse', '#FACC15',
-              '#FFFFFF',
-            ],
-            'circle-stroke-width': 2,
-          },
-        });
-
-        // Inner solid core dot
-        map.addLayer({
-          id: POI_POINT_LAYER,
-          type: 'circle',
-          source: POI_SOURCE,
-          paint: {
-            'circle-radius': [
-              'match', ['get', 'category'],
-              'summit', 6,
-              'transit', 5,
-              'temple', 5,
-              4,
-            ],
-            'circle-color': '#FFFFFF',
-          },
-        });
-
-        // POI label text on 3D terrain
-        map.addLayer({
-          id: POI_LABEL_LAYER,
-          type: 'symbol',
-          source: POI_SOURCE,
-          layout: {
-            'text-field': ['concat', ['get', 'name'], ' ', ['get', 'altitude']],
-            'text-size': [
-              'match', ['get', 'category'],
-              'summit', 14,
-              'transit', 12,
-              'temple', 12,
-              10,
-            ],
-            'text-offset': [0, 1.4],
-            'text-anchor': 'top',
-            'text-font': ['Noto Sans Regular'],
-            'text-allow-overlap': true,
-          },
-          paint: {
-            'text-color': '#FFFFFF',
-            'text-halo-color': '#080E20',
-            'text-halo-width': 2.5,
-          },
-        });
-
-        // Click on POI point or label -> open elegant glass popup
-        const showPoiPopup = (e: MapMouseEvent & { features?: MapGeoJSONFeature[] }) => {
-          if (!e.features || e.features.length === 0) return;
-          const feature = e.features[0];
-          const props = feature.properties as {
-            name: string;
-            altitude: string;
-            description: string;
-            status: string;
-            statusColor: string;
-          };
-          const coords = (feature.geometry as GeoJSON.Point).coordinates.slice() as [number, number];
-
-          if (popupRef.current) popupRef.current.remove();
-
-          const popupContent = document.createElement('div');
-          popupContent.className = 'poi-popup-card';
-          popupContent.innerHTML = `
-            <div style="background:rgba(8,14,32,0.92); backdrop-filter:blur(12px); border:1px solid rgba(0,200,255,0.4); border-radius:12px; padding:12px; min-width:200px; color:#fff; font-family:sans-serif; box-shadow:0 8px 24px rgba(0,0,0,0.6);">
-              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
-                <span style="font-size:14px; font-weight:bold; color:#0AFFE0;">${props.name}</span>
-                <span style="font-size:11px; background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px; font-family:monospace;">${props.altitude}</span>
-              </div>
-              <p style="font-size:11px; color:#cbd5e1; line-height:1.4; margin:0 0 8px 0;">${props.description}</p>
-              <div style="display:flex; align-items:center; gap:6px;">
-                <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:${props.statusColor};"></span>
-                <span style="font-size:10px; font-weight:6px; color:${props.statusColor};">${props.status}</span>
-              </div>
+        if (popupRef.current) popupRef.current.remove();
+        const title = lang === 'en' ? foundRoute.name_en : lang === 'zh' ? (foundRoute.name_zh || foundRoute.name) : foundRoute.name;
+        const popupContent = document.createElement('div');
+        popupContent.className = 'trail-popup-card';
+        popupContent.innerHTML = `
+          <div style="background:rgba(8,14,32,0.94); backdrop-filter:blur(14px); border:1.5px solid rgba(10,255,224,0.7); border-radius:12px; padding:12px 14px; min-width:220px; color:#fff; font-family:sans-serif; box-shadow:0 10px 28px rgba(0,0,0,0.8);">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+              <span style="font-size:14px; font-weight:bold; color:#0AFFE0;">${title}</span>
+              <span style="font-size:10px; background:rgba(10,255,224,0.18); color:#0AFFE0; padding:2px 7px; border-radius:4px; font-weight:bold; font-family:monospace;">${foundRoute.distanceKm}km</span>
             </div>
-          `;
+            <div style="display:flex; gap:12px; font-size:11px; color:#cbd5e1; margin-bottom:6px;">
+              <span>⏱️ 約${foundRoute.durationMin}分</span>
+              <span>📈 標高差 ${foundRoute.elevationM}m</span>
+            </div>
+            <div style="font-size:10px; color:#94a3b8; line-height:1.3;">
+              ${lang === 'en' ? 'Route selected & equipment updated' : lang === 'zh' ? '路线已选择并更新推荐装备' : 'ルート選択完了・おすすめ装備更新'}
+            </div>
+          </div>
+        `;
 
-          popupRef.current = new Popup({ closeButton: true, closeOnClick: true, offset: 15 })
-            .setLngLat(coords)
-            .setDOMContent(popupContent)
-            .addTo(map);
+        popupRef.current = new Popup({ closeButton: true, closeOnClick: true, offset: 12 })
+          .setLngLat(e.lngLat)
+          .setDOMContent(popupContent)
+          .addTo(map);
+
+        addMessageRef.current({
+          id: `trail-select-${Date.now()}`,
+          role: 'ai',
+          text: `🗺️ 【${foundRoute.name}】が選択されました（距離: ${foundRoute.distanceKm}km / 所要時間: 約${foundRoute.durationMin}分 / 標高差: ${foundRoute.elevationM}m）。下部に最適なSalomon推奨装備を表示しています。`,
+          products,
+          timestamp: new Date(),
+        });
+      };
+
+      const setPointer = () => { map.getCanvas().style.cursor = 'pointer'; };
+      const resetPointer = () => { map.getCanvas().style.cursor = ''; };
+
+      map.on('click', TRAIL_LINE_LAYER, handleTrailClick);
+      map.on('click', TRAIL_HIT_LAYER, handleTrailClick);
+      map.on('click', TRAIL_HIGHLIGHT_LAYER, handleTrailClick);
+      map.on('click', SURROUNDING_TRAIL_LAYER, handleTrailClick);
+      map.on('click', SURROUNDING_HIGHLIGHT_LAYER, handleTrailClick);
+
+      map.on('mouseenter', TRAIL_LINE_LAYER, setPointer);
+      map.on('mouseleave', TRAIL_LINE_LAYER, resetPointer);
+      map.on('mouseenter', TRAIL_HIT_LAYER, setPointer);
+      map.on('mouseleave', TRAIL_HIT_LAYER, resetPointer);
+      map.on('mouseenter', TRAIL_HIGHLIGHT_LAYER, setPointer);
+      map.on('mouseleave', TRAIL_HIGHLIGHT_LAYER, resetPointer);
+      map.on('mouseenter', SURROUNDING_TRAIL_LAYER, setPointer);
+      map.on('mouseleave', SURROUNDING_TRAIL_LAYER, resetPointer);
+
+      // POI Click
+      const showPoiPopup = (e: MapMouseEvent & { features?: MapGeoJSONFeature[] }) => {
+        if (!e.features || e.features.length === 0) return;
+        const feature = e.features[0];
+        const props = feature.properties as {
+          name: string;
+          altitude: string;
+          description: string;
+          status: string;
+          statusColor: string;
         };
+        const coords = (feature.geometry as GeoJSON.Point).coordinates.slice() as [number, number];
 
-        map.on('click', POI_POINT_LAYER, showPoiPopup);
-        map.on('click', POI_LABEL_LAYER, showPoiPopup);
+        if (popupRef.current) popupRef.current.remove();
 
-        map.on('mouseenter', POI_POINT_LAYER, () => { map.getCanvas().style.cursor = 'pointer'; });
-        map.on('mouseleave', POI_POINT_LAYER, () => { map.getCanvas().style.cursor = ''; });
-        map.on('mouseenter', POI_LABEL_LAYER, () => { map.getCanvas().style.cursor = 'pointer'; });
-        map.on('mouseleave', POI_LABEL_LAYER, () => { map.getCanvas().style.cursor = ''; });
+        const popupContent = document.createElement('div');
+        popupContent.className = 'poi-popup-card';
+        popupContent.innerHTML = `
+          <div style="background:rgba(8,14,32,0.94); backdrop-filter:blur(14px); border:1.5px solid rgba(0,200,255,0.5); border-radius:12px; padding:12px; min-width:200px; color:#fff; font-family:sans-serif; box-shadow:0 8px 24px rgba(0,0,0,0.7);">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+              <span style="font-size:14px; font-weight:bold; color:#0AFFE0;">${props.name}</span>
+              <span style="font-size:11px; background:rgba(255,255,255,0.12); padding:2px 6px; border-radius:4px; font-family:monospace;">${props.altitude}</span>
+            </div>
+            <p style="font-size:11px; color:#cbd5e1; line-height:1.4; margin:0 0 8px 0;">${props.description}</p>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:${props.statusColor};"></span>
+              <span style="font-size:10px; font-weight:bold; color:${props.statusColor};">${props.status}</span>
+            </div>
+          </div>
+        `;
 
-        // ── 5. Sequenced Route Waypoints Layer ──────────────────────────────
-        const initialWps = getWaypointsForRoute(selectedRoute?.id ?? 'route_1');
-        const initialWpGeoJson: FeatureCollection = {
-          type: 'FeatureCollection',
-          features: initialWps.map((wp) => ({
-            type: 'Feature',
-            properties: {
-              id: wp.id,
-              seq: wp.seq.toString(),
-              label: `${wp.seq}. ${language === 'en' ? wp.nameEn : wp.name} (${wp.altitude})`,
-              isLandmark: wp.isLandmark ? 'true' : 'false',
-            },
-            geometry: {
-              type: 'Point',
-              coordinates: wp.coordinates,
-            },
-          })),
-        };
+        popupRef.current = new Popup({ closeButton: true, closeOnClick: true, offset: 15 })
+          .setLngLat(coords)
+          .setDOMContent(popupContent)
+          .addTo(map);
+      };
 
-        map.addSource(WAYPOINT_SOURCE, { type: 'geojson', data: initialWpGeoJson });
+      map.on('click', POI_POINT_LAYER, showPoiPopup);
+      map.on('click', POI_LABEL_LAYER, showPoiPopup);
+      map.on('mouseenter', POI_POINT_LAYER, setPointer);
+      map.on('mouseleave', POI_POINT_LAYER, resetPointer);
+      map.on('mouseenter', POI_LABEL_LAYER, setPointer);
+      map.on('mouseleave', POI_LABEL_LAYER, resetPointer);
 
-        // Numbered pin outer glowing halo
-        map.addLayer({
-          id: WAYPOINT_OUTER_LAYER,
-          type: 'circle',
-          source: WAYPOINT_SOURCE,
-          paint: {
-            'circle-radius': 16,
-            'circle-color': 'rgba(10, 255, 224, 0.25)',
-            'circle-stroke-color': '#0AFFE0',
-            'circle-stroke-width': 2,
-          },
+      // ── Initial Camera Framing for Selected Route ──
+      const initialRoute = selectedRouteRef.current;
+      if (initialRoute && ROUTE_CAMERA_VIEWS[initialRoute.id]) {
+        const v = ROUTE_CAMERA_VIEWS[initialRoute.id];
+        map.flyTo({
+          center: v.center,
+          zoom: v.zoom,
+          pitch: v.pitch,
+          bearing: v.bearing,
+          duration: 900,
+          essential: true,
+          padding: { top: 90, bottom: 290, left: 370, right: 370 },
         });
-
-        // Numbered pin inner solid badge
-        map.addLayer({
-          id: WAYPOINT_CIRCLE_LAYER,
-          type: 'circle',
-          source: WAYPOINT_SOURCE,
-          paint: {
-            'circle-radius': 10,
-            'circle-color': '#080E20',
-            'circle-stroke-color': '#0AFFE0',
-            'circle-stroke-width': 2,
-          },
-        });
-
-        // Numbered sequence digit and landmark label
-        map.addLayer({
-          id: WAYPOINT_LABEL_LAYER,
-          type: 'symbol',
-          source: WAYPOINT_SOURCE,
-          layout: {
-            'text-field': ['get', 'label'],
-            'text-size': 11,
-            'text-offset': [0, 1.6],
-            'text-anchor': 'top',
-            'text-font': ['Noto Sans Bold'],
-            'text-allow-overlap': true,
-          },
-          paint: {
-            'text-color': '#0AFFE0',
-            'text-halo-color': '#080E20',
-            'text-halo-width': 2.5,
-          },
-        });
-      } catch (e) {
-        console.error('Failed to load POI GeoJSON:', e);
       }
+
+      // ── Route Progression Animation (Reference PoC standard) ──
+      let dashStep = 0;
+      const animateRoutePulse = () => {
+        dashStep = (dashStep + 1) % 24;
+        if (mapRef.current && mapRef.current.getLayer(TRAIL_HIGHLIGHT_DASH)) {
+          const dash1 = (dashStep % 4) * 0.5 + 0.5;
+          const dash2 = 3.5 - dash1;
+          try {
+            mapRef.current.setPaintProperty(TRAIL_HIGHLIGHT_DASH, 'line-dasharray', [dash1, dash2]);
+          } catch {
+            // ignore if style is transitioning
+          }
+        }
+        animFrameRef.current = requestAnimationFrame(animateRoutePulse);
+      };
+      animFrameRef.current = requestAnimationFrame(animateRoutePulse);
     });
 
     mapRef.current = map;
@@ -548,9 +800,13 @@ export function MountainMapGL({ onMapReady }: MountainMapGLProps) {
       if (mapRef.current) mapRef.current.resize();
     };
     window.addEventListener('resize', handleResize);
-    setTimeout(handleResize, 200);
+    setTimeout(handleResize, 250);
 
     return () => {
+      if (animFrameRef.current !== null) {
+        cancelAnimationFrame(animFrameRef.current);
+        animFrameRef.current = null;
+      }
       canvas.removeEventListener('contextmenu', handleContextMenu);
       window.removeEventListener('resize', handleResize);
       if (popupRef.current) popupRef.current.remove();
@@ -561,57 +817,67 @@ export function MountainMapGL({ onMapReady }: MountainMapGLProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Sync highlighted route filter (both official courses and surrounding trails) ──
+  // ── Sync highlighted route filter & camera position ────────────────────────
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !map.isStyleLoaded()) return;
+    if (!map) return;
 
-    const routeId = selectedRoute?.id ?? '';
-    const isSurrounding = selectedRoute?.category === 'surrounding_trail';
+    const applyRouteVisuals = () => {
+      const routeId = selectedRoute?.id ?? '';
+      const isSurrounding = selectedRoute?.category === 'surrounding_trail';
 
-    if (isSurrounding) {
-      // Highlight in surrounding-trails-layer
-      if (map.getLayer(SURROUNDING_HIGHLIGHT_LAYER)) {
-        const filter: FilterSpecification = ['==', ['get', 'route_id'], routeId];
-        map.setFilter(SURROUNDING_HIGHLIGHT_LAYER, filter);
-        map.setFilter(`${SURROUNDING_HIGHLIGHT_LAYER}-glow`, filter);
+      if (isSurrounding) {
+        if (map.getLayer(SURROUNDING_HIGHLIGHT_LAYER)) {
+          const filter: FilterSpecification = ['==', ['get', 'route_id'], routeId];
+          map.setFilter(SURROUNDING_HIGHLIGHT_LAYER, filter);
+          map.setFilter(SURROUNDING_HIGHLIGHT_GLOW, filter);
+        }
+        if (map.getLayer(TRAIL_HIGHLIGHT_LAYER)) {
+          const blankFilter: FilterSpecification = ['==', ['get', 'route_id'], ''];
+          map.setFilter(TRAIL_HIGHLIGHT_LAYER, blankFilter);
+          map.setFilter(TRAIL_HIGHLIGHT_GLOW, blankFilter);
+          map.setFilter(TRAIL_HIGHLIGHT_INNER, blankFilter);
+          map.setFilter(TRAIL_HIGHLIGHT_DASH, blankFilter);
+        }
+      } else {
+        const geoJsonRouteId = routeIdToGeoJsonId(routeId);
+        const filter: FilterSpecification = geoJsonRouteId
+          ? ['==', ['get', 'route_id'], geoJsonRouteId]
+          : ['==', ['get', 'route_id'], ''];
+
+        if (map.getLayer(TRAIL_HIGHLIGHT_LAYER)) {
+          map.setFilter(TRAIL_HIGHLIGHT_LAYER, filter);
+          map.setFilter(TRAIL_HIGHLIGHT_GLOW, filter);
+          map.setFilter(TRAIL_HIGHLIGHT_INNER, filter);
+          map.setFilter(TRAIL_HIGHLIGHT_DASH, filter);
+        }
+        if (map.getLayer(SURROUNDING_HIGHLIGHT_LAYER)) {
+          const blankFilter: FilterSpecification = ['==', ['get', 'route_id'], ''];
+          map.setFilter(SURROUNDING_HIGHLIGHT_LAYER, blankFilter);
+          map.setFilter(SURROUNDING_HIGHLIGHT_GLOW, blankFilter);
+        }
       }
-      // Clear official highlights
-      if (map.getLayer(TRAIL_HIGHLIGHT_LAYER)) {
-        const blankFilter: FilterSpecification = ['==', ['get', 'route_id'], ''];
-        map.setFilter(TRAIL_HIGHLIGHT_LAYER, blankFilter);
-        map.setFilter(`${TRAIL_HIGHLIGHT_LAYER}-glow`, blankFilter);
+
+      // Smoothly fly camera to showcase the selected course across the 3D mountain
+      // Viewport padding prevents trail from being obscured by Salomon equipment carousel or side panels
+      if (selectedRoute && ROUTE_CAMERA_VIEWS[selectedRoute.id]) {
+        const v = ROUTE_CAMERA_VIEWS[selectedRoute.id];
+        map.flyTo({
+          center: v.center,
+          zoom: v.zoom,
+          pitch: v.pitch,
+          bearing: v.bearing,
+          duration: 1200,
+          essential: true,
+          padding: { top: 90, bottom: 290, left: 370, right: 370 },
+        });
       }
+    };
+
+    if (map.isStyleLoaded()) {
+      applyRouteVisuals();
     } else {
-      // Highlight in official takao-trails layer
-      const geoJsonRouteId = routeIdToGeoJsonId(routeId);
-      const filter: FilterSpecification = geoJsonRouteId
-        ? ['==', ['get', 'route_id'], geoJsonRouteId]
-        : ['==', ['get', 'route_id'], ''];
-
-      if (map.getLayer(TRAIL_HIGHLIGHT_LAYER)) {
-        map.setFilter(TRAIL_HIGHLIGHT_LAYER, filter);
-        map.setFilter(`${TRAIL_HIGHLIGHT_LAYER}-glow`, filter);
-      }
-      // Clear surrounding highlights
-      if (map.getLayer(SURROUNDING_HIGHLIGHT_LAYER)) {
-        const blankFilter: FilterSpecification = ['==', ['get', 'route_id'], ''];
-        map.setFilter(SURROUNDING_HIGHLIGHT_LAYER, blankFilter);
-        map.setFilter(`${SURROUNDING_HIGHLIGHT_LAYER}-glow`, blankFilter);
-      }
-    }
-
-    // Smoothly fly camera to showcase the selected course across the 3D mountain
-    if (selectedRoute && ROUTE_CAMERA_VIEWS[selectedRoute.id]) {
-      const v = ROUTE_CAMERA_VIEWS[selectedRoute.id];
-      map.flyTo({
-        center: v.center,
-        zoom: v.zoom,
-        pitch: v.pitch,
-        bearing: v.bearing,
-        duration: 1200,
-        essential: true,
-      });
+      map.once('styledata', applyRouteVisuals);
     }
   }, [selectedRoute, highlightedRouteId]);
 
@@ -639,27 +905,7 @@ export function MountainMapGL({ onMapReady }: MountainMapGLProps) {
     const source = map.getSource(WAYPOINT_SOURCE) as any;
     if (!source) return;
 
-    const wps = getWaypointsForRoute(selectedRoute?.id ?? 'route_1');
-    const geoJson: FeatureCollection = {
-      type: 'FeatureCollection',
-      features: wps.map((wp) => {
-        const wpName = language === 'en' ? wp.nameEn : language === 'zh' ? (wp.nameZh || wp.name) : wp.name;
-        return {
-          type: 'Feature',
-          properties: {
-            id: wp.id,
-            seq: wp.seq.toString(),
-            label: `${wp.seq}. ${wpName} (${wp.altitude})`,
-            isLandmark: wp.isLandmark ? 'true' : 'false',
-          },
-          geometry: {
-            type: 'Point',
-            coordinates: wp.coordinates,
-          },
-        };
-      }),
-    };
-
+    const geoJson = buildWaypointGeoJson(selectedRoute?.id ?? 'route_1', language);
     source.setData(geoJson);
   }, [selectedRoute, language]);
 
@@ -672,20 +918,47 @@ export function MountainMapGL({ onMapReady }: MountainMapGLProps) {
     if (!map.getLayer(layerId)) return;
 
     if (isRainOverlayVisible || weather?.weatherCode === 'rainy' || weather?.weatherCode === 'snowy') {
-      // Rainy: wet desaturation (-0.35), overcast contrast
       map.setPaintProperty(layerId, 'raster-saturation', -0.35);
       map.setPaintProperty(layerId, 'raster-contrast', -0.15);
       map.setPaintProperty(layerId, 'raster-brightness-max', 0.85);
     } else if (weather?.weatherCode === 'cloudy' || weather?.weatherCode === 'partly_cloudy') {
-      // Cloudy: light desaturation (-0.15), soft diffuse contrast
       map.setPaintProperty(layerId, 'raster-saturation', -0.15);
       map.setPaintProperty(layerId, 'raster-contrast', -0.05);
       map.setPaintProperty(layerId, 'raster-brightness-max', 0.95);
     } else {
-      // Clear: vibrant orthophoto
       map.setPaintProperty(layerId, 'raster-saturation', 0.05);
       map.setPaintProperty(layerId, 'raster-contrast', 0.05);
       map.setPaintProperty(layerId, 'raster-brightness-max', 1.0);
+    }
+
+    try {
+      const hour = new Date().getHours();
+      const sunSky = getSunSkyConfig(hour);
+      let lightColor = sunSky.lightColor;
+      let lightIntensity = sunSky.lightIntensity;
+
+      if (weather?.weatherCode === 'snowy') {
+        lightColor = '#E0F2FE';
+        lightIntensity = 0.75;
+      } else if (weather?.weatherCode === 'rainy' || isRainOverlayVisible) {
+        lightColor = '#94A3B8';
+        lightIntensity = 0.4;
+      } else if (weather?.weatherCode === 'cloudy' || weather?.weatherCode === 'partly_cloudy') {
+        lightColor = '#CBD5E1';
+        lightIntensity = 0.55;
+      } else if (weather?.weatherCode === 'sunny') {
+        lightColor = '#FFF5E6';
+        lightIntensity = 0.95;
+      }
+
+      (map as any).setLight?.({
+        anchor: 'map',
+        color: lightColor,
+        intensity: lightIntensity,
+        position: sunSky.lightPosition,
+      });
+    } catch {
+      // safe fallback
     }
   }, [isRainOverlayVisible, weather?.weatherCode]);
 
@@ -710,71 +983,4 @@ export function MountainMapGL({ onMapReady }: MountainMapGLProps) {
       aria-label="高尾山3Dマップ"
     />
   );
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-async function fetchGeoJson(url: string): Promise<FeatureCollection> {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`GeoJSON fetch failed: ${res.status}`);
-  return res.json() as Promise<FeatureCollection>;
-}
-
-/** Maps app route IDs to GeoJSON feature route_id values */
-function routeIdToGeoJsonId(routeId: string): string | null {
-  const idMap: Record<string, string> = {
-    route_1:          'route_1',
-    route_2:          'route_2',
-    route_3:          'route_3',
-    route_4:          'route_4',
-    route_5:          'route_5',
-    route_6:          'route_6',
-    route_inariyama:  'inariyama',
-    inariyama:        'inariyama',
-    route_kagenobu:   'route_3_traverse',
-    route_3_traverse: 'route_3_traverse',
-    route_jinba:      'route_jinba',
-  };
-  return idMap[routeId] ?? routeId;
-}
-
-function buildMapStyle(sunSky: SunSkyConfig): StyleSpecification {
-  return {
-    version: 8,
-    glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
-    sources: {
-      'gsi-photo': {
-        type: 'raster',
-        tiles: [GSI_PHOTO_TILE],
-        tileSize: 256,
-        attribution: '© 国土地理院',
-        maxzoom: 18,
-      },
-    },
-    layers: [
-      {
-        id: 'background',
-        type: 'background',
-        paint: { 'background-color': '#080E20' },
-      },
-      {
-        id: 'gsi-photo-layer',
-        type: 'raster',
-        source: 'gsi-photo',
-        paint: {
-          'raster-opacity': 1.0,
-          'raster-resampling': 'linear',
-          'raster-fade-duration': 100,
-        },
-      },
-    ],
-    sky: {
-      'sky-color': sunSky.skyColor,
-      'sky-horizon-blend': 0.65,
-      'horizon-color': sunSky.horizonColor,
-      'horizon-fog-blend': 0.75,
-      'fog-color': sunSky.fogColor,
-      'fog-ground-blend': 0.45,
-    },
-  };
 }
