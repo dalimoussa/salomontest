@@ -80,6 +80,7 @@ export function MountainMap() {
       bearing: DEFAULT_BEARING,
       duration: 1200,
       essential: true,
+      padding: { top: 90, bottom: 290, left: 370, right: 370 },
     });
   };
 
@@ -94,6 +95,7 @@ export function MountainMap() {
       zoom: p.zoom,
       duration: 1000,
       essential: true,
+      padding: { top: 90, bottom: 290, left: 370, right: 370 },
     });
   };
 

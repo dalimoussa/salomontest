@@ -70,17 +70,17 @@ const ROUTE_COLOR_MAP: Record<string, string> = {
 // Preset camera viewing angles tailored to each course/trail for 110" 4K impact
 // Centered and elevated to keep trails prominently visible in the safe upper-central corridor
 const ROUTE_CAMERA_VIEWS: Record<string, { center: [number, number]; zoom: number; pitch: number; bearing: number }> = {
-  route_1:          { center: [139.255, 35.630], zoom: 14.2, pitch: 56, bearing: -20 },
-  route_2:          { center: [139.255, 35.630], zoom: 15.0, pitch: 52, bearing: -18 },
-  route_3:          { center: [139.249, 35.626], zoom: 14.9, pitch: 55, bearing: -24 },
-  route_4:          { center: [139.249, 35.628], zoom: 14.9, pitch: 57, bearing: -28 },
-  route_5:          { center: [139.243, 35.625], zoom: 15.5, pitch: 50, bearing: -15 },
-  route_6:          { center: [139.256, 35.627], zoom: 14.2, pitch: 58, bearing: -15 },
-  route_inariyama:  { center: [139.255, 35.626], zoom: 14.1, pitch: 58, bearing: -22 },
-  inariyama:        { center: [139.255, 35.626], zoom: 14.1, pitch: 58, bearing: -22 },
-  route_kagenobu:   { center: [139.225, 35.635], zoom: 13.0, pitch: 60, bearing: -30 },
-  route_3_traverse: { center: [139.225, 35.635], zoom: 13.0, pitch: 60, bearing: -30 },
-  route_jinba:      { center: [139.205, 35.645], zoom: 12.0, pitch: 62, bearing: -35 },
+  route_1:          { center: [139.2555, 35.6300], zoom: 14.3, pitch: 56, bearing: -20 },
+  route_2:          { center: [139.2546, 35.6300], zoom: 15.3, pitch: 52, bearing: -18 },
+  route_3:          { center: [139.2488, 35.6261], zoom: 15.0, pitch: 55, bearing: -24 },
+  route_4:          { center: [139.2485, 35.6279], zoom: 15.1, pitch: 57, bearing: -28 },
+  route_5:          { center: [139.2431, 35.6247], zoom: 15.8, pitch: 50, bearing: -15 },
+  route_6:          { center: [139.2558, 35.6266], zoom: 14.3, pitch: 58, bearing: -15 },
+  route_inariyama:  { center: [139.2554, 35.6261], zoom: 14.3, pitch: 58, bearing: -22 },
+  inariyama:        { center: [139.2554, 35.6261], zoom: 14.3, pitch: 58, bearing: -22 },
+  route_kagenobu:   { center: [139.2150, 35.6360], zoom: 12.8, pitch: 60, bearing: -30 },
+  route_3_traverse: { center: [139.2150, 35.6360], zoom: 12.8, pitch: 60, bearing: -30 },
+  route_jinba:      { center: [139.2000, 35.6420], zoom: 11.8, pitch: 62, bearing: -35 },
 
   // Surrounding trails
   trail_gongen:     { center: [139.262, 35.608], zoom: 13.2, pitch: 60, bearing: -10 },
@@ -776,16 +776,21 @@ export function MountainMapGL({ onMapReady }: MountainMapGLProps) {
       }
 
       // ── Route Progression Animation (Reference PoC standard) ──
-      let dashStep = 0;
-      const animateRoutePulse = () => {
-        dashStep = (dashStep + 1) % 24;
-        if (mapRef.current && mapRef.current.getLayer(TRAIL_HIGHLIGHT_DASH)) {
-          const dash1 = (dashStep % 4) * 0.5 + 0.5;
-          const dash2 = 3.5 - dash1;
-          try {
-            mapRef.current.setPaintProperty(TRAIL_HIGHLIGHT_DASH, 'line-dasharray', [dash1, dash2]);
-          } catch {
-            // ignore if style is transitioning
+      let dashOffset = 0;
+      let lastAnimTime = 0;
+      const animateRoutePulse = (time: number) => {
+        // Run smoothly at ~20 FPS (50ms interval) to deliver a continuous fluid flow with minimal GPU overhead
+        if (time - lastAnimTime >= 50) {
+          lastAnimTime = time;
+          dashOffset = (dashOffset + 0.2) % 4;
+          if (mapRef.current && mapRef.current.getLayer(TRAIL_HIGHLIGHT_DASH)) {
+            const d1 = Number((0.6 + (dashOffset % 4) * 0.7).toFixed(2));
+            const d2 = Number((3.6 - (dashOffset % 4) * 0.7).toFixed(2));
+            try {
+              mapRef.current.setPaintProperty(TRAIL_HIGHLIGHT_DASH, 'line-dasharray', [d1, d2]);
+            } catch {
+              // ignore if style is transitioning
+            }
           }
         }
         animFrameRef.current = requestAnimationFrame(animateRoutePulse);
