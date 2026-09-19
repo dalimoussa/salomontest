@@ -24,7 +24,7 @@ export interface UseVoiceConversationReturn {
   startListening: () => Promise<void>;
   stopListening: () => void;
   cancelConversation: () => void;
-  speakText: (text: string) => Promise<void>;
+  speakText: (text: string, lang?: string) => Promise<void>;
 }
 
 function getTargetRecognitionLang(lang: 'ja' | 'en' | 'zh'): string {
@@ -92,7 +92,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
   // the hard-mute window that prevents the AI from hearing its own voice output.
 
   /** Block ALL mic recognition for this many ms after AI finishes speaking */
-  const POST_SPEECH_GUARD_MS = 1200;
+  const POST_SPEECH_GUARD_MS = 400;
 
   /** Do not commit silence during the first N ms of a new listening session.
    *  Allows users to say "Hello" + natural pause + full question without early cutoff. */
@@ -236,7 +236,6 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
             if (silenceElapsed > 900 && !energySilenceTimerRef.current) {
               energySilenceTimerRef.current = setTimeout(() => {
                 if (statusRef.current === 'listening' && hasSpokenEnergyRef.current && !isSpeakingRef.current) {
-                  hasSpokenEnergyRef.current = false;
                   commitCurrentSpeech();
                 }
               }, 100);
@@ -391,7 +390,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
   }, []);
 
   // Text-To-Speech pipeline
-  const speakText = useCallback(async (text: string) => {
+  const speakText = useCallback(async (text: string, lang?: string) => {
     if (!text || text.trim() === '') return;
 
     // Concurrency guard: instantly halt any active playback so multiple voices NEVER overlap
@@ -416,7 +415,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     localTranscriptRef.current = '';
     resultStartIndexRef.current = recognitionResultCountRef.current;
 
-    const currentLang = useStore.getState().language;
+    const currentLang = lang || useStore.getState().language;
 
     try {
       const res = await fetch('/api/voice/tts', {
@@ -784,7 +783,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       });
 
       // Step 3: Speak AI advice
-      await speakText(advice.advice_text);
+      await speakText(advice.advice_text, activeLang);
     } catch (err) {
       console.error('Voice conversation error:', err);
       setErrorMessage(
@@ -848,12 +847,12 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       return;
     }
 
-    // ── WARMUP GUARD: do not commit during the first LISTENING_WARMUP_MS of a session ──
-    // This lets users complete a full sentence like "Hello [pause] What is the weather?"
-    // without the early pause triggering a premature commit on just "Hello".
+    // ── WARMUP GUARD: only defer commit if user said a single brief opening word like "hello" / "hi" ──
+    const textToProcess = localTranscriptRef.current.trim();
+    const isSingleShortGreeting = /^(hello|hi|hey|こんにちは|もしもし|你好)$/i.test(textToProcess);
     const msListening = Date.now() - listeningStartTimestampRef.current;
-    if (msListening < LISTENING_WARMUP_MS && localTranscriptRef.current.trim()) {
-      console.log(`[VoiceAI] Warmup active (${Math.round(msListening)}ms / ${LISTENING_WARMUP_MS}ms) — deferring commit`);
+    if (isSingleShortGreeting && msListening < LISTENING_WARMUP_MS) {
+      console.log(`[VoiceAI] Warmup active on greeting (${Math.round(msListening)}ms / ${LISTENING_WARMUP_MS}ms) — deferring commit`);
       // Re-arm silence timer with the remaining warmup time so we revisit when warmup is done
       const remaining = LISTENING_WARMUP_MS - msListening;
       silenceTimerRef.current = setTimeout(() => {
@@ -861,8 +860,6 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       }, remaining + 150);
       return;
     }
-
-    const textToProcess = localTranscriptRef.current.trim();
 
     // Fast-path: Web Speech API provided transcribed text
     if (textToProcess) {
@@ -956,20 +953,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
                 resultStartIndexRef.current = 0;
               }
 
-              // ── HARD ECHO BLOCK: Drop ALL recognition results while AI is speaking or in guard window ──
-              // This is the primary defence against self-recognition on open 110" kiosk speakers.
-              // It is stronger than string-match echo suppression because it fires before text is even
-              // compared — preventing the AI from being startled by its own voice in any scenario.
-              if (isSpeakingRef.current) {
-                console.log('[VoiceAI] Recognition result dropped — AI speaking (echo guard active)');
-                // Advance the result index so these echo results are never processed later
-                resultStartIndexRef.current = event.results.length;
-                return;
-              }
-
-              // ── BARGE-IN INTERRUPTION: Only real user speech while AI is ACTUALLY SPEAKING cuts it off ──
-              // Note: isSpeakingRef guard above already handles the echo case.
-              // This path only triggers when the user genuinely interrupts mid-speech (barge-in).
+              // ── BARGE-IN INTERRUPTION: If user speaks while AI is speaking, interrupt immediately! ──
               if (statusRef.current === 'speaking') {
                 console.log('[VoiceAI] User barge-in detected — interrupting AI');
                 interruptedRef.current = true;
@@ -988,6 +972,11 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
                 resultStartIndexRef.current = Math.max(0, event.results.length - 1);
                 localTranscriptRef.current = '';
                 setTranscript('');
+              } else if (isSpeakingRef.current) {
+                // In post-speech guard window after AI spoke: drop echo bleed
+                console.log('[VoiceAI] Recognition result dropped — echo guard active');
+                resultStartIndexRef.current = event.results.length;
+                return;
               }
 
               // If currently thinking, do not allow intermediate speech chunks to abort or restart processing
@@ -1292,6 +1281,9 @@ function findRouteByVoiceQuery(query: string) {
   }
   if (/陣馬|jinba/i.test(s)) {
     return ROUTES.find(r => r.id === 'route_jinba') || null;
+  }
+  if (/\b(?:mt|mount|mountain|mountiain|takao|takaosan)\b|高尾山|登山/i.test(s)) {
+    return ROUTES.find(r => r.id === 'route_1') || ROUTES[0];
   }
   return null;
 }

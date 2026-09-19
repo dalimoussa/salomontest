@@ -33,8 +33,11 @@ export async function POST(req: NextRequest) {
 
     if (!ttsRes.ok) {
       const errText = await ttsRes.text().catch(() => '');
-      console.error('[/api/voice/tts] OpenAI TTS error:', ttsRes.status, errText);
-      return NextResponse.json({ error: 'tts_api_error', details: errText }, { status: 502 });
+      console.warn('[/api/voice/tts] OpenAI TTS unavailable, falling back to browser synth:', ttsRes.status, errText);
+      return NextResponse.json(
+        { fallback: true, mode: 'browser_synth', error: 'tts_api_error', details: errText },
+        { status: 200 }
+      );
     }
 
     const audioBuffer = await ttsRes.arrayBuffer();
@@ -47,7 +50,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err) {
-    console.error('[/api/voice/tts] TTS exception:', err);
-    return NextResponse.json({ error: 'tts_internal_error' }, { status: 500 });
+    console.warn('[/api/voice/tts] TTS exception, falling back to browser synth:', err);
+    return NextResponse.json({ fallback: true, mode: 'browser_synth', error: 'tts_internal_error' }, { status: 200 });
   }
 }

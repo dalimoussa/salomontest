@@ -33,14 +33,14 @@ export async function POST(req: NextRequest) {
 
     if (!whisperRes.ok) {
       const errText = await whisperRes.text().catch(() => '');
-      console.error('[/api/voice/stt] Whisper error:', whisperRes.status, errText);
-      return NextResponse.json({ error: 'whisper_api_error', details: errText }, { status: 502 });
+      console.warn('[/api/voice/stt] Whisper unavailable:', whisperRes.status, errText);
+      return NextResponse.json({ text: '', error: 'whisper_api_error', details: errText }, { status: 200 });
     }
 
     const result = await whisperRes.json() as { text: string };
     return NextResponse.json({ text: result.text || '' });
   } catch (err) {
-    console.error('[/api/voice/stt] STT exception:', err);
-    return NextResponse.json({ error: 'stt_internal_error' }, { status: 500 });
+    console.warn('[/api/voice/stt] STT exception:', err);
+    return NextResponse.json({ text: '', error: 'stt_internal_error' }, { status: 200 });
   }
 }

@@ -64,6 +64,9 @@ export function findRouteByQuery(query: string): Route | null {
   if (/陣馬|jinba/i.test(s)) {
     return ROUTES.find(r => r.id === 'route_jinba') || null;
   }
+  if (/\b(?:mt|mount|mountain|mountiain|takao|takaosan)\b|高尾山|登山/i.test(s)) {
+    return ROUTES.find(r => r.id === 'route_1') || ROUTES[0];
+  }
   return null;
 }
 
@@ -153,6 +156,48 @@ export function buildFallbackAdvice(
   const q = (userQuery || '').toLowerCase();
 
   // ── General Question Intent Responses ──
+
+  // 000. Mountain & Mt. Takao General Query ("MT", "mountain", "mount takao", "what about the mountain", "高尾山")
+  if (
+    /\b(?:mt|mount|mountain|mountiain|takaosan)\b/i.test(q) ||
+    q.includes('about mt') ||
+    q.includes('about mountain') ||
+    q.includes('tell me about mt') ||
+    q.includes('tell me about mountain') ||
+    q.includes('what is mt') ||
+    q.includes('what is the mountain') ||
+    q.includes('takao') ||
+    q.includes('高尾山') ||
+    q.includes('どんな山') ||
+    q.includes('山について') ||
+    q.includes('この山')
+  ) {
+    if (language === 'en') {
+      return {
+        advice_text: `Mt. Takao (elevation 599m) is Tokyo's most celebrated sacred mountain and a Michelin Green Guide 3-star destination! Located just 50 minutes from Shinjuku, it offers 16 hiking routes—from the gentle paved Trail 1 (Omotesando) leading past ancient Yakuo-in Temple to Trail 4's suspension bridge and Trail 6's scenic stream walk. On clear days, the summit boasts stunning views of Mt. Fuji! At the base, our Salomon Takao Store is ready with trail shoe rentals, gear advice, and lockers.`,
+        advice_short: `Mt. Takao (599m): Michelin 3-star mountain with 16 scenic trails, Yakuo-in Temple, and Mt. Fuji views!`,
+        safety_flags,
+        recommended_gear: ['trail_shoes_beginner', 'hat'],
+        mood: 'good',
+      };
+    }
+    if (language === 'zh') {
+      return {
+        advice_text: `高尾山（海拔599米）是东京最负盛名的灵山与自然宝库，荣获《米其林绿色指南》三星最高评级，年登山人数位居世界前列！从新宿搭乘京王线特急约50分钟即可直达。山上设有16条丰富路线，包括通往千年古寺药王院的铺装1号路表参道、吊桥4号路以及沿溪谷溯溪的6号路，晴天山顶可远眺富士山壮阔全景！山脚Salomon体验店为您提供跑鞋租赁与专业徒步向导。`,
+        advice_short: `高尾山（海拔599米）：米其林三星名山，拥有16条徒步路线、药王院古刹及富士山绝景！`,
+        safety_flags,
+        recommended_gear: ['trail_shoes_beginner', 'hat'],
+        mood: 'good',
+      };
+    }
+    return {
+      advice_text: `高尾山（標高599m）は、都心・新宿から京王線でわずか約50分の距離にある東京屈指の霊山で、ミシュラン観光ガイドで三ツ星を獲得した世界一登山者が多い山です！舗装されて歩きやすい「1号路（表参道）」、吊り橋が人気の「4号路」、せせらぎ沿いを歩く「6号路」など計16本の多彩なコースがあり、山頂からは富士山の絶景が楽しめます。登山口すぐのサロモン高尾店では、トレイルシューズの試着やロッカーをご利用いただけます！`,
+      advice_short: `高尾山（標高599m）：ミシュラン三ツ星、16の多彩なコースと富士山の絶景が魅力の名山です！`,
+      safety_flags,
+      recommended_gear: ['trail_shoes_beginner', 'hat'],
+      mood: 'good',
+    };
+  }
   // 00. Beginner Recommended Trails (Top 2 Trails: Trail 1 Omotesando & Trail 2 Kasumidai Loop)
   if (
     q.includes('beginner') ||

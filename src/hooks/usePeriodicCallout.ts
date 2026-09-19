@@ -15,7 +15,7 @@ export interface UsePeriodicCalloutOptions {
   enabled?: boolean;
   voiceStatus: VoiceStatus;
   transcript: string;
-  speakText: (text: string) => Promise<void>;
+  speakText: (text: string, lang?: string) => Promise<void>;
   cancelConversation?: () => void;
   language: 'ja' | 'en' | 'zh';
   /** Default periodic interval in seconds: 60 or 120 (default: 60) */
@@ -99,7 +99,7 @@ export function usePeriodicCallout({
     try {
       isCalloutSpeakingRef.current = true;
       setIsCalloutSpeaking(true);
-      await speakText(message);
+      await speakText(message, language);
     } catch (e) {
       console.warn('[usePeriodicCallout] Callout speakText failed:', e);
     } finally {
