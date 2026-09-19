@@ -301,7 +301,7 @@ function buildMapStyle(sunSky: SunSkyConfig, initialGeoId: string, initialLang: 
             'route_inariyama',  ROUTE_COLOR_MAP.inariyama,
             'route_3_traverse', ROUTE_COLOR_MAP.route_3_traverse,
             'route_jinba',      ROUTE_COLOR_MAP.route_jinba,
-            ['coalesce', ['get', 'color'], '#0AFFE0'],
+            '#0AFFE0',
           ],
           'line-width': 5.5,
           'line-opacity': 0.95,
@@ -509,14 +509,6 @@ function buildMapStyle(sunSky: SunSkyConfig, initialGeoId: string, initialLang: 
         },
       },
     ],
-    sky: {
-      'sky-color': sunSky.skyColor,
-      'sky-horizon-blend': 0.65,
-      'horizon-color': sunSky.horizonColor,
-      'horizon-fog-blend': 0.75,
-      'fog-color': sunSky.fogColor,
-      'fog-ground-blend': 0.45,
-    },
   };
 }
 
@@ -620,8 +612,9 @@ export function MountainMapGL({ onMapReady }: MountainMapGLProps) {
     map.on('load', async () => {
       // ── High-Resolution GSI DEM5A 3D Terrain Elevation ──
       try {
+        const origin = typeof window !== 'undefined' ? window.location.origin : '';
         const gsiTerrainSource = useGsiTerrainSource(addProtocol, {
-          tileUrl: '/api/dem-tile/{z}/{x}/{y}',
+          tileUrl: `${origin}/api/dem-tile/{z}/{x}/{y}`,
           maxzoom: 15,
           attribution: '© 国土地理院 (DEM5A/10B)',
         });
