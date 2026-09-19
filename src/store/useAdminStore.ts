@@ -122,6 +122,13 @@ export interface AdminState {
   toggleWeatherOverride: (enabled?: boolean) => void;
   resetWeatherOverride: () => void;
 
+  // Periodic Callout / Automatic Introduction Feature (夜間・無人稼働時の自動呼びかけ ON/OFF)
+  periodicCalloutEnabled: boolean;
+  periodicCalloutInterval: 60 | 120;
+  setPeriodicCalloutEnabled: (enabled: boolean) => void;
+  togglePeriodicCallout: (enabled?: boolean) => void;
+  setPeriodicCalloutInterval: (interval: 60 | 120) => void;
+
   // UI state (not persisted)
   lastSavedAt: string | null;
   markSaved: () => void;
@@ -204,6 +211,19 @@ export const useAdminStore = create<AdminState>()(
           lastSavedAt: new Date().toISOString(),
         }),
 
+      // Periodic callout defaults to true (enabled) and 60 seconds interval
+      periodicCalloutEnabled: true,
+      periodicCalloutInterval: 60,
+      setPeriodicCalloutEnabled: (periodicCalloutEnabled) =>
+        set({ periodicCalloutEnabled, lastSavedAt: new Date().toISOString() }),
+      togglePeriodicCallout: (enabled) =>
+        set((s) => ({
+          periodicCalloutEnabled: enabled !== undefined ? enabled : !s.periodicCalloutEnabled,
+          lastSavedAt: new Date().toISOString(),
+        })),
+      setPeriodicCalloutInterval: (periodicCalloutInterval) =>
+        set({ periodicCalloutInterval, lastSavedAt: new Date().toISOString() }),
+
       lastSavedAt: null,
       markSaved: () => set({ lastSavedAt: new Date().toISOString() }),
     }),
@@ -215,6 +235,8 @@ export const useAdminStore = create<AdminState>()(
         products: s.products,
         routeSettings: s.routeSettings,
         weatherOverride: s.weatherOverride,
+        periodicCalloutEnabled: s.periodicCalloutEnabled,
+        periodicCalloutInterval: s.periodicCalloutInterval,
         lastSavedAt: s.lastSavedAt,
       }),
       // Migrate legacy state
@@ -238,6 +260,12 @@ export const useAdminStore = create<AdminState>()(
         }
         if (!state.weatherOverride) {
           state.weatherOverride = DEFAULT_WEATHER_OVERRIDE;
+        }
+        if (state.periodicCalloutEnabled === undefined) {
+          state.periodicCalloutEnabled = true;
+        }
+        if (state.periodicCalloutInterval === undefined) {
+          state.periodicCalloutInterval = 60;
         }
       },
     }

@@ -80,9 +80,31 @@ export function usePeriodicCallout({
     console.log(`[usePeriodicCallout] Periodic callout interval changed to: ${sec}s`);
   }, []);
 
+  // Sync defaultIntervalSeconds if changed from external admin setting
+  useEffect(() => {
+    if (defaultIntervalSeconds && defaultIntervalSeconds !== intervalSecondsRef.current) {
+      setIntervalSecondsState(defaultIntervalSeconds);
+      intervalSecondsRef.current = defaultIntervalSeconds;
+      setSecondsRemaining(defaultIntervalSeconds);
+      secondsRemainingRef.current = defaultIntervalSeconds;
+    }
+  }, [defaultIntervalSeconds]);
+
+  // Handle enabled / disabled state transition
+  useEffect(() => {
+    if (!enabled) {
+      if (countdownTimerRef.current) {
+        clearInterval(countdownTimerRef.current);
+        countdownTimerRef.current = null;
+      }
+      setSecondsRemaining(intervalSecondsRef.current);
+      secondsRemainingRef.current = intervalSecondsRef.current;
+    }
+  }, [enabled]);
+
   // ── Execute Periodic Callout ────────────────────────────────────────────────
-  const triggerCallout = useCallback(async () => {
-    if (!enabled) return;
+  const triggerCallout = useCallback(async (force = false) => {
+    if (!enabled && !force) return;
     // Do not speak if already in active user conversation
     if (modeRef.current !== 'standby') return;
     // Do not speak if user is asking a question or AI is processing/answering
@@ -216,15 +238,13 @@ export function usePeriodicCallout({
         // Extend conversation mode timer if user touches screen
         scheduleStandbyRecovery();
       } else if (modeRef.current === 'standby') {
-        // Only bump back to full interval if within 10s of triggering to avoid speaking right during an interaction
-        if (secondsRemainingRef.current < 10) {
-          setSecondsRemaining(intervalSecondsRef.current);
-          secondsRemainingRef.current = intervalSecondsRef.current;
-        }
+        // FIX: Reset countdown timer back to full interval on ANY touch (at 10s, 20s, 30s, 40s, 50s, etc.)
+        setSecondsRemaining(intervalSecondsRef.current);
+        secondsRemainingRef.current = intervalSecondsRef.current;
       }
     };
 
-    const events = ['pointerdown', 'keydown', 'touchstart'];
+    const events = ['pointerdown', 'touchstart', 'mousedown', 'keydown'];
     events.forEach((evt) => window.addEventListener(evt, handleUserTouch, { passive: true }));
 
     return () => {
@@ -252,5 +272,6 @@ export function usePeriodicCallout({
     isCalloutSpeaking,
     triggerCallout,
     enterConversationMode,
+    enabled,
   };
 }

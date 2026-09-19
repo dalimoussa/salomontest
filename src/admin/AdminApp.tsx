@@ -7,29 +7,32 @@ import {
   Menu, X, PanelLeftClose, PanelLeftOpen, Mountain, Globe, CloudRain,
   Sun, CloudSun, Cloud, CloudSnow, Wind, Droplets, Eye,
   RefreshCw, SlidersHorizontal, CheckCircle2, AlertCircle, ArrowUpRight,
+  Volume2, VolumeX, Moon,
 } from 'lucide-react';
 import { HeroMessageEditor } from '@/admin/HeroMessageEditor';
 import { ProductEditor } from '@/admin/ProductEditor';
 import { RouteEditor } from '@/admin/RouteEditor';
 import { WeatherEditor } from '@/admin/WeatherEditor';
+import { CalloutEditor } from '@/admin/CalloutEditor';
 import { useAdminStore } from '@/store/useAdminStore';
 import { useStore } from '@/store/useStore';
 import type { WeatherCode, WeatherData } from '@/types';
 
-type Section = 'dashboard' | 'weather' | 'routes' | 'messages' | 'products';
+type Section = 'dashboard' | 'callout' | 'weather' | 'routes' | 'messages' | 'products';
 
 const NAV: {
   id: Section;
   label: string;
   labelEn: string;
-  icon: typeof LayoutDashboard;
+  icon: typeof LayoutDashboard | typeof Volume2;
   badge?: string;
 }[] = [
-  { id: 'dashboard', label: 'ダッシュボード',    labelEn: 'Dashboard',        icon: LayoutDashboard },
-  { id: 'weather',   label: '天気・気象手動設定',  labelEn: 'Weather Override', icon: CloudRain,       badge: '手動/自動' },
-  { id: 'routes',    label: 'コース・難易度管理',  labelEn: 'Route Settings',   icon: Mountain,        badge: '8大コース' },
-  { id: 'messages',  label: 'ヒーローメッセージ',  labelEn: 'Hero Messages',    icon: MessageSquare,   badge: '3言語対応' },
-  { id: 'products',  label: '商品マスター',        labelEn: 'Products',         icon: Package,         badge: '編集可' },
+  { id: 'dashboard', label: 'ダッシュボード',        labelEn: 'Dashboard',        icon: LayoutDashboard },
+  { id: 'callout',   label: '自動呼びかけ・夜間設定', labelEn: 'Auto Callout',     icon: Volume2,         badge: '夜間/稼働' },
+  { id: 'weather',   label: '天気・気象手動設定',      labelEn: 'Weather Override', icon: CloudRain,       badge: '手動/自動' },
+  { id: 'routes',    label: 'コース・難易度管理',      labelEn: 'Route Settings',   icon: Mountain,        badge: '8大コース' },
+  { id: 'messages',  label: 'ヒーローメッセージ',      labelEn: 'Hero Messages',    icon: MessageSquare,   badge: '3言語対応' },
+  { id: 'products',  label: '商品マスター',            labelEn: 'Products',         icon: Package,         badge: '編集可' },
 ];
 
 function DashboardWeatherIcon({ code, className = 'w-6 h-6' }: { code: WeatherCode; className?: string }) {
@@ -49,6 +52,10 @@ function Dashboard({ onNavigate }: { onNavigate: (s: Section) => void }) {
   const heroMessages    = useAdminStore(s => s.heroMessages);
   const weatherOverride = useAdminStore(s => s.weatherOverride);
   const toggleWeatherOverride = useAdminStore(s => s.toggleWeatherOverride);
+  const periodicCalloutEnabled = useAdminStore(s => s.periodicCalloutEnabled ?? true);
+  const periodicCalloutInterval = useAdminStore(s => s.periodicCalloutInterval ?? 60);
+  const togglePeriodicCallout = useAdminStore(s => s.togglePeriodicCallout);
+  const setPeriodicCalloutEnabled = useAdminStore(s => s.setPeriodicCalloutEnabled);
 
   const globalWeather    = useStore(s => s.weather);
   const setGlobalWeather = useStore(s => s.setWeather);
@@ -137,7 +144,30 @@ function Dashboard({ onNavigate }: { onNavigate: (s: Section) => void }) {
             SALOMON 高尾店 AIコンシェルジュ 管理画面
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Automatic Callout / Night Mode Quick Switch Button */}
+          <button
+            onClick={() => togglePeriodicCallout()}
+            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-bold transition-all ${
+              periodicCalloutEnabled
+                ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25'
+                : 'bg-amber-500/15 border-amber-500/30 text-amber-300 hover:bg-amber-500/25'
+            }`}
+            title="クリックして自動呼びかけ（夜間モード）のON/OFFを即座に切り替え"
+          >
+            {periodicCalloutEnabled ? (
+              <>
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span>自動呼びかけ：ON（営業中）</span>
+              </>
+            ) : (
+              <>
+                <Moon className="w-3.5 h-3.5 text-amber-400" />
+                <span>自動呼びかけ：OFF（夜間停止中）</span>
+              </>
+            )}
+          </button>
+
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             システム正常稼働中
@@ -387,6 +417,99 @@ function Dashboard({ onNavigate }: { onNavigate: (s: Section) => void }) {
         )}
       </div>
 
+      {/* ── AI Automatic Callout & Night Mode Control Panel ── */}
+      <div className={`rounded-2xl border p-5 md:p-6 transition-all relative overflow-hidden ${
+        periodicCalloutEnabled
+          ? 'border-cyan-500/30 bg-gradient-to-r from-cyan-950/30 via-slate-900/70 to-slate-900/90 shadow-lg shadow-cyan-950/20'
+          : 'border-amber-500/30 bg-gradient-to-r from-amber-950/30 via-slate-900/70 to-slate-900/90 shadow-lg shadow-amber-950/20'
+      }`}>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+          <div className="space-y-2 max-w-2xl">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <div className={`w-8 h-8 rounded-xl flex items-center justify-center border ${
+                periodicCalloutEnabled
+                  ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300'
+                  : 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+              }`}>
+                {periodicCalloutEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+              </div>
+              <span className="text-sm sm:text-base font-bold text-white tracking-wide">
+                AI自動呼びかけ（自動紹介音声）・夜間モード設定
+              </span>
+              <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-bold border ${
+                periodicCalloutEnabled
+                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                  : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+              }`}>
+                {periodicCalloutEnabled ? `ON (稼働中・${periodicCalloutInterval}秒間隔)` : 'OFF (夜間停止中・完全無音)'}
+              </span>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              {periodicCalloutEnabled
+                ? `通常待機中に${periodicCalloutInterval}秒間隔で「高尾山やおすすめルート、装備について…」と音声で呼びかけます。画面タッチ時は何秒時点（10秒未満・20秒・30秒・40秒・50秒など）でも即座に満秒リセットされます。`
+                : '夜間および無人営業中のため、自動呼びかけおよびカメラ検知自動発話を停止しています。（完全無音・ひとりでに発話しません）'}
+            </p>
+
+            <p className="text-[11px] text-slate-400">
+              ※夜間や閉店後の無人店舗でひとりでに声が出るのを防ぐため、退勤時に「OFF」に設定できます。ユーザーによる手動タッチや音声質問時のAI対話機能は維持されます。
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2.5 flex-wrap flex-shrink-0">
+            {/* Master Toggle */}
+            <button
+              onClick={() => togglePeriodicCallout()}
+              className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 shadow-md ${
+                periodicCalloutEnabled
+                  ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 hover:brightness-110'
+                  : 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 hover:brightness-110'
+              }`}
+              title="自動呼びかけのON/OFFを切り替えます"
+            >
+              {periodicCalloutEnabled ? (
+                <>
+                  <Sun className="w-4 h-4" />
+                  <span>ON（営業中）</span>
+                </>
+              ) : (
+                <>
+                  <Moon className="w-4 h-4" />
+                  <span>OFF（夜間停止中）</span>
+                </>
+              )}
+            </button>
+
+            {/* Quick Presets */}
+            <button
+              onClick={() => setPeriodicCalloutEnabled(true)}
+              disabled={periodicCalloutEnabled}
+              className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-40 border border-white/10 text-xs text-slate-300 font-medium transition-colors"
+              title="営業開始（自動呼びかけON）"
+            >
+              ☀️ 営業開始
+            </button>
+            <button
+              onClick={() => setPeriodicCalloutEnabled(false)}
+              disabled={!periodicCalloutEnabled}
+              className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-40 border border-white/10 text-xs text-slate-300 font-medium transition-colors"
+              title="夜間停止（自動呼びかけOFF）"
+            >
+              🌙 夜間停止
+            </button>
+
+            {/* Link to Full Callout Editor */}
+            <button
+              onClick={() => onNavigate('callout')}
+              className="px-3.5 py-2 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-xs font-bold text-cyan-300 transition-colors flex items-center gap-1"
+            >
+              詳細設定・試聴
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* ── Product Inventory Stats ── */}
       <div>
         <div className="flex items-center justify-between mb-2.5">
@@ -454,8 +577,16 @@ function Dashboard({ onNavigate }: { onNavigate: (s: Section) => void }) {
       {/* ── Quick Management Navigation Cards ── */}
       <div>
         <h3 className="text-sm font-bold text-white mb-3">管理メニューへのショートカット</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           {[
+            {
+              id: 'callout' as Section,
+              title: '自動呼びかけ・夜間設定',
+              desc: periodicCalloutEnabled ? `現在有効（${periodicCalloutInterval}秒ごと自動発話）` : '現在夜間停止中（完全無音モード）',
+              icon: Volume2,
+              badge: periodicCalloutEnabled ? '稼働中' : '夜間停止',
+              badgeColor: periodicCalloutEnabled ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+            },
             {
               id: 'weather' as Section,
               title: '天気・気象設定',
@@ -629,6 +760,7 @@ export function AdminApp() {
   const renderContent = () => {
     switch (activeSection) {
       case 'dashboard': return <Dashboard onNavigate={setActiveSection} />;
+      case 'callout':   return <CalloutEditor onNavigate={setActiveSection} />;
       case 'weather':   return <WeatherEditor />;
       case 'messages':  return <HeroMessageEditor />;
       case 'products':  return <ProductEditor />;

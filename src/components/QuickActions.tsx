@@ -77,6 +77,11 @@ export function QuickActions() {
   //    「高尾山やおすすめルート、装備について、ご質問があれば話しかけてください。」
   // 2. ユーザーが話しかけた時: 呼びかけタイマー停止 → 会話モードへ
   // 3. 会話終了後: 35秒（30〜60秒）無操作で通常待機へ自動復帰 → 呼びかけ再開
+  // 4. 管理者画面 (/admin) から夜間・無人停止モード（OFF）に切り替え可能
+  const periodicCalloutEnabled = useAdminStore((s) => s.periodicCalloutEnabled ?? true);
+  const periodicCalloutInterval = useAdminStore((s) => s.periodicCalloutInterval ?? 60);
+  const setAdminPeriodicCalloutInterval = useAdminStore((s) => s.setPeriodicCalloutInterval);
+
   const {
     mode: calloutMode,
     intervalSeconds: calloutInterval,
@@ -85,15 +90,20 @@ export function QuickActions() {
     isCalloutSpeaking,
     triggerCallout,
   } = usePeriodicCallout({
-    enabled: true,
+    enabled: periodicCalloutEnabled,
     voiceStatus: status,
     transcript,
     speakText,
     cancelConversation,
     language,
-    defaultIntervalSeconds: 60,
+    defaultIntervalSeconds: periodicCalloutInterval,
     conversationTimeoutSeconds: 35,
   });
+
+  const handleSetCalloutInterval = (sec: 60 | 120) => {
+    setCalloutInterval(sec);
+    setAdminPeriodicCalloutInterval(sec);
+  };
 
   const handleStartListening = async () => {
     unlockAudio();
@@ -103,9 +113,11 @@ export function QuickActions() {
   // ── AI Camera Presence Bridge Integration ───────────────────────────────────
   // When an AI camera detects someone standing in front of the whiteboard,
   // greet them and automatically begin the hands-free listening loop.
+  // (Disabled if periodicCalloutEnabled is false e.g. at night)
   useEffect(() => {
     const cleanup = initCameraPresenceBridge(
       async (greetingText) => {
+        if (!periodicCalloutEnabled) return;
         unlockAudio();
         if (status === 'idle') {
           await speakText(greetingText);
@@ -117,7 +129,7 @@ export function QuickActions() {
       () => language
     );
     return cleanup;
-  }, [language, status, speakText]);
+  }, [language, status, speakText, periodicCalloutEnabled]);
 
   const handleClick = async (action: string) => {
     if (action === 'checklist') {
@@ -236,17 +248,29 @@ export function QuickActions() {
       </p>
 
       {/* ── Kiosk Standby Attract & Audio Status Bar ── */}
-      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 mb-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-[11px] text-salomon-muted shadow-sm backdrop-blur-md">
+      <div className={`flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 mb-2.5 rounded-xl border text-[11px] shadow-sm backdrop-blur-md transition-colors ${
+        !periodicCalloutEnabled
+          ? 'bg-slate-900/60 border-white/5 text-slate-400'
+          : 'bg-white/[0.04] border-white/10 text-salomon-muted'
+      }`}>
         <div className="flex items-center gap-2 min-w-0">
           <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
-            calloutMode === 'conversation'
+            !periodicCalloutEnabled
+              ? 'bg-slate-500'
+              : calloutMode === 'conversation'
               ? 'bg-amber-400 animate-pulse'
               : isCalloutSpeaking
               ? 'bg-salomon-teal animate-ping'
               : 'bg-salomon-cyan'
           }`} />
           <span className="truncate font-medium text-slate-200">
-            {isCalloutSpeaking
+            {!periodicCalloutEnabled
+              ? (language === 'en'
+                  ? 'Standby Attract: Stopped (Night / Admin OFF)'
+                  : language === 'zh'
+                  ? '待机自动呼出: 已暂停（夜间·管理员已关闭）'
+                  : '通常待機呼びかけ: 停止中（夜間・管理設定によりOFF）')
+              : isCalloutSpeaking
               ? (language === 'en' ? 'AI Attract Announcement playing...' : language === 'zh' ? 'AI正在自动介绍...' : 'AI自動呼びかけ発話中…')
               : calloutMode === 'conversation'
               ? (language === 'en' ? 'Conversation Mode (Auto-standby in 35s)' : language === 'zh' ? '对话模式中（35秒无操作恢复待机）' : '会話モード中（35秒無操作で通常待機へ復帰）')
@@ -259,11 +283,18 @@ export function QuickActions() {
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
-          {/* Timing toggle: 60s or 120s */}
-          {calloutMode === 'standby' && (
+          {/* Night Mode Badge when disabled */}
+          {!periodicCalloutEnabled && (
+            <span className="px-2 py-0.5 rounded bg-black/40 border border-white/10 text-[10px] text-amber-300 font-medium flex items-center gap-1">
+              <span>🌙 {language === 'en' ? 'Night Mode (Silent)' : language === 'zh' ? '夜间静音中' : '夜間停止中（完全無音）'}</span>
+            </span>
+          )}
+
+          {/* Timing toggle: 60s or 120s (shown when in standby and callout is enabled) */}
+          {periodicCalloutEnabled && calloutMode === 'standby' && (
             <div className="flex items-center bg-black/40 rounded-lg p-0.5 border border-white/10 text-[10px]">
               <button
-                onClick={() => setCalloutInterval(60)}
+                onClick={() => handleSetCalloutInterval(60)}
                 className={`px-2 py-0.5 rounded transition-colors ${
                   calloutInterval === 60
                     ? 'bg-salomon-cyan text-salomon-black font-bold shadow-sm'
@@ -274,7 +305,7 @@ export function QuickActions() {
                 60s
               </button>
               <button
-                onClick={() => setCalloutInterval(120)}
+                onClick={() => handleSetCalloutInterval(120)}
                 className={`px-2 py-0.5 rounded transition-colors ${
                   calloutInterval === 120
                     ? 'bg-salomon-cyan text-salomon-black font-bold shadow-sm'
@@ -291,7 +322,7 @@ export function QuickActions() {
           <button
             onClick={() => {
               unlockAudio();
-              triggerCallout();
+              triggerCallout(true);
             }}
             className="px-2 py-0.5 rounded bg-white/10 hover:bg-salomon-cyan/20 border border-white/15 hover:border-salomon-cyan/50 text-[10px] text-white transition-all flex items-center gap-1"
             title={language === 'en' ? 'Play attract callout speech immediately' : '今すぐ呼びかけ音声を試聴再生'}
