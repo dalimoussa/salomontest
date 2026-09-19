@@ -59,15 +59,15 @@ export function VoiceHUD({
     ? (transcript
         ? formatQuote(transcript)
         : language === 'en'
-        ? 'Just speak — interrupt anytime'
+        ? 'Just speak — asking about Mt. Takao'
         : language === 'zh'
-        ? '请说话，随时可打断AI'
-        : 'そのままお話しください。いつでも割り込めます')
+        ? '请说话，了解高尾山资讯'
+        : 'そのままお話しください。高尾山をご案内します')
     : isThinking
     ? (language === 'en' ? 'Processing your request...' : language === 'zh' ? '正在处理...' : '処理中...')
     : isSpeaking
-    ? (language === 'en' ? 'Speak anytime to interrupt' : language === 'zh' ? '说话可随时打断' : '話しかけると会話を止めます')
-    : (language === 'en' ? 'Always-on hands-free • Just speak' : language === 'zh' ? '常时免提 • 直接说话即可' : '常時ハンズフリー • 話しかけるだけ');
+    ? (language === 'en' ? 'Answering your question...' : language === 'zh' ? '正在回答您的问题…' : 'ご質問にお答えしています…')
+    : (language === 'en' ? 'Always-on hands-free • Ask anytime' : language === 'zh' ? '常时免提 • 欢迎随时提问' : '常時ハンズフリー • 何でもお尋ねください');
 
   return (
     <div className="relative w-full md:w-auto">
@@ -145,7 +145,7 @@ export function VoiceHUD({
 
           <div className="flex items-center justify-between text-[10px] text-salomon-cyan/80 pt-1 font-medium border-t border-white/5">
             <span>● {language === 'en' ? 'Always-on hands-free' : language === 'zh' ? '常时免提监听中' : '常時ハンズフリー待機中'}</span>
-            <span>● {language === 'en' ? 'Speak anytime to interrupt' : language === 'zh' ? '说话可随时打断' : '話しかけるといつでも割り込めます'}</span>
+            <span>● {language === 'en' ? 'AI Voice Guidance' : language === 'zh' ? 'AI语音回答中' : 'AI音声回答中'}</span>
           </div>
         </div>
       )}

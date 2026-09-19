@@ -92,7 +92,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
   // the hard-mute window that prevents the AI from hearing its own voice output.
 
   /** Block ALL mic recognition for this many ms after AI finishes speaking */
-  const POST_SPEECH_GUARD_MS = 400;
+  const POST_SPEECH_GUARD_MS = 600;
 
   /** Do not commit silence during the first N ms of a new listening session.
    *  Allows users to say "Hello" + natural pause + full question without early cutoff. */
@@ -398,13 +398,24 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
 
     const speechToken = ++activeSpeechTokenRef.current;
 
-    // ── Echo Prevention: Hard-mute mic recognition for the full TTS duration ──
+    // ── Echo Prevention & Busy Guard: Hard-mute mic recognition for the full TTS duration ──
     // Cancel any pending post-speech guard so the new speech session starts clean
     if (postSpeechGuardTimerRef.current) {
       clearTimeout(postSpeechGuardTimerRef.current);
       postSpeechGuardTimerRef.current = null;
     }
     isSpeakingRef.current = true;
+
+    // Hard-stop speech recognition while AI is answering so mic ignores all user input & speaker sound
+    stopSpeechRecognition();
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    if (energySilenceTimerRef.current) {
+      clearTimeout(energySilenceTimerRef.current);
+      energySilenceTimerRef.current = null;
+    }
 
     setStatus('speaking');
     setResponseText(text);
@@ -506,33 +517,23 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         abortSpeakingRef.current = null;
         setResponseText('');
 
-        if (interruptedRef.current) {
-          // User interrupted AI during speech: isSpeakingRef already cleared by abortSpeaking path.
-          // Clear the guard immediately so barge-in voice is processed without delay.
-          isSpeakingRef.current = false;
-          if (postSpeechGuardTimerRef.current) {
-            clearTimeout(postSpeechGuardTimerRef.current);
-            postSpeechGuardTimerRef.current = null;
-          }
-        } else {
-          setStatus('idle');
-          setTranscript('');
-          localTranscriptRef.current = '';
-          stopSpeechRecognition();
+        setStatus('idle');
+        setTranscript('');
+        localTranscriptRef.current = '';
+        stopSpeechRecognition();
 
-          // ── POST_SPEECH_GUARD: keep isSpeakingRef=true for POST_SPEECH_GUARD_MS ──
-          // Prevents the microphone from picking up speaker bleed (echo) from the 110" kiosk
-          // speakers after TTS ends. Only after this guard window do we re-enable listening.
-          postSpeechGuardTimerRef.current = setTimeout(() => {
-            isSpeakingRef.current = false;
-            postSpeechGuardTimerRef.current = null;
-            // Reset recognition index so a fresh listening session starts completely clean
-            resultStartIndexRef.current = recognitionResultCountRef.current;
-            if (autoLoopRef.current && statusRef.current === 'idle') {
-              startListeningRef.current?.().catch(() => {});
-            }
-          }, POST_SPEECH_GUARD_MS);
-        }
+        // ── POST_SPEECH_GUARD: keep isSpeakingRef=true for POST_SPEECH_GUARD_MS ──
+        // Prevents the microphone from picking up speaker bleed (echo) after TTS ends.
+        // Only after this guard window does the voice AI return to a clean listening state to accept another question.
+        postSpeechGuardTimerRef.current = setTimeout(() => {
+          isSpeakingRef.current = false;
+          postSpeechGuardTimerRef.current = null;
+          // Reset recognition index so a fresh listening session starts completely clean
+          resultStartIndexRef.current = recognitionResultCountRef.current;
+          if (autoLoopRef.current && statusRef.current === 'idle') {
+            startListeningRef.current?.().catch(() => {});
+          }
+        }, POST_SPEECH_GUARD_MS);
       }
     }
   }, [abortSpeaking, speakWithBrowserSynth, stopSpeechRecognition]);
@@ -586,6 +587,14 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
 
   // Process user audio through STT -> LLM -> TTS pipeline
   const processRecordedAudio = async (audioBlob?: Blob | null, directText?: string) => {
+    // ── STRICT REQUIREMENT: Ignore user questions while AI is currently thinking, answering, or in echo-guard ──
+    if (statusRef.current === 'thinking' || statusRef.current === 'speaking' || isSpeakingRef.current) {
+      console.log('[VoiceAI] processRecordedAudio ignored — AI is currently busy responding');
+      localTranscriptRef.current = '';
+      setTranscript('');
+      return;
+    }
+
     const currentLang = useStore.getState().language;
 
     // Determine recognized text: prefer directText, then localTranscriptRef, then Whisper
@@ -642,6 +651,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     setStatus('thinking');
     setErrorMessage(null);
     setIsGenerating(true);
+    stopSpeechRecognition();
 
     // Safety watchdog: auto-recover from 'thinking' after 10s to prevent infinite spinner
     const thinkingTimeout = setTimeout(() => {
@@ -810,7 +820,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       clearTimeout(thinkingTimeout);
       setIsGenerating(false);
       // Fail-safe: guarantee UI never remains permanently stranded in 'thinking'
-      if (statusRef.current === 'thinking') {
+      if ((statusRef.current as string) === 'thinking') {
         setStatus('idle');
         if (autoLoopRef.current) {
           setTimeout(() => {
@@ -837,14 +847,9 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       energySilenceTimerRef.current = null;
     }
 
-    // Never commit or launch redundant advice while already thinking or speaking
-    if (statusRef.current === 'thinking' || statusRef.current === 'speaking') {
-      return;
-    }
-
-    // ── ECHO GUARD: if AI is still in its post-speech mute window, drop this commit ──
-    if (isSpeakingRef.current) {
-      console.log('[VoiceAI] commitCurrentSpeech blocked — still in post-speech echo guard');
+    // ── STRICT REQUIREMENT: Ignore user questions while AI is currently thinking, answering, or in echo-guard ──
+    if (statusRef.current === 'thinking' || statusRef.current === 'speaking' || isSpeakingRef.current) {
+      console.log('[VoiceAI] commitCurrentSpeech ignored — AI is currently responding or in echo-guard');
       localTranscriptRef.current = '';
       setTranscript('');
       return;
@@ -902,13 +907,12 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
   }, []);
 
   const startListening = useCallback(async () => {
-    if (statusRef.current === 'thinking') return;
-    if (statusRef.current === 'listening' && mediaRecorderRef.current?.state === 'recording') return;
-    // Do not begin listening if still in post-speech echo guard window
-    if (isSpeakingRef.current) {
-      console.log('[VoiceAI] startListening deferred — still in post-speech echo guard');
+    // ── STRICT REQUIREMENT: Do not start listening if thinking, answering, or in echo-guard ──
+    if (statusRef.current === 'thinking' || statusRef.current === 'speaking' || isSpeakingRef.current) {
+      console.log('[VoiceAI] startListening deferred — AI is currently responding or in echo-guard');
       return;
     }
+    if (statusRef.current === 'listening' && mediaRecorderRef.current?.state === 'recording') return;
 
     unlockAudio();
     setErrorMessage(null);
@@ -929,7 +933,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
 
     const currentLang = useStore.getState().language;
 
-    // Initialize real-time Web Speech Recognition for instant feedback & barge-in interruption
+    // Initialize real-time Web Speech Recognition for instant feedback
     if (typeof window !== 'undefined') {
       const SpeechRecognition =
         (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -956,34 +960,9 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
                 resultStartIndexRef.current = 0;
               }
 
-              // ── BARGE-IN INTERRUPTION: If user speaks while AI is speaking, interrupt immediately! ──
-              if (statusRef.current === 'speaking') {
-                console.log('[VoiceAI] User barge-in detected — interrupting AI');
-                interruptedRef.current = true;
-                // Clear the post-speech guard so user speech is not blocked after interruption
-                isSpeakingRef.current = false;
-                if (postSpeechGuardTimerRef.current) {
-                  clearTimeout(postSpeechGuardTimerRef.current);
-                  postSpeechGuardTimerRef.current = null;
-                }
-                abortSpeaking();
-                setResponseText('');
-                setStatus('listening');
-                ensureMediaRecorderActive();
-
-                // Completely isolate this interruption turn from previous speech results
-                resultStartIndexRef.current = Math.max(0, event.results.length - 1);
-                localTranscriptRef.current = '';
-                setTranscript('');
-              } else if (isSpeakingRef.current) {
-                // In post-speech guard window after AI spoke: drop echo bleed
-                console.log('[VoiceAI] Recognition result dropped — echo guard active');
+              // ── STRICT REQUIREMENT: Ignore user questions while AI is answering, thinking, or in echo guard ──
+              if (statusRef.current === 'speaking' || statusRef.current === 'thinking' || isSpeakingRef.current) {
                 resultStartIndexRef.current = event.results.length;
-                return;
-              }
-
-              // If currently thinking, do not allow intermediate speech chunks to abort or restart processing
-              if (statusRef.current === 'thinking') {
                 return;
               }
 
