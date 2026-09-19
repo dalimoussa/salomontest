@@ -632,6 +632,9 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     // Language safety heuristic: if user chose English or spoke English text, enforce English
     const hasEnglishWords = /[a-zA-Z]{2,}/.test(recognizedText);
     const activeLang = (currentLang === 'en' || (hasEnglishWords && currentLang !== 'zh')) ? 'en' : currentLang;
+    if (activeLang === 'en' && currentLang !== 'en') {
+      useStore.getState().setLanguage('en');
+    }
 
     const currentGenId = ++generationIdRef.current;
     interruptedRef.current = false; // Always clear interruption state on new turn!

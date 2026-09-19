@@ -1,6 +1,7 @@
 'use client';
 
-import { Mic, Loader2, Volume2, X, Sparkles, User } from 'lucide-react';
+import { Mic, Loader2, Volume2, X, Sparkles, User, Globe } from 'lucide-react';
+import { useStore } from '@/store/useStore';
 import type { VoiceStatus } from '@/hooks/useVoiceConversation';
 
 interface VoiceHUDProps {
@@ -231,8 +232,39 @@ export function VoiceHUD({
           </div>
         </div>
 
-        {/* Right: Audio Waveform Equalizer */}
+        {/* Right: Language Switcher + Audio Waveform Equalizer */}
         <div className="flex items-center gap-2 flex-shrink-0 pl-2">
+          {/* Quick Language Toggle */}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center gap-0.5 bg-black/50 border border-white/10 rounded-lg p-0.5"
+            title="Language / 言語 / 语言"
+          >
+            {(
+              [
+                { code: 'ja', label: 'JP' },
+                { code: 'en', label: 'EN' },
+                { code: 'zh', label: 'ZH' },
+              ] as const
+            ).map((l) => (
+              <button
+                key={l.code}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  useStore.getState().setLanguage(l.code);
+                }}
+                className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-all ${
+                  language === l.code
+                    ? 'bg-salomon-cyan text-black shadow-glow-cyan'
+                    : 'text-white/60 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                {l.label}
+              </button>
+            ))}
+          </div>
+
           {/* Dynamic Frequency Bars */}
           <div className="flex items-center gap-1 h-6 px-2 py-1 bg-black/40 rounded-lg border border-white/10">
             {Array.from({ length: 5 }).map((_, i) => {

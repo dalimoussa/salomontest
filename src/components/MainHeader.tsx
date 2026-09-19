@@ -22,6 +22,7 @@ function WeatherIcon({ code, size = 'sm' }: { code: WeatherCode; size?: 'sm' | '
 export function MainHeader() {
   const weather      = useStore(s => s.weather);
   const language     = useStore(s => s.language);
+  const setLanguage  = useStore(s => s.setLanguage);
   const heroMessages = useAdminStore(s => s.heroMessages);
   const [time, setTime] = useState(new Date());
 
@@ -65,8 +66,21 @@ export function MainHeader() {
           </p>
         </div>
 
-        {/* Right: clock + weather compact */}
-        <div className="flex items-center gap-3 animate-fadeInRight opacity-0-start" style={{ animationFillMode: 'forwards' }}>
+        {/* Right: language pills + clock + weather compact */}
+        <div className="flex items-center gap-2 animate-fadeInRight opacity-0-start" style={{ animationFillMode: 'forwards' }}>
+          <div className="flex items-center gap-0.5 bg-white/5 border border-white/15 rounded-lg p-0.5">
+            {(['ja', 'en', 'zh'] as const).map(l => (
+              <button
+                key={l}
+                onClick={() => setLanguage(l)}
+                className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase transition-colors ${
+                  language === l ? 'bg-salomon-cyan text-black' : 'text-white/60 hover:text-white'
+                }`}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
           {weather && (
             <div className="flex items-center gap-1">
               <WeatherIcon code={weather.weatherCode} size="xs" />
@@ -106,9 +120,32 @@ export function MainHeader() {
           </p>
         </div>
 
-        {/* Right: clock + weather */}
-        <div className="animate-fadeInRight opacity-0-start text-right flex flex-col items-end justify-center min-w-[150px]"
+        {/* Right: language selector + clock + weather */}
+        <div className="animate-fadeInRight opacity-0-start text-right flex flex-col items-end justify-center min-w-[170px]"
           style={{ animationFillMode: 'forwards' }}>
+          <div className="flex items-center justify-end gap-2 mb-1.5">
+            <div className="flex items-center gap-1 bg-white/5 border border-white/15 rounded-xl p-1">
+              {(
+                [
+                  { code: 'ja', label: '日本語' },
+                  { code: 'en', label: 'English' },
+                  { code: 'zh', label: '中文' },
+                ] as const
+              ).map(l => (
+                <button
+                  key={l.code}
+                  onClick={() => setLanguage(l.code)}
+                  className={`px-2.5 py-0.5 rounded-lg text-xs font-semibold transition-all ${
+                    language === l.code
+                      ? 'bg-salomon-cyan text-black shadow-glow-cyan'
+                      : 'text-salomon-muted hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  {l.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="flex items-baseline justify-end gap-2.5">
             <span className="text-2xl xl:text-3xl font-bold text-white tabular-nums leading-none">
               {hh}:{mm}
