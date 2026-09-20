@@ -2,10 +2,11 @@
 
 import dynamic from 'next/dynamic';
 import { useCallback, useRef, useState } from 'react';
-import { ZoomIn, ZoomOut, Maximize2, TrainFront, Compass } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize2, TrainFront, Compass, Layers, RotateCcw } from 'lucide-react';
 import type { Map } from 'maplibre-gl';
 import { useStore } from '@/store/useStore';
 import { useMapStore } from '@/store/mapStore';
+import { useAdminStore } from '@/store/useAdminStore';
 import { RainOverlay } from './map/RainOverlay';
 import { useT } from '@/lib/i18n';
 
@@ -40,6 +41,22 @@ const MountainMapGL = dynamic(
   }
 );
 
+// Mount Takao Direct Live 3D WebGL PoC (https://49.212.213.226/)
+const Live3DMountainViewer = dynamic(
+  () => import('./map/Live3DMountainViewer').then((m) => ({ default: m.Live3DMountainViewer })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="absolute inset-0 flex items-center justify-center bg-[#070D1E]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 rounded-full border-2 border-salomon-cyan border-t-transparent animate-spin" />
+          <p className="text-salomon-muted text-xs">高尾山 3Dリアルタイムシーン読込中…</p>
+        </div>
+      </div>
+    ),
+  }
+);
+
 /**
  * Photorealistic Fallback / Video Slot for 3D Map Hand-off.
  * When the dedicated 3D engineer provides a 4K drone video flyover or WebGL model,
@@ -62,8 +79,11 @@ export function MountainMap() {
   const mapInstanceRef = useRef<Map | null>(null);
   const setUserMovedCamera = useMapStore((s) => s.setUserMovedCamera);
   const setActiveModal = useStore((s) => s.setActiveModal);
+  const mountainMapMode = useAdminStore((s) => s.mountainMapMode);
+  const toggleMountainMapMode = useAdminStore((s) => s.toggleMountainMapMode);
   const { t } = useT();
   const [perspectiveIndex, setPerspectiveIndex] = useState(0);
+  const [pocReloadKey, setPocReloadKey] = useState(0);
 
   const handleMapReady = useCallback((map: Map) => {
     mapInstanceRef.current = map;
@@ -72,6 +92,10 @@ export function MountainMap() {
   const handleZoomIn  = () => mapInstanceRef.current?.zoomIn({ duration: 250 });
   const handleZoomOut = () => mapInstanceRef.current?.zoomOut({ duration: 250 });
   const handleReset   = () => {
+    if (mountainMapMode === '3d_live_poc') {
+      setPocReloadKey((k) => k + 1);
+      return;
+    }
     setUserMovedCamera(false);
     mapInstanceRef.current?.flyTo({
       center: TAKAO_SUMMIT,
@@ -85,6 +109,11 @@ export function MountainMap() {
   };
 
   const handleToggle3D = () => {
+    if (mountainMapMode === '3d_live_poc') {
+      // In 3D PoC mode, allow toggling back to MapLibre
+      toggleMountainMapMode();
+      return;
+    }
     setUserMovedCamera(true);
     const nextIdx = (perspectiveIndex + 1) % PERSPECTIVES.length;
     setPerspectiveIndex(nextIdx);
@@ -99,6 +128,8 @@ export function MountainMap() {
     });
   };
 
+  const isLivePoc = mountainMapMode === '3d_live_poc';
+
   return (
     <div
       className="absolute inset-0 w-full h-full overflow-hidden"
@@ -107,12 +138,16 @@ export function MountainMap() {
       id="mountain-visual-container"
     >
       {/* 
-        3D Terrain / Video Slot:
-        Decoupled slot for the scheduled 3D map engineer.
-        If WebGL or MapLibre fails, smoothly falls back to photorealistic visual/video slot.
+        3D Terrain / Live PoC Slot:
+        Defaults to Direct Live 3D PoC (https://49.212.213.226/) with smooth fallback
+        to MapLibre GSI 3D engine or photorealistic visual slot.
       */}
       <ErrorBoundary fallback={<MountainVisualSlot />}>
-        <MountainMapGL onMapReady={handleMapReady} />
+        {isLivePoc ? (
+          <Live3DMountainViewer key={pocReloadKey} />
+        ) : (
+          <MountainMapGL onMapReady={handleMapReady} />
+        )}
       </ErrorBoundary>
 
       {/* Rain particle overlay — above map canvas, below UI controls */}
@@ -124,6 +159,19 @@ export function MountainMap() {
                    animate-fadeIn opacity-0-start pointer-events-auto"
         style={{ animationFillMode: 'forwards', animationDelay: '0.6s' }}
       >
+        {/* 3D Map Engine Toggle Button (Live 3D PoC vs MapLibre 3D) */}
+        <button
+          onClick={toggleMountainMapMode}
+          aria-label={isLivePoc ? 'MapLibre 3Dへ切替' : '3DリアルタイムPoCへ切替'}
+          title={isLivePoc ? '現在: 3D PoC (クリックでMapLibre 3Dへ切替)' : '現在: MapLibre (クリックで3D PoCへ切替)'}
+          className={`w-9 h-9 rounded-xl backdrop-blur-md border flex items-center justify-center transition-all duration-200 shadow-glass active:scale-95 group ${
+            isLivePoc
+              ? 'bg-cyan-500/25 border-cyan-400/60 text-cyan-300 hover:bg-cyan-500/35 shadow-cyan-500/20'
+              : 'bg-salomon-card/90 border-salomon-border hover:border-salomon-cyan/60 text-salomon-muted group-hover:text-salomon-cyan'
+          }`}
+        >
+          <Layers className="w-4 h-4" />
+        </button>
 
         {/* Cable Car Info Shortcut Button */}
         <button
@@ -140,25 +188,43 @@ export function MountainMap() {
 
         {/* Zoom & 3D Perspective Controls */}
         <div className="flex flex-col gap-1 pt-1 border-t border-white/10">
-          {[
-            { fn: handleToggle3D, Icon: Compass,   label: PERSPECTIVES[perspectiveIndex].label },
-            { fn: handleZoomIn,   Icon: ZoomIn,    label: 'ズームイン' },
-            { fn: handleZoomOut,  Icon: ZoomOut,   label: 'ズームアウト' },
-            { fn: handleReset,    Icon: Maximize2, label: '3D視点を初期化' },
-          ].map(({ fn, Icon, label }) => (
-            <button
-              key={label}
-              onClick={fn}
-              aria-label={label}
-              title={label}
-              className="w-9 h-9 rounded-xl bg-salomon-card/90 backdrop-blur-md
-                         border border-salomon-border hover:border-salomon-cyan/60
-                         flex items-center justify-center transition-all duration-200
-                         shadow-glass active:scale-95 group"
-            >
-              <Icon className="w-4 h-4 text-salomon-muted group-hover:text-salomon-cyan transition-colors" />
-            </button>
-          ))}
+          {isLivePoc ? (
+            /* Controls for 3D Live PoC */
+            <>
+              <button
+                onClick={handleReset}
+                aria-label="3D視点を初期化・再読み込み"
+                title="3D視点を初期化・再読み込み"
+                className="w-9 h-9 rounded-xl bg-salomon-card/90 backdrop-blur-md
+                           border border-salomon-border hover:border-salomon-cyan/60
+                           flex items-center justify-center transition-all duration-200
+                           shadow-glass active:scale-95 group"
+              >
+                <RotateCcw className="w-4 h-4 text-salomon-muted group-hover:text-salomon-cyan transition-colors" />
+              </button>
+            </>
+          ) : (
+            /* Controls for MapLibre Interactive 3D */
+            [
+              { fn: handleToggle3D, Icon: Compass,   label: PERSPECTIVES[perspectiveIndex].label },
+              { fn: handleZoomIn,   Icon: ZoomIn,    label: 'ズームイン' },
+              { fn: handleZoomOut,  Icon: ZoomOut,   label: 'ズームアウト' },
+              { fn: handleReset,    Icon: Maximize2, label: '3D視点を初期化' },
+            ].map(({ fn, Icon, label }) => (
+              <button
+                key={label}
+                onClick={fn}
+                aria-label={label}
+                title={label}
+                className="w-9 h-9 rounded-xl bg-salomon-card/90 backdrop-blur-md
+                           border border-salomon-border hover:border-salomon-cyan/60
+                           flex items-center justify-center transition-all duration-200
+                           shadow-glass active:scale-95 group"
+              >
+                <Icon className="w-4 h-4 text-salomon-muted group-hover:text-salomon-cyan transition-colors" />
+              </button>
+            ))
+          )}
         </div>
       </div>
 
@@ -170,13 +236,23 @@ export function MountainMap() {
       >
         <div className="bg-salomon-dark/85 backdrop-blur-md border border-salomon-cyan/30
                         rounded-full px-4 py-1.5 shadow-glass">
-          <p className="text-salomon-text text-[11px] tracking-wide flex items-center gap-2">
-            <span>🖱️ {t('map.hintPan')}</span>
-            <span className="text-salomon-muted">·</span>
-            <span>{t('map.hintZoom')}</span>
-            <span className="text-salomon-muted">·</span>
-            <span className="text-salomon-cyan font-bold">{t('map.hintRotate')}</span>
-          </p>
+          {isLivePoc ? (
+            <p className="text-salomon-text text-[11px] tracking-wide flex items-center gap-2">
+              <span>🖱️ 左ドラッグ: 3D回転</span>
+              <span className="text-salomon-muted">·</span>
+              <span>右ドラッグ: 平行移動</span>
+              <span className="text-salomon-muted">·</span>
+              <span className="text-salomon-cyan font-bold">ホイール: ズーム (リアルタイム 3D PoC)</span>
+            </p>
+          ) : (
+            <p className="text-salomon-text text-[11px] tracking-wide flex items-center gap-2">
+              <span>🖱️ {t('map.hintPan')}</span>
+              <span className="text-salomon-muted">·</span>
+              <span>{t('map.hintZoom')}</span>
+              <span className="text-salomon-muted">·</span>
+              <span className="text-salomon-cyan font-bold">{t('map.hintRotate')}</span>
+            </p>
+          )}
         </div>
       </div>
     </div>

@@ -7,7 +7,7 @@ import {
   Menu, X, PanelLeftClose, PanelLeftOpen, Mountain, Globe, CloudRain,
   Sun, CloudSun, Cloud, CloudSnow, Wind, Droplets, Eye,
   RefreshCw, SlidersHorizontal, CheckCircle2, AlertCircle, ArrowUpRight,
-  Volume2, VolumeX, Moon,
+  Volume2, VolumeX, Moon, Layers,
 } from 'lucide-react';
 import { HeroMessageEditor } from '@/admin/HeroMessageEditor';
 import { ProductEditor } from '@/admin/ProductEditor';
@@ -56,6 +56,8 @@ function Dashboard({ onNavigate }: { onNavigate: (s: Section) => void }) {
   const periodicCalloutInterval = useAdminStore(s => s.periodicCalloutInterval ?? 60);
   const togglePeriodicCallout = useAdminStore(s => s.togglePeriodicCallout);
   const setPeriodicCalloutEnabled = useAdminStore(s => s.setPeriodicCalloutEnabled);
+  const mountainMapMode = useAdminStore(s => s.mountainMapMode ?? '3d_live_poc');
+  const setMountainMapMode = useAdminStore(s => s.setMountainMapMode);
 
   const globalWeather    = useStore(s => s.weather);
   const setGlobalWeather = useStore(s => s.setWeather);
@@ -505,6 +507,79 @@ function Dashboard({ onNavigate }: { onNavigate: (s: Section) => void }) {
             >
               詳細設定・試聴
               <ArrowUpRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 3D Mountain Visual Engine Selector (Central Display) ── */}
+      <div className="rounded-2xl border border-cyan-500/25 bg-gradient-to-r from-slate-900/90 via-slate-900/80 to-cyan-950/20 p-5 md:p-6 shadow-xl backdrop-blur-sm relative overflow-hidden">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="space-y-1.5 max-w-2xl">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <div className="w-8 h-8 rounded-xl flex items-center justify-center border bg-cyan-500/20 border-cyan-500/40 text-cyan-300">
+                <Layers className="w-4 h-4" />
+              </div>
+              <span className="text-sm sm:text-base font-bold text-white tracking-wide">
+                中央3Dマウンテン表示エンジン設定
+              </span>
+              <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-bold border ${
+                mountainMapMode === '3d_live_poc'
+                  ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
+                  : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
+              }`}>
+                {mountainMapMode === '3d_live_poc'
+                  ? '3DリアルタイムPoC (WebGL)'
+                  : 'MapLibre GSI 3D (国土地理院)'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              ユーザー画面の中央に常時レンダリングされるメインマウンテン表示を切り替えます。
+              {mountainMapMode === '3d_live_poc'
+                ? '「3DリアルタイムPoC（49.212.213.226）」が直接ライブ埋め込みされており、全画面でマウスドラッグによる360度回転・ズーム・登山道ルートアニメーションが動作します。'
+                : '「MapLibre GSI 3D」エンジンが動作しており、国土地理院標高タイルに基づく3D地形と8大トレイルの詳細ラインが表示されます。'}
+            </p>
+            <div className="flex items-center gap-3 pt-1 text-[11px] text-slate-400">
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                サーバー稼働中: https://49.212.213.226/
+              </span>
+              <a
+                href="https://49.212.213.226/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-cyan-400 hover:text-cyan-300 font-medium inline-flex items-center gap-0.5 transition-colors"
+              >
+                別ウィンドウでPoCを開く
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5 flex-wrap flex-shrink-0">
+            {/* Mode selection buttons */}
+            <button
+              onClick={() => setMountainMapMode('3d_live_poc')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border ${
+                mountainMapMode === '3d_live_poc'
+                  ? 'bg-cyan-500/25 border-cyan-400/60 text-cyan-300 shadow-md shadow-cyan-950/40 ring-1 ring-cyan-400/30'
+                  : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-slate-200'
+              }`}
+            >
+              <Mountain className="w-3.5 h-3.5 text-cyan-400" />
+              3D PoC (49.212.213.226)
+            </button>
+
+            <button
+              onClick={() => setMountainMapMode('maplibre_interactive')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border ${
+                mountainMapMode === 'maplibre_interactive'
+                  ? 'bg-indigo-500/25 border-indigo-400/60 text-indigo-300 shadow-md shadow-indigo-950/40 ring-1 ring-indigo-400/30'
+                  : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-slate-200'
+              }`}
+            >
+              <Globe className="w-3.5 h-3.5 text-indigo-400" />
+              MapLibre GSI 3D
             </button>
           </div>
         </div>

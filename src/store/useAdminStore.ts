@@ -129,6 +129,11 @@ export interface AdminState {
   togglePeriodicCallout: (enabled?: boolean) => void;
   setPeriodicCalloutInterval: (interval: 60 | 120) => void;
 
+  // 3D Mountain Map Display Mode: Live WebGL PoC (https://49.212.213.226/) vs MapLibre GSI 3D Engine
+  mountainMapMode: '3d_live_poc' | 'maplibre_interactive';
+  setMountainMapMode: (mode: '3d_live_poc' | 'maplibre_interactive') => void;
+  toggleMountainMapMode: () => void;
+
   // UI state (not persisted)
   lastSavedAt: string | null;
   markSaved: () => void;
@@ -224,6 +229,16 @@ export const useAdminStore = create<AdminState>()(
       setPeriodicCalloutInterval: (periodicCalloutInterval) =>
         set({ periodicCalloutInterval, lastSavedAt: new Date().toISOString() }),
 
+      // 3D Mountain Map Mode: Direct Live 3D PoC (https://49.212.213.226/) by default
+      mountainMapMode: '3d_live_poc',
+      setMountainMapMode: (mountainMapMode) =>
+        set({ mountainMapMode, lastSavedAt: new Date().toISOString() }),
+      toggleMountainMapMode: () =>
+        set((s) => ({
+          mountainMapMode: s.mountainMapMode === '3d_live_poc' ? 'maplibre_interactive' : '3d_live_poc',
+          lastSavedAt: new Date().toISOString(),
+        })),
+
       lastSavedAt: null,
       markSaved: () => set({ lastSavedAt: new Date().toISOString() }),
     }),
@@ -237,6 +252,7 @@ export const useAdminStore = create<AdminState>()(
         weatherOverride: s.weatherOverride,
         periodicCalloutEnabled: s.periodicCalloutEnabled,
         periodicCalloutInterval: s.periodicCalloutInterval,
+        mountainMapMode: s.mountainMapMode,
         lastSavedAt: s.lastSavedAt,
       }),
       // Migrate legacy state
@@ -266,6 +282,9 @@ export const useAdminStore = create<AdminState>()(
         }
         if (state.periodicCalloutInterval === undefined) {
           state.periodicCalloutInterval = 60;
+        }
+        if (!state.mountainMapMode) {
+          state.mountainMapMode = '3d_live_poc';
         }
       },
     }
