@@ -37,8 +37,8 @@ async function fetchGoogleTTSAudio(text: string, lang: string): Promise<Buffer |
     if (chunks.length === 0) chunks.push(clean.slice(0, 140));
 
     const audioBuffers: Buffer[] = [];
-    // Limit to first 5 chunks to keep audio concise and snappy
-    for (const chunk of chunks.slice(0, 5)) {
+    // Limit to first 3 chunks with 2.5s timeout for fast response
+    for (const chunk of chunks.slice(0, 3)) {
       if (!chunk.trim()) continue;
       const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${encodeURIComponent(tl)}&client=tw-ob&q=${encodeURIComponent(chunk.trim())}`;
       const res = await fetch(url, {
@@ -46,7 +46,7 @@ async function fetchGoogleTTSAudio(text: string, lang: string): Promise<Buffer |
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           'Referer': 'https://translate.google.com/',
         },
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(2500),
       });
       if (res.ok) {
         const ab = await res.arrayBuffer();
@@ -69,7 +69,7 @@ async function fetchGoogleTTSAudio(text: string, lang: string): Promise<Buffer |
 export async function POST(req: NextRequest) {
   let text = '';
   let language = 'ja';
-  let voice = 'alloy';
+  let voice = 'onyx'; // Default to authoritative, warm male mountain guide voice
 
   try {
     const body = (await req.json()) as {
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
     };
     text = body.text || '';
     language = body.language || 'ja';
-    voice = body.voice || 'alloy';
+    voice = body.voice || 'onyx';
   } catch {
     return NextResponse.json({ error: 'invalid_json' }, { status: 400 });
   }
@@ -93,6 +93,8 @@ export async function POST(req: NextRequest) {
   // 1. Try OpenAI Studio Neural Voice if API key is present
   if (apiKey) {
     try {
+      // Use 'onyx' or 'echo' for male mountain guide persona
+      const chosenVoice = voice === 'shimmer' ? 'shimmer' : voice === 'echo' ? 'echo' : 'onyx';
       const ttsRes = await fetch('https://api.openai.com/v1/audio/speech', {
         method: 'POST',
         headers: {
@@ -101,10 +103,10 @@ export async function POST(req: NextRequest) {
         },
         body: JSON.stringify({
           model: 'tts-1',
-          voice: voice === 'shimmer' ? 'shimmer' : 'alloy',
+          voice: chosenVoice,
           input: text.slice(0, 1000),
         }),
-        signal: AbortSignal.timeout(10_000),
+        signal: AbortSignal.timeout(8_000),
       });
 
       if (ttsRes.ok) {
@@ -126,7 +128,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // 2. High-reliability fallback: Stream native Google TTS audio
+  // 2. High-reliability fallback: Stream native Google TTS audio (short timeout)
   const fallbackAudio = await fetchGoogleTTSAudio(text, language);
   if (fallbackAudio) {
     return new NextResponse(new Uint8Array(fallbackAudio), {
@@ -139,9 +141,9 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // 3. Last-resort fallback: browser local SpeechSynthesis
+  // 3. Last-resort fallback: browser local SpeechSynthesis with male pitch tuning
   return NextResponse.json(
-    { fallback: true, mode: 'browser_synth' },
+    { fallback: true, mode: 'browser_synth', preferredVoice: 'male' },
     { status: 200 }
   );
 }

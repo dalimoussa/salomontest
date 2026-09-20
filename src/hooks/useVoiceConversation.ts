@@ -92,7 +92,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
   // the hard-mute window that prevents the AI from hearing its own voice output.
 
   /** Block ALL mic recognition for this many ms after AI finishes speaking */
-  const POST_SPEECH_GUARD_MS = 600;
+  const POST_SPEECH_GUARD_MS = 1200;
 
   /** Do not commit silence during the first N ms of a new listening session.
    *  Allows users to say "Hello" + natural pause + full question without early cutoff. */
@@ -182,6 +182,57 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
 
   const streamRef = useRef<MediaStream | null>(null);
 
+  /**
+   * Hardware microphone muting: physically disables the audio track on the MediaStream.
+   * While disabled, the browser captures absolute silence (zeroed PCM), completely
+   * preventing the AI from hearing itself or picking up user speech during answering.
+   */
+  const muteMicrophoneHardware = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getAudioTracks().forEach((track) => {
+        track.enabled = false;
+      });
+    }
+    setAudioLevel(0);
+  }, []);
+
+  const unmuteMicrophoneHardware = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getAudioTracks().forEach((track) => {
+        track.enabled = true;
+      });
+    }
+  }, []);
+
+  /**
+   * Helper to check if audio or speech synthesis is actively outputting sound.
+   * Prevents premature turn-switching or premature listening while audio is still playing.
+   */
+  const isAudioActivelyPlaying = useCallback((): boolean => {
+    if (currentAudioRef.current && !currentAudioRef.current.paused && !currentAudioRef.current.ended) {
+      return true;
+    }
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
+        return true;
+      }
+    }
+    return false;
+  }, []);
+
+  /**
+   * Unconditional busy check: returns true if the AI is thinking, speaking, in echo-guard,
+   * or has audio actively playing. In this state, ALL user input MUST be ignored.
+   */
+  const isBusyResponding = useCallback((): boolean => {
+    return (
+      statusRef.current === 'thinking' ||
+      statusRef.current === 'speaking' ||
+      isSpeakingRef.current ||
+      isAudioActivelyPlaying()
+    );
+  }, [isAudioActivelyPlaying]);
+
   const weather = useStore((s) => s.weather);
   const selectedRoute = useStore((s) => s.selectedRoute);
   const selectedDifficulty = useStore((s) => s.selectedDifficulty);
@@ -222,8 +273,15 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         setAudioLevel(normalized);
 
         // Hybrid Energy VAD: Detect voice presence even if Web Speech API is unresponsive.
-        // Skip entirely while isSpeakingRef is true — speaker bleed would trigger false positives.
-        if (statusRef.current === 'listening' && !isSpeakingRef.current) {
+        // Skip entirely if AI is busy responding — speaker bleed would trigger false positives.
+        if (isBusyResponding()) {
+          setAudioLevel(0);
+          if (energySilenceTimerRef.current) {
+            clearTimeout(energySilenceTimerRef.current);
+            energySilenceTimerRef.current = null;
+          }
+          hasSpokenEnergyRef.current = false;
+        } else if (statusRef.current === 'listening') {
           if (normalized > 0.12) {
             hasSpokenEnergyRef.current = true;
             lastVoiceEnergyTimestampRef.current = Date.now();
@@ -235,7 +293,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
             const silenceElapsed = Date.now() - lastVoiceEnergyTimestampRef.current;
             if (silenceElapsed > 900 && !energySilenceTimerRef.current) {
               energySilenceTimerRef.current = setTimeout(() => {
-                if (statusRef.current === 'listening' && hasSpokenEnergyRef.current && !isSpeakingRef.current) {
+                if (statusRef.current === 'listening' && hasSpokenEnergyRef.current && !isBusyResponding()) {
                   commitCurrentSpeech();
                 }
               }, 100);
@@ -319,22 +377,33 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
 
           const utterance = new SpeechSynthesisUtterance(text);
           utterance.lang = targetLang;
-          utterance.rate = 1.0;
-          utterance.pitch = 1.0;
+          utterance.rate = 0.98;
+          // Male mountain guide tone tuning: 0.80 pitch lowers the voice frequency into a resonant, calm male baritone
+          utterance.pitch = 0.80;
           utterance.volume = 1.0;
           currentUtteranceRef.current = utterance;
 
-          // Select best matching voice for the target language
+          // Select authoritative male voice for the target language
           const voices = window.speechSynthesis.getVoices();
           if (voices.length > 0) {
             const langPrefix = activeLang === 'en' ? 'en' : activeLang === 'zh' ? 'zh' : 'ja';
-            const matchedVoice =
-              voices.find((v) => v.lang.toLowerCase() === targetLang.toLowerCase()) ||
-              voices.find((v) => v.lang.toLowerCase().replace('_', '-').startsWith(langPrefix)) ||
-              voices.find((v) => v.lang.toLowerCase().startsWith(langPrefix)) ||
+            const langVoices = voices.filter((v) =>
+              v.lang.toLowerCase() === targetLang.toLowerCase() ||
+              v.lang.toLowerCase().replace('_', '-').startsWith(langPrefix) ||
+              v.lang.toLowerCase().startsWith(langPrefix)
+            );
+
+            // Prioritize male voices by standard naming across Windows, macOS, Android, ChromeOS
+            const maleVoice =
+              langVoices.find((v) =>
+                /\b(ichiro|keita|kenji|naoki|takumi|guy|david|george|mark|male|man|yunxi|yunjian|kangkang)\b/i.test(v.name)
+              ) ||
+              langVoices.find((v) => !/\b(haruka|ayumi|sayaka|zira|susan|jenny|female|woman|xiaoxiao|yaoyao)\b/i.test(v.name)) ||
+              langVoices[0] ||
               voices.find((v) => v.default);
-            if (matchedVoice) {
-              utterance.voice = matchedVoice;
+
+            if (maleVoice) {
+              utterance.voice = maleVoice;
             }
           }
 
@@ -344,9 +413,14 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
             finish();
           };
 
-          // Chrome speech synthesis watchdog: ensures Promise always resolves
-          const maxMs = Math.max(3000, Math.min(25000, text.length * 80 + 2000));
-          watchdog = setTimeout(finish, maxMs);
+          // Generous watchdog based on realistic speaking duration (~300ms per character).
+          // NEVER abort early at 10s while the speaker is talking!
+          const maxMs = Math.max(35000, text.length * 300);
+          watchdog = setTimeout(() => {
+            if (typeof window !== 'undefined' && window.speechSynthesis && !window.speechSynthesis.speaking) {
+              finish();
+            }
+          }, maxMs);
 
           // Keep-alive timer for Chrome speech synthesis (strictly while active and NOT interrupted)
           keepAlive = setInterval(() => {
@@ -406,6 +480,9 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     }
     isSpeakingRef.current = true;
 
+    // Hardware microphone mute: physically zero-out mic tracks to prevent any sound capture
+    muteMicrophoneHardware();
+
     // Hard-stop speech recognition while AI is answering so mic ignores all user input & speaker sound
     stopSpeechRecognition();
     if (silenceTimerRef.current) {
@@ -429,10 +506,11 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     const currentLang = lang || useStore.getState().language;
 
     try {
+      // Always request authoritative, warm male mountain guide voice ('onyx')
       const res = await fetch('/api/voice/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, language: currentLang, voice: 'alloy' }),
+        body: JSON.stringify({ text, language: currentLang, voice: 'onyx' }),
       });
 
       // Token check: if user interrupted or another speakText was called during network request
@@ -480,14 +558,21 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
               audio.removeAttribute('src');
               audio.load();
             } catch {}
-            finish();
+            if (currentAudioRef.current === audio) {
+              currentAudioRef.current = null;
+            }
             if (speechToken === activeSpeechTokenRef.current && !interruptedRef.current && statusRef.current === 'speaking') {
               await speakWithBrowserSynth(text, currentLang);
             }
+            finish();
           };
 
-          // Audio playback safety watchdog (15s max)
-          watchdog = setTimeout(finish, 15000);
+          // Generous playback watchdog (minimum 45 seconds or duration based)
+          watchdog = setTimeout(() => {
+            if (audio.ended || audio.paused) {
+              finish();
+            }
+          }, Math.max(45000, text.length * 300));
 
           audio.play().catch(async () => {
             try {
@@ -495,10 +580,13 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
               audio.removeAttribute('src');
               audio.load();
             } catch {}
-            finish();
+            if (currentAudioRef.current === audio) {
+              currentAudioRef.current = null;
+            }
             if (speechToken === activeSpeechTokenRef.current && !interruptedRef.current && statusRef.current === 'speaking') {
               await speakWithBrowserSynth(text, currentLang);
             }
+            finish();
           });
         });
       } else {
@@ -522,12 +610,27 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         localTranscriptRef.current = '';
         stopSpeechRecognition();
 
-        // ── POST_SPEECH_GUARD: keep isSpeakingRef=true for POST_SPEECH_GUARD_MS ──
+        // ── POST_SPEECH_GUARD: keep isSpeakingRef=true & mic muted for POST_SPEECH_GUARD_MS ──
         // Prevents the microphone from picking up speaker bleed (echo) after TTS ends.
-        // Only after this guard window does the voice AI return to a clean listening state to accept another question.
         postSpeechGuardTimerRef.current = setTimeout(() => {
+          // Double check audio is not actively playing before unmuting
+          if (isAudioActivelyPlaying()) {
+            console.log('[useVoiceConversation] Audio still actively playing at guard timeout — extending guard');
+            postSpeechGuardTimerRef.current = setTimeout(() => {
+              isSpeakingRef.current = false;
+              postSpeechGuardTimerRef.current = null;
+              unmuteMicrophoneHardware();
+              resultStartIndexRef.current = recognitionResultCountRef.current;
+              if (autoLoopRef.current && statusRef.current === 'idle') {
+                startListeningRef.current?.().catch(() => {});
+              }
+            }, POST_SPEECH_GUARD_MS);
+            return;
+          }
+
           isSpeakingRef.current = false;
           postSpeechGuardTimerRef.current = null;
+          unmuteMicrophoneHardware();
           // Reset recognition index so a fresh listening session starts completely clean
           resultStartIndexRef.current = recognitionResultCountRef.current;
           if (autoLoopRef.current && statusRef.current === 'idle') {
@@ -536,10 +639,13 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         }, POST_SPEECH_GUARD_MS);
       }
     }
-  }, [abortSpeaking, speakWithBrowserSynth, stopSpeechRecognition]);
+  }, [abortSpeaking, isAudioActivelyPlaying, muteMicrophoneHardware, unmuteMicrophoneHardware, speakWithBrowserSynth, stopSpeechRecognition]);
 
   // Ensure MediaRecorder is active so user speech audio can be captured
   const ensureMediaRecorderActive = useCallback(async () => {
+    if (isBusyResponding()) {
+      return;
+    }
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       return;
     }
@@ -569,6 +675,11 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
 
       mediaRecorder.onstop = () => {
         stopLevelMeter();
+        if (isBusyResponding()) {
+          audioChunksRef.current = [];
+          pendingCommittedTextRef.current = '';
+          return;
+        }
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         const text = pendingCommittedTextRef.current || localTranscriptRef.current.trim();
         pendingCommittedTextRef.current = '';
@@ -583,12 +694,12 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     } catch (e) {
       console.warn('ensureMediaRecorderActive error:', e);
     }
-  }, []);
+  }, [isBusyResponding]);
 
   // Process user audio through STT -> LLM -> TTS pipeline
   const processRecordedAudio = async (audioBlob?: Blob | null, directText?: string) => {
-    // ── STRICT REQUIREMENT: Ignore user questions while AI is currently thinking, answering, or in echo-guard ──
-    if (statusRef.current === 'thinking' || statusRef.current === 'speaking' || isSpeakingRef.current) {
+    // ── STRICT REQUIREMENT: Ignore user questions while AI is currently thinking, answering, in echo-guard, or playing audio ──
+    if (isBusyResponding()) {
       console.log('[VoiceAI] processRecordedAudio ignored — AI is currently busy responding');
       localTranscriptRef.current = '';
       setTranscript('');
@@ -651,7 +762,19 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     setStatus('thinking');
     setErrorMessage(null);
     setIsGenerating(true);
+    isSpeakingRef.current = true; // Mark busy immediately so NO microphone input is captured
+
+    // Hardware microphone mute: physically disable audio tracks immediately upon entering thinking state
+    muteMicrophoneHardware();
     stopSpeechRecognition();
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      try {
+        mediaRecorderRef.current.onstop = null;
+        mediaRecorderRef.current.stop();
+      } catch {}
+      mediaRecorderRef.current = null;
+    }
+    audioChunksRef.current = [];
 
     // Safety watchdog: auto-recover from 'thinking' after 10s to prevent infinite spinner
     const thinkingTimeout = setTimeout(() => {
@@ -822,6 +945,8 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       // Fail-safe: guarantee UI never remains permanently stranded in 'thinking'
       if ((statusRef.current as string) === 'thinking') {
         setStatus('idle');
+        isSpeakingRef.current = false;
+        unmuteMicrophoneHardware();
         if (autoLoopRef.current) {
           setTimeout(() => {
             if (autoLoopRef.current && statusRef.current === 'idle') {
@@ -848,7 +973,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     }
 
     // ── STRICT REQUIREMENT: Ignore user questions while AI is currently thinking, answering, or in echo-guard ──
-    if (statusRef.current === 'thinking' || statusRef.current === 'speaking' || isSpeakingRef.current) {
+    if (isBusyResponding()) {
       console.log('[VoiceAI] commitCurrentSpeech ignored — AI is currently responding or in echo-guard');
       localTranscriptRef.current = '';
       setTranscript('');
@@ -904,17 +1029,18 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         }
       }
     }
-  }, []);
+  }, [isBusyResponding]);
 
   const startListening = useCallback(async () => {
     // ── STRICT REQUIREMENT: Do not start listening if thinking, answering, or in echo-guard ──
-    if (statusRef.current === 'thinking' || statusRef.current === 'speaking' || isSpeakingRef.current) {
+    if (isBusyResponding()) {
       console.log('[VoiceAI] startListening deferred — AI is currently responding or in echo-guard');
       return;
     }
     if (statusRef.current === 'listening' && mediaRecorderRef.current?.state === 'recording') return;
 
     unlockAudio();
+    unmuteMicrophoneHardware();
     setErrorMessage(null);
     setTranscript('');
     localTranscriptRef.current = '';
@@ -961,8 +1087,10 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
               }
 
               // ── STRICT REQUIREMENT: Ignore user questions while AI is answering, thinking, or in echo guard ──
-              if (statusRef.current === 'speaking' || statusRef.current === 'thinking' || isSpeakingRef.current) {
+              if (isBusyResponding()) {
                 resultStartIndexRef.current = event.results.length;
+                localTranscriptRef.current = '';
+                setTranscript('');
                 return;
               }
 
@@ -1003,12 +1131,24 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
 
             // Continuous recognition lifecycle: only restart if this instance is still active
             recognition.onend = () => {
-              if (autoLoopRef.current && statusRef.current !== 'thinking' && recognitionRef.current === recognition) {
+              if (
+                autoLoopRef.current &&
+                statusRef.current === 'listening' &&
+                !isSpeakingRef.current &&
+                !isAudioActivelyPlaying() &&
+                recognitionRef.current === recognition
+              ) {
                 try {
                   recognition.start();
                 } catch {
                   setTimeout(() => {
-                    if (autoLoopRef.current && statusRef.current !== 'thinking' && recognitionRef.current === recognition) {
+                    if (
+                      autoLoopRef.current &&
+                      statusRef.current === 'listening' &&
+                      !isSpeakingRef.current &&
+                      !isAudioActivelyPlaying() &&
+                      recognitionRef.current === recognition
+                    ) {
                       try { recognition.start(); } catch {}
                     }
                   }, 150);
@@ -1051,6 +1191,11 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
 
       mediaRecorder.onstop = () => {
         stopLevelMeter();
+        if (isBusyResponding()) {
+          audioChunksRef.current = [];
+          pendingCommittedTextRef.current = '';
+          return;
+        }
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         const text = pendingCommittedTextRef.current || localTranscriptRef.current.trim();
         pendingCommittedTextRef.current = '';
@@ -1067,7 +1212,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       console.warn('Microphone access standby:', err);
       setStatus('idle');
     }
-  }, [selectedRoute, weather, selectedDifficulty, stopSpeechRecognition, abortSpeaking, commitCurrentSpeech, ensureMediaRecorderActive]);
+  }, [selectedRoute, weather, selectedDifficulty, stopSpeechRecognition, abortSpeaking, commitCurrentSpeech, ensureMediaRecorderActive, isBusyResponding, unmuteMicrophoneHardware, isAudioActivelyPlaying]);
 
   startListeningRef.current = startListening;
 
@@ -1092,10 +1237,13 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     stopSpeechRecognition();
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       try {
+        mediaRecorderRef.current.onstop = null;
         mediaRecorderRef.current.stop();
       } catch {}
       mediaRecorderRef.current = null;
     }
+    audioChunksRef.current = [];
+    isSpeakingRef.current = false;
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
@@ -1121,6 +1269,13 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
 
   // ── Synchronize Speech Recognition Immediately on Language Switch ──
   useEffect(() => {
+    // If the voice AI is actively thinking or speaking, DO NOT interrupt or reset to idle!
+    // The current speech turn will complete in its own language, and next turn will use the new language.
+    if (isBusyResponding()) {
+      console.log(`[useVoiceConversation] Language changed to ${language} while AI is answering. Queuing recognition update for next turn.`);
+      return;
+    }
+
     const targetLang = getTargetRecognitionLang(language);
     console.log(`[useVoiceConversation] Synchronizing language to: ${language} (${targetLang})`);
 
@@ -1148,9 +1303,8 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     // Abort previous speech recognition so the new language acoustic model starts clean
     stopSpeechRecognition();
 
-    // If hands-free is enabled and we are not thinking, restart listening immediately in new language
-    if (autoLoopRef.current && statusRef.current !== 'thinking') {
-      setStatus('idle');
+    // If hands-free is enabled and we are idle, restart listening immediately in new language
+    if (autoLoopRef.current && statusRef.current === 'idle') {
       const timer = setTimeout(() => {
         if (autoLoopRef.current && statusRef.current === 'idle') {
           startListeningRef.current?.().catch(() => {});
@@ -1158,7 +1312,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       }, 120);
       return () => clearTimeout(timer);
     }
-  }, [language, stopSpeechRecognition, abortSpeaking]);
+  }, [language, stopSpeechRecognition, abortSpeaking, isBusyResponding]);
 
   // ── Auto-Start Continuous Hands-free Conversation on Mount or First Interaction ──
   useEffect(() => {
