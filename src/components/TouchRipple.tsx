@@ -25,7 +25,7 @@ export function TouchRipple() {
       id: Date.now() + Math.random(),
       x: e.clientX,
       y: e.clientY,
-      size: 90,
+      size: 44, // Reduced to ~1/2 as requested by client
       color: '#0AFFE0', // Salomon cyan glow
     };
 
