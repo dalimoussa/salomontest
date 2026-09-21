@@ -79,6 +79,7 @@ export function MountainMap() {
   const mapInstanceRef = useRef<Map | null>(null);
   const setUserMovedCamera = useMapStore((s) => s.setUserMovedCamera);
   const setActiveModal = useStore((s) => s.setActiveModal);
+  const selectedRoute   = useStore((s) => s.selectedRoute);
   const mountainMapMode = useAdminStore((s) => s.mountainMapMode);
   const toggleMountainMapMode = useAdminStore((s) => s.toggleMountainMapMode);
   const { t } = useT();
@@ -92,7 +93,7 @@ export function MountainMap() {
   const handleZoomIn  = () => mapInstanceRef.current?.zoomIn({ duration: 250 });
   const handleZoomOut = () => mapInstanceRef.current?.zoomOut({ duration: 250 });
   const handleReset   = () => {
-    if (mountainMapMode === '3d_live_poc') {
+    if (isLivePoc) {
       setPocReloadKey((k) => k + 1);
       return;
     }
@@ -109,7 +110,7 @@ export function MountainMap() {
   };
 
   const handleToggle3D = () => {
-    if (mountainMapMode === '3d_live_poc') {
+    if (isLivePoc) {
       // In 3D PoC mode, allow toggling back to MapLibre
       toggleMountainMapMode();
       return;
@@ -128,7 +129,10 @@ export function MountainMap() {
     });
   };
 
-  const isLivePoc = mountainMapMode === '3d_live_poc';
+  // When Route 1 (or default) is active, show the 3D Live PoC if selected in admin.
+  // When ANY other course (2号路, 3号路, 4号路, 5号路, 6号路, 稲荷山, 陣馬山, 周辺トレイル) is selected,
+  // automatically render MapLibre 3D with the exact terrain, camera flight, and glowing trail for that course!
+  const isLivePoc = mountainMapMode === '3d_live_poc' && (!selectedRoute || selectedRoute.id === 'route_1');
 
   return (
     <div
@@ -152,6 +156,23 @@ export function MountainMap() {
 
       {/* Rain particle overlay — above map canvas, below UI controls */}
       <RainOverlay />
+
+      {/* 3D Course Status Indicator Badge */}
+      {selectedRoute && (
+        <div
+          className="hidden lg:block absolute top-16 left-4 lg:left-[310px] xl:left-[340px] 2xl:left-[380px] z-20
+                     animate-fadeIn opacity-0-start pointer-events-none"
+          style={{ animationFillMode: 'forwards', animationDelay: '0.4s' }}
+        >
+          <div className="bg-[#081226]/90 backdrop-blur-md border border-salomon-cyan/40
+                          rounded-full px-3.5 py-1 shadow-glass flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-salomon-cyan animate-pulse ring-2 ring-salomon-cyan/30" />
+            <span className="text-[11px] font-bold text-salomon-cyan">
+              {isLivePoc ? '3Dリアルタイムシーン (1号路)' : `${selectedRoute.name} (3D地形ルート)`}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Map Action Controls (Floating within the central mountain viewport) */}
       <div

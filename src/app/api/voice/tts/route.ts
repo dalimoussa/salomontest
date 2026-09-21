@@ -131,33 +131,28 @@ export async function POST(req: NextRequest) {
             'Content-Type': 'audio/mpeg',
             'Content-Length': audioBuffer.byteLength.toString(),
             'Cache-Control': 'public, max-age=3600',
+            'X-TTS-Engine': 'openai',
           },
         });
       }
 
       const errText = await ttsRes.text().catch(() => '');
-      console.warn('[/api/voice/tts] OpenAI TTS error, falling back to Google TTS:', ttsRes.status, errText);
+      console.warn('[/api/voice/tts] OpenAI TTS error, falling back to male browser synthesis:', ttsRes.status, errText);
     } catch (err) {
-      console.warn('[/api/voice/tts] OpenAI TTS exception, falling back to Google TTS:', err);
+      console.warn('[/api/voice/tts] OpenAI TTS exception, falling back to male browser synthesis:', err);
     }
   }
 
-  // 2. High-reliability fallback: Stream native Google TTS audio (short timeout)
-  const fallbackAudio = await fetchGoogleTTSAudio(text, language);
-  if (fallbackAudio) {
-    return new NextResponse(new Uint8Array(fallbackAudio), {
-      status: 200,
-      headers: {
-        'Content-Type': 'audio/mpeg',
-        'Content-Length': fallbackAudio.length.toString(),
-        'Cache-Control': 'public, max-age=3600',
-      },
-    });
-  }
-
-  // 3. Last-resort fallback: browser local SpeechSynthesis with male pitch tuning
+  // 2. High-reliability fallback: Always return browser local SpeechSynthesis with male pitch tuning
+  // We deliberately bypass Google Translate TTS because Google Translate's Japanese voice is
+  // fixed to a female voice, which the client specifically asked to correct to the male guide persona.
   return NextResponse.json(
     { fallback: true, mode: 'browser_synth', preferredVoice: 'male' },
-    { status: 200 }
+    {
+      status: 200,
+      headers: {
+        'X-TTS-Engine': 'browser_synth_male',
+      },
+    }
   );
 }
