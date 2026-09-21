@@ -36,32 +36,43 @@ async function fetchGoogleTTSAudio(text: string, lang: string): Promise<Buffer |
     if (cur.trim()) chunks.push(cur.trim());
     if (chunks.length === 0) chunks.push(clean.slice(0, 140));
 
-    const audioBuffers: Buffer[] = [];
-    // Limit to first 3 chunks with 2.5s timeout for fast response
-    for (const chunk of chunks.slice(0, 3)) {
-      if (!chunk.trim()) continue;
-      const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${encodeURIComponent(tl)}&client=tw-ob&q=${encodeURIComponent(chunk.trim())}`;
-      const res = await fetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Referer': 'https://translate.google.com/',
-        },
-        signal: AbortSignal.timeout(2500),
-      });
-      if (res.ok) {
-        const ab = await res.arrayBuffer();
-        if (ab.byteLength > 0) {
-          audioBuffers.push(Buffer.from(ab));
+    const targetChunks = chunks.slice(0, 3).filter((c) => c.trim().length > 0);
+    const audioResults = await Promise.all(
+      targetChunks.map(async (chunk) => {
+        try {
+          const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${encodeURIComponent(tl)}&client=tw-ob&q=${encodeURIComponent(chunk.trim())}`;
+          const res = await fetch(url, {
+            headers: {
+              'User-Agent':
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              Referer: 'https://translate.google.com/',
+            },
+            signal: AbortSignal.timeout(4500),
+          });
+          if (res.ok) {
+            const ab = await res.arrayBuffer();
+            if (ab.byteLength > 0) {
+              return Buffer.from(ab);
+            }
+          }
+          return null;
+        } catch {
+          return null;
         }
-      }
-    }
+      })
+    );
 
-    if (audioBuffers.length > 0) {
-      return Buffer.concat(audioBuffers);
+    const validBuffers = audioResults.filter((b): b is Buffer => b !== null);
+    if (validBuffers.length > 0) {
+      return Buffer.concat(validBuffers);
     }
     return null;
-  } catch (err) {
-    console.warn('[/api/voice/tts] Google TTS fallback failed:', err);
+  } catch (err: any) {
+    if (err?.name === 'TimeoutError' || err?.name === 'AbortError') {
+      console.warn('[/api/voice/tts] Google TTS fallback timed out; falling back to browser speech synthesis.');
+    } else {
+      console.warn('[/api/voice/tts] Google TTS fallback failed:', err?.message || err);
+    }
     return null;
   }
 }
