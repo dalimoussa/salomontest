@@ -1,7 +1,7 @@
 'use client';
 
-import { useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useRef, useState, useEffect } from 'react';
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { useAdminStore } from '@/store/useAdminStore';
 import { getLocalizedProduct } from '@/data/products';
@@ -9,10 +9,21 @@ import { useT } from '@/lib/i18n';
 
 export function ProductCarousel() {
   const [activeFilter, setActiveFilter] = useState('all');
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const recommendedProducts = useStore(s => s.recommendedProducts);
   const adminProducts       = useAdminStore(s => s.products);
+  const selectedRoute       = useStore(s => s.selectedRoute);
   const { t, language }     = useT();
+
+  // Client Requirement: [21/09/2026 06:18] seriousfuzzy: ルートを選んだら、自動で下に隠れる仕様がいいだろうね！
+  // Automatically collapse gear guide to bottom when user selects/changes a trail route,
+  // completely clearing the 3D mountain and the selected route trajectory.
+  useEffect(() => {
+    if (selectedRoute) {
+      setIsCollapsed(true);
+    }
+  }, [selectedRoute?.id]);
 
   const CATEGORY_FILTERS = [
     { label: t('products.filterAll'),      value: 'all' },
@@ -42,14 +53,47 @@ export function ProductCarousel() {
     scrollRef.current.scrollBy({ left: dir === 'left' ? -200 : 200, behavior: 'smooth' });
   };
 
+  // Compact Collapsed Pill Bar (Auto-hidden down below)
+  if (isCollapsed) {
+    return (
+      <div className="flex justify-center w-full animate-fadeInUp">
+        <button
+          onClick={() => setIsCollapsed(false)}
+          className="group px-4 py-2 rounded-full glass-card border border-salomon-cyan/40 hover:border-salomon-cyan
+                     flex items-center gap-2.5 shadow-glow-cyan/25 hover:shadow-glow-cyan/50
+                     transition-all duration-300 active:scale-95 text-xs font-bold text-white cursor-pointer"
+        >
+          <span className="w-2 h-2 rounded-full bg-salomon-cyan animate-pulse ring-2 ring-salomon-cyan/40" />
+          <span className="text-salomon-cyan font-black">🎒 Salomon</span>
+          <span>
+            {language === 'en'
+              ? `Recommended Gear (${filtered.length})`
+              : language === 'zh'
+              ? `推荐登山装备 (${filtered.length}件)`
+              : `おすすめ登山装備 (${filtered.length}点)`}
+          </span>
+          <span className="text-salomon-cyan text-xs font-bold flex items-center gap-0.5 group-hover:-translate-y-0.5 transition-transform">
+            <ChevronUp className="w-3.5 h-3.5" />
+            <span>{language === 'en' ? 'Show' : language === 'zh' ? '展开' : '表示する'}</span>
+          </span>
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="glass-card px-4 py-3 animate-fadeInUp opacity-0-start"
+    <div className="glass-card px-4 py-3 animate-fadeInUp opacity-0-start transition-all duration-300"
       style={{ animationFillMode: 'forwards', animationDelay: '0.35s' }}>
 
       {/* Header */}
       <div className="flex items-center justify-between mb-2.5">
-        <p className="section-label">{t('products.title')}</p>
-        <div className="flex gap-1">
+        <div className="flex items-center gap-2">
+          <p className="section-label">{t('products.title')}</p>
+          <span className="text-[10px] text-salomon-muted font-mono font-bold">
+            ({filtered.length})
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
           {(['left','right'] as const).map(dir => (
             <button key={dir} onClick={() => scroll(dir)}
               aria-label={dir === 'left' ? t('products.prev') : t('products.next')}
@@ -61,6 +105,18 @@ export function ProductCarousel() {
                 : <ChevronRight className="w-4 h-4 text-salomon-muted" />}
             </button>
           ))}
+
+          {/* Client Auto-Hide / Manual Hide Button */}
+          <button
+            onClick={() => setIsCollapsed(true)}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/8 hover:bg-white/15
+                       border border-salomon-border text-[11px] font-bold text-salomon-muted hover:text-white
+                       transition-colors active:scale-95 ml-1 cursor-pointer"
+            title="下に隠す"
+          >
+            <ChevronDown className="w-3.5 h-3.5 text-salomon-cyan" />
+            <span>{language === 'en' ? 'Hide' : language === 'zh' ? '收起' : '隠す'}</span>
+          </button>
         </div>
       </div>
 

@@ -155,6 +155,26 @@ export function RoutePanel() {
         ))}
       </div>
 
+      {/* Client Touch Guide Callout: "↓ ここをタップしてね❗️ ⭕️" */}
+      <div className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-cyan-950/60 to-blue-950/40 border border-cyan-500/40 text-cyan-300 shadow-sm">
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs animate-bounce">👇</span>
+          <span className="text-[11px] font-black tracking-wide">
+            {language === 'en'
+              ? 'Tap any course below to inspect 3D path!'
+              : language === 'zh'
+              ? '点击下方步道查看3D路线轨迹！'
+              : '↓ ここをタップしてコース選択！'}
+          </span>
+        </div>
+        <div className="relative flex items-center justify-center w-5 h-5 shrink-0">
+          <span className="absolute inset-0 rounded-full bg-cyan-400/40 animate-beaconRing" />
+          <span className="w-3.5 h-3.5 rounded-full border-2 border-salomon-cyan animate-pulseBeacon shadow-glow-cyan flex items-center justify-center text-[8px] font-black text-salomon-cyan">
+            ⭕
+          </span>
+        </div>
+      </div>
+
       {/* Route list */}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 pr-1 space-y-0.5">
         {filteredRoutes.map((rawRoute) => {
@@ -183,20 +203,28 @@ export function RoutePanel() {
             <div
               key={route.id}
               onClick={() => handleSelectRoute(rawRoute)}
-              className={`p-2.5 rounded-xl border transition-all duration-200 cursor-pointer ${
+              className={`p-2.5 rounded-xl border transition-all duration-200 cursor-pointer relative ${
                 isSelected
-                  ? 'bg-salomon-cyan/15 border-salomon-cyan shadow-glow-cyan/40 ring-1 ring-salomon-cyan/50'
+                  ? 'bg-salomon-cyan/15 border-salomon-cyan shadow-glow-cyan/50 ring-2 ring-salomon-cyan/60'
                   : 'bg-white/5 border-salomon-border hover:border-salomon-cyan/40 hover:bg-white/8 active:scale-[0.99]'
               }`}
             >
               {/* Route Title & Badges */}
               <div className="flex items-start justify-between gap-1.5 mb-1">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span
-                    className={`w-2 h-2 rounded-full shrink-0 ${
-                      isSelected ? 'bg-salomon-cyan animate-pulse ring-2 ring-salomon-cyan/40' : 'bg-salomon-muted'
-                    }`}
-                  />
+                <div className="flex items-center gap-2 min-w-0">
+                  {/* Glowing Focus Beacon ⭕ (Client Requirement: ⭕️がビコンビコン光ってるようなフォーカス) */}
+                  {isSelected ? (
+                    <div className="relative w-5 h-5 flex items-center justify-center shrink-0">
+                      <span className="absolute inset-0 rounded-full bg-salomon-cyan/50 animate-beaconRing" />
+                      <span className="w-4 h-4 rounded-full border-2 border-salomon-cyan animate-pulseBeacon shadow-glow-cyan flex items-center justify-center text-[9px] font-black text-salomon-cyan">
+                        ⭕
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="w-5 h-5 flex items-center justify-center shrink-0">
+                      <span className="w-2.5 h-2.5 rounded-full border border-salomon-muted/50 bg-white/10" />
+                    </div>
+                  )}
                   <span className={`text-xs font-bold leading-snug ${isSelected ? 'text-white' : 'text-salomon-text'}`}>
                     {route.name}
                   </span>

@@ -90,4 +90,70 @@
   /* Safe-area padding for notched phones */
   .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
   .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+
+  /* ── Touchscreen Ripple & Focus Beacon Animations ───────────────────── */
+  @keyframes touchRipple {
+    0% {
+      transform: translate(-50%, -50%) scale(0.2);
+      opacity: 0.95;
+    }
+    100% {
+      transform: translate(-50%, -50%) scale(2.6);
+      opacity: 0;
+    }
+  }
+
+  @keyframes touchInnerRipple {
+    0% {
+      transform: scale(0.3);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(2.0);
+      opacity: 0;
+    }
+  }
+
+  @keyframes pulseBeacon {
+    0%, 100% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(10, 255, 224, 0.7), 0 0 14px rgba(10, 255, 224, 0.8);
+    }
+    50% {
+      transform: scale(1.12);
+      box-shadow: 0 0 0 8px rgba(10, 255, 224, 0), 0 0 24px rgba(10, 255, 224, 1);
+    }
+  }
+
+  @keyframes beaconRing {
+    0% {
+      transform: scale(0.9);
+      opacity: 0.9;
+    }
+    70% {
+      transform: scale(1.6);
+      opacity: 0;
+    }
+    100% {
+      transform: scale(1.8);
+      opacity: 0;
+    }
+  }
+
+  .animate-touchRipple {
+    animation: touchRipple 0.65s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+  }
+
+  .animate-touchInnerRipple {
+    animation: touchInnerRipple 0.55s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+  }
+
+  .animate-pulseBeacon {
+    animation: pulseBeacon 1.4s ease-in-out infinite;
+  }
+
+  .animate-beaconRing {
+    animation: beaconRing 1.8s cubic-bezier(0.2, 0.8, 0.4, 1) infinite;
+  }
 }
+
