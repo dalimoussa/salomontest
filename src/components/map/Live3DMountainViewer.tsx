@@ -5,18 +5,23 @@ import { Mountain, RefreshCw, AlertTriangle, ExternalLink } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 
 interface Live3DMountainViewerProps {
+  routeId?: string;
   pocUrl?: string;
   onLoaded?: () => void;
 }
 
 export function Live3DMountainViewer({
-  pocUrl = 'https://49.212.213.226/',
+  routeId = 'route_1',
+  pocUrl,
   onLoaded,
 }: Live3DMountainViewerProps) {
   const language = useStore((s) => s.language);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+
+  // By default, load our local multi-route 3D mountain viewer which supports all 8 trails
+  const effectiveUrl = pocUrl || `/3d-viewer/index.html?route=${encodeURIComponent(routeId)}`;
 
   useEffect(() => {
     setIsLoading(true);
@@ -29,7 +34,7 @@ export function Live3DMountainViewer({
     }, 2800);
 
     return () => clearTimeout(timeout);
-  }, [pocUrl, onLoaded]);
+  }, [effectiveUrl, onLoaded]);
 
   const handleIframeLoad = () => {
     setIsLoading(false);
@@ -41,7 +46,7 @@ export function Live3DMountainViewer({
     if (iframeRef.current) {
       setIsLoading(true);
       setHasError(false);
-      iframeRef.current.src = pocUrl;
+      iframeRef.current.src = effectiveUrl;
     }
   };
 
@@ -50,7 +55,7 @@ export function Live3DMountainViewer({
       {/* ── Live WebGL 3D Mountain Iframe ─────────────────────────────────────── */}
       <iframe
         ref={iframeRef}
-        src={pocUrl}
+        src={effectiveUrl}
         title="Mount Takao 3D Mountain Animation (PoC v0.1)"
         className="w-full h-full border-0 absolute inset-0 pointer-events-auto"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"

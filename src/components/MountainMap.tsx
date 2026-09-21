@@ -129,10 +129,11 @@ export function MountainMap() {
     });
   };
 
-  // When Route 1 (or default) is active, show the 3D Live PoC if selected in admin.
-  // When ANY other course (2号路, 3号路, 4号路, 5号路, 6号路, 稲荷山, 陣馬山, 周辺トレイル) is selected,
-  // automatically render MapLibre 3D with the exact terrain, camera flight, and glowing trail for that course!
-  const isLivePoc = mountainMapMode === '3d_live_poc' && (!selectedRoute || selectedRoute.id === 'route_1');
+  // Mountain Map Mode:
+  // When mountainMapMode === '3d_live_poc' (default):
+  // EVERY route (1号路, 2号路, 3号路, 4号路, 5号路, 6号路, 稲荷山, 陣馬山) renders with the exact same
+  // 3D WebGL Mountain scene with animated terrain, trees, camera fly-through, and waypoint holds!
+  const isLivePoc = mountainMapMode === '3d_live_poc';
 
   return (
     <div
@@ -143,12 +144,15 @@ export function MountainMap() {
     >
       {/* 
         3D Terrain / Live PoC Slot:
-        Defaults to Direct Live 3D PoC (https://49.212.213.226/) with smooth fallback
-        to MapLibre GSI 3D engine or photorealistic visual slot.
+        Direct Live 3D Scene with smooth camera follow, glowing beacon, and waypoint highlights
+        across all 8 Mt. Takao routes. Toggleable to MapLibre via the layers icon.
       */}
       <ErrorBoundary fallback={<MountainVisualSlot />}>
         {isLivePoc ? (
-          <Live3DMountainViewer key={pocReloadKey} />
+          <Live3DMountainViewer
+            key={`${selectedRoute?.id || 'route_1'}-${pocReloadKey}`}
+            routeId={selectedRoute?.id || 'route_1'}
+          />
         ) : (
           <MountainMapGL onMapReady={handleMapReady} />
         )}
@@ -168,7 +172,7 @@ export function MountainMap() {
                           rounded-full px-3.5 py-1 shadow-glass flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-salomon-cyan animate-pulse ring-2 ring-salomon-cyan/30" />
             <span className="text-[11px] font-bold text-salomon-cyan">
-              {isLivePoc ? '3Dリアルタイムシーン (1号路)' : `${selectedRoute.name} (3D地形ルート)`}
+              {isLivePoc ? `${selectedRoute.name} (3Dリアルタイムシーン)` : `${selectedRoute.name} (3D地形ルート)`}
             </span>
           </div>
         </div>
