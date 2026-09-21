@@ -62,7 +62,10 @@ async function fetchGoogleTTSAudio(text: string, lang: string): Promise<Buffer |
       })
     );
 
-    const validBuffers = audioResults.filter((b): b is Buffer => b !== null);
+    const validBuffers: Buffer[] = [];
+    for (const b of audioResults) {
+      if (b) validBuffers.push(b);
+    }
     if (validBuffers.length > 0) {
       return Buffer.concat(validBuffers);
     }

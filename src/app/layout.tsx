@@ -4,6 +4,14 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'SALOMON × AI MOUNTAIN CONCIERGE',
   description: 'サロモン高尾店 AIマウンテンコンシェルジュ — 今日の天気とあなたに最適な装備をご提案します。',
+  icons: {
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/icon.svg', type: 'image/svg+xml' },
+    ],
+    shortcut: '/favicon.svg',
+    apple: '/favicon.svg',
+  },
 };
 
 export const viewport: Viewport = {
