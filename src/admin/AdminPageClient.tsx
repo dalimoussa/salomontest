@@ -37,6 +37,18 @@ export function AdminPageClient() {
       .finally(() => setCheckingAuth(false));
   }, []);
 
+  // Lock body scroll when authenticated so the admin layout controls its own scrolling
+  useEffect(() => {
+    if (authenticated) {
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
+      };
+    }
+  }, [authenticated]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (locked || loading || !pin) return;
@@ -96,22 +108,8 @@ export function AdminPageClient() {
 
   if (authenticated) {
     return (
-      <div className="relative min-h-screen">
-        {/* Top security bar with logout for staff */}
-        <div className="bg-[#050A18] border-b border-white/10 px-4 py-2 flex items-center justify-between z-50">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-xs font-mono text-slate-300">Staff Session Active (Secured)</span>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-red-500/15 hover:bg-red-500/25 text-red-300 border border-red-500/30 text-xs font-semibold transition-colors"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>ログアウト</span>
-          </button>
-        </div>
-        <AdminApp />
+      <div className="h-screen w-screen overflow-hidden bg-[#070D1E]">
+        <AdminApp onLogout={handleLogout} />
       </div>
     );
   }

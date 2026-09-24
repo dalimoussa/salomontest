@@ -41,7 +41,7 @@ const MountainMapGL = dynamic(
   }
 );
 
-// Mount Takao Direct Live 3D WebGL PoC (https://49.212.213.226/)
+// Mount Takao Local 3D WebGL Viewer (Self-hosted, standalone engine)
 const Live3DMountainViewer = dynamic(
   () => import('./map/Live3DMountainViewer').then((m) => ({ default: m.Live3DMountainViewer })),
   {
@@ -267,7 +267,7 @@ export function MountainMap() {
               <span className="text-salomon-muted">·</span>
               <span>右ドラッグ: 平行移動</span>
               <span className="text-salomon-muted">·</span>
-              <span className="text-salomon-cyan font-bold">ホイール: ズーム (リアルタイム 3D PoC)</span>
+              <span className="text-salomon-cyan font-bold">ホイール: ズーム (3D WebGL)　|　レイヤースイッチ: エンジン切替</span>
             </p>
           ) : (
             <p className="text-salomon-text text-[11px] tracking-wide flex items-center gap-2">

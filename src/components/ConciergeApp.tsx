@@ -9,6 +9,7 @@ import { RightPanel } from './RightPanel';
 import { ProductCarousel } from './ProductCarousel';
 import { QuickActions } from './QuickActions';
 import { Footer } from './Footer';
+import { EmergencyNoticeTicker } from './EmergencyNoticeTicker';
 import { EquipmentModal } from './modals/EquipmentModal';
 import { StaffModal } from './modals/StaffModal';
 import { CableCarModal } from './modals/CableCarModal';
@@ -362,6 +363,13 @@ function MainApp() {
       {activeModal === 'staff'      && <StaffModal />}
       {activeModal === 'cablecar'   && <CableCarModal />}
       {activeModal === 'difficulty' && <DifficultyModal />}
+
+      {/* ── Emergency Notice Ticker (fixed bottom, above mobile tab bar) ── */}
+      <div className="fixed bottom-14 md:bottom-0 left-0 right-0 z-40 pointer-events-none">
+        <div className="pointer-events-auto">
+          <EmergencyNoticeTicker />
+        </div>
+      </div>
     </div>
   );
 }

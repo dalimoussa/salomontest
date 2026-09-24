@@ -1,3 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60" fill="none">
-  <text x="0" y="42" font-size="36" font-weight="700" font-family="Arial, sans-serif" fill="#FFFFFF" letter-spacing="2">SALOMON</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 54" fill="none">
+  <!-- Salomon Iconic Geometric S Emblem -->
+  <g transform="translate(4, 6)">
+    <!-- Main S Polygon with Salomon styling -->
+    <path d="M6 4 L30 4 L26 15 L15 15 L13 22 L29 22 L25 38 L6 38 L10 27 L21 27 L23 20 L7 20 Z" fill="#FFFFFF"/>
+    <!-- Red Accent Triangle / Slash -->
+    <polygon points="28,4 35,4 32,15 25,15" fill="#E8002D"/>
+    <polygon points="10,27 4,38 9,38 13,27" fill="#E8002D"/>
+  </g>
+  
+  <!-- SALOMON Bold Modern Brand Wordmark -->
+  <text x="48" y="36" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-weight="900" font-size="28" fill="#FFFFFF" letter-spacing="3.5">
+    SALOMON
+  </text>
 </svg>

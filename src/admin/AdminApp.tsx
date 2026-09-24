@@ -7,18 +7,20 @@ import {
   Menu, X, PanelLeftClose, PanelLeftOpen, Mountain, Globe, CloudRain,
   Sun, CloudSun, Cloud, CloudSnow, Wind, Droplets, Eye,
   RefreshCw, SlidersHorizontal, CheckCircle2, AlertCircle, ArrowUpRight,
-  Volume2, VolumeX, Moon, Layers,
+  Volume2, VolumeX, Moon, Layers, LogOut, AlertTriangle, Megaphone,
 } from 'lucide-react';
 import { HeroMessageEditor } from '@/admin/HeroMessageEditor';
 import { ProductEditor } from '@/admin/ProductEditor';
 import { RouteEditor } from '@/admin/RouteEditor';
 import { WeatherEditor } from '@/admin/WeatherEditor';
 import { CalloutEditor } from '@/admin/CalloutEditor';
+import { EmergencyNoticeEditor } from '@/admin/EmergencyNoticeEditor';
+import { SalomonLogo } from '@/components/SalomonLogo';
 import { useAdminStore } from '@/store/useAdminStore';
 import { useStore } from '@/store/useStore';
 import type { WeatherCode, WeatherData } from '@/types';
 
-type Section = 'dashboard' | 'callout' | 'weather' | 'routes' | 'messages' | 'products';
+type Section = 'dashboard' | 'callout' | 'weather' | 'routes' | 'messages' | 'products' | 'emergency';
 
 const NAV: {
   id: Section;
@@ -27,12 +29,13 @@ const NAV: {
   icon: typeof LayoutDashboard | typeof Volume2;
   badge?: string;
 }[] = [
-  { id: 'dashboard', label: 'ダッシュボード',        labelEn: 'Dashboard',        icon: LayoutDashboard },
-  { id: 'callout',   label: '自動呼びかけ・夜間設定', labelEn: 'Auto Callout',     icon: Volume2,         badge: '夜間/稼働' },
-  { id: 'weather',   label: '天気・気象手動設定',      labelEn: 'Weather Override', icon: CloudRain,       badge: '手動/自動' },
-  { id: 'routes',    label: 'コース・難易度管理',      labelEn: 'Route Settings',   icon: Mountain,        badge: '8大コース' },
-  { id: 'messages',  label: 'ヒーローメッセージ',      labelEn: 'Hero Messages',    icon: MessageSquare,   badge: '3言語対応' },
-  { id: 'products',  label: '商品マスター',            labelEn: 'Products',         icon: Package,         badge: '編集可' },
+  { id: 'dashboard', label: 'ダッシュボード',          labelEn: 'Dashboard',        icon: LayoutDashboard },
+  { id: 'callout',   label: '自動呼びかけ・夜間設定',   labelEn: 'Auto Callout',     icon: Volume2,         badge: '夜間/稼働' },
+  { id: 'weather',   label: '天気・気象手動設定',        labelEn: 'Weather Override', icon: CloudRain,       badge: '手動/自動' },
+  { id: 'routes',    label: 'コース・難易度管理',        labelEn: 'Route Settings',   icon: Mountain,        badge: '8大コース' },
+  { id: 'messages',  label: 'ヒーローメッセージ',        labelEn: 'Hero Messages',    icon: MessageSquare,   badge: '3言語対応' },
+  { id: 'products',  label: '商品マスター',              labelEn: 'Products',         icon: Package,         badge: '編集可' },
+  { id: 'emergency', label: '緊急・特別なお知らせ',      labelEn: 'Emergency Notice', icon: Megaphone,       badge: '全コース共通' },
 ];
 
 function DashboardWeatherIcon({ code, className = 'w-6 h-6' }: { code: WeatherCode; className?: string }) {
@@ -57,6 +60,7 @@ function Dashboard({ onNavigate }: { onNavigate: (s: Section) => void }) {
   const togglePeriodicCallout = useAdminStore(s => s.togglePeriodicCallout);
   const setPeriodicCalloutEnabled = useAdminStore(s => s.setPeriodicCalloutEnabled);
   const mountainMapMode = useAdminStore(s => s.mountainMapMode ?? '3d_live_poc');
+  const emergencyNotice = useAdminStore(s => s.emergencyNotice);
   const setMountainMapMode = useAdminStore(s => s.setMountainMapMode);
 
   const globalWeather    = useStore(s => s.weather);
@@ -536,23 +540,14 @@ function Dashboard({ onNavigate }: { onNavigate: (s: Section) => void }) {
             <p className="text-xs text-slate-300 leading-relaxed">
               ユーザー画面の中央に常時レンダリングされるメインマウンテン表示を切り替えます。
               {mountainMapMode === '3d_live_poc'
-                ? '「3DリアルタイムPoC（49.212.213.226）」が直接ライブ埋め込みされており、全画面でマウスドラッグによる360度回転・ズーム・登山道ルートアニメーションが動作します。'
+                ? '「高尾山 3D WebGL表示」が直接レンダリングされており、全画面でマウスドラッグによる360度回転・ズーム・登山道ルートアニメーションが動作します。'
                 : '「MapLibre GSI 3D」エンジンが動作しており、国土地理院標高タイルに基づく3D地形と8大トレイルの詳細ラインが表示されます。'}
             </p>
             <div className="flex items-center gap-3 pt-1 text-[11px] text-slate-400">
-              <span className="flex items-center gap-1">
+              <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                サーバー稼働中: https://49.212.213.226/
+                レンダリングエンジン: サービス内蔵 3D WebGL (スタンドアロン稼働)
               </span>
-              <a
-                href="https://49.212.213.226/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-cyan-400 hover:text-cyan-300 font-medium inline-flex items-center gap-0.5 transition-colors"
-              >
-                別ウィンドウでPoCを開く
-                <ExternalLink className="w-3 h-3" />
-              </a>
             </div>
           </div>
 
@@ -567,7 +562,7 @@ function Dashboard({ onNavigate }: { onNavigate: (s: Section) => void }) {
               }`}
             >
               <Mountain className="w-3.5 h-3.5 text-cyan-400" />
-              3D PoC (49.212.213.226)
+              3D WebGL
             </button>
 
             <button
@@ -732,22 +727,20 @@ function SidebarContent({
   activeSection,
   onSelect,
   onClose,
+  onLogout,
 }: {
   activeSection: Section;
   onSelect: (s: Section) => void;
   onClose?: () => void;
+  onLogout?: () => void;
 }) {
   return (
     <div className="flex flex-col h-full">
       {/* Brand */}
-      <div className="px-5 py-5 border-b border-white/8 flex items-start justify-between gap-2">
+      <div className="px-5 py-4 border-b border-white/8 flex items-start justify-between gap-2 flex-shrink-0">
         <div>
-          <div className="flex items-center gap-2 mb-0.5">
-            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-            <span className="text-base font-black tracking-widest text-white">SALOMON</span>
-          </div>
-          <p className="text-[10px] text-cyan-400 tracking-widest uppercase font-semibold">Admin Console</p>
-          <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+          <SalomonLogo size="md" subtitleText="ADMIN CONSOLE" />
+          <div className="mt-2.5 flex items-center gap-1.5 flex-wrap">
             <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-500/30">
               <Globe className="w-3 h-3 text-cyan-400" />
               <span className="text-[10px] text-cyan-300 font-bold">3言語対応</span>
@@ -804,18 +797,29 @@ function SidebarContent({
       </nav>
 
       {/* Footer */}
-      <div className="px-3 py-4 border-t border-white/8">
+      <div className="px-3 py-3 border-t border-white/8 flex-shrink-0 space-y-1.5">
         <a
           href="/"
-          className="flex items-center gap-2 w-full px-3 py-2.5 rounded-xl
+          className="flex items-center gap-2 w-full px-3 py-2 rounded-xl
                      text-slate-400 hover:text-cyan-400 hover:bg-white/5
-                     transition-all text-sm font-medium min-h-[44px]"
+                     transition-all text-xs font-medium"
         >
           <ExternalLink className="w-4 h-4 flex-shrink-0" />
-          コンシェルジュ画面へ
+          <span>コンシェルジュ画面へ</span>
         </a>
-        <div className="mt-3 px-3">
-          <p className="text-[10px] text-slate-600 leading-relaxed">
+        {onLogout && (
+          <button
+            onClick={onLogout}
+            className="flex items-center gap-2 w-full px-3 py-2 rounded-xl
+                       text-rose-400 hover:text-rose-300 hover:bg-rose-500/10
+                       border border-rose-500/20 transition-all text-xs font-semibold"
+          >
+            <LogOut className="w-4 h-4 flex-shrink-0" />
+            <span>ログアウト</span>
+          </button>
+        )}
+        <div className="px-2 pt-0.5">
+          <p className="text-[9px] text-slate-500 leading-tight">
             © 2026 SALOMON<br />Mountain AI Concierge
           </p>
         </div>
@@ -825,7 +829,7 @@ function SidebarContent({
 }
 
 /* ── Main AdminApp ─────────────────────────────────────────────────────── */
-export function AdminApp() {
+export function AdminApp({ onLogout }: { onLogout?: () => void }) {
   const [activeSection,   setActiveSection]   = useState<Section>('dashboard');
   // Desktop: sidebar collapsed/expanded
   const [sidebarOpen,     setSidebarOpen]     = useState(true);
@@ -840,6 +844,7 @@ export function AdminApp() {
       case 'messages':  return <HeroMessageEditor />;
       case 'products':  return <ProductEditor />;
       case 'routes':    return <RouteEditor />;
+      case 'emergency': return <EmergencyNoticeEditor />;
     }
   };
 
@@ -847,12 +852,12 @@ export function AdminApp() {
   const CurrentIcon = currentNav.icon;
 
   return (
-    <div className="min-h-screen flex overflow-hidden" style={{ background: '#070D1E' }}>
+    <div className="h-screen w-full flex overflow-hidden" style={{ background: '#070D1E' }}>
 
       {/* ── Desktop sidebar ──────────────────────────────────────────── */}
       <aside
         className={`hidden md:flex flex-col flex-shrink-0 border-r border-white/8
-                    transition-all duration-300 ease-in-out overflow-hidden`}
+                    transition-all duration-300 ease-in-out h-full overflow-hidden`}
         style={{
           background: '#0A1228',
           width: sidebarOpen ? '256px' : '0px',
@@ -863,6 +868,7 @@ export function AdminApp() {
         <SidebarContent
           activeSection={activeSection}
           onSelect={setActiveSection}
+          onLogout={onLogout}
         />
       </aside>
 
@@ -889,6 +895,7 @@ export function AdminApp() {
           activeSection={activeSection}
           onSelect={setActiveSection}
           onClose={() => setMobileMenuOpen(false)}
+          onLogout={onLogout}
         />
       </aside>
 

@@ -25,6 +25,24 @@ const DEFAULT_HERO_MESSAGES: HeroMessages = {
   },
 };
 
+export interface EmergencyNotice {
+  enabled: boolean;
+  message: string;
+  message_en?: string;
+  message_zh?: string;
+  severity: 'warning' | 'alert' | 'info';
+  updatedAt?: string;
+}
+
+export const DEFAULT_EMERGENCY_NOTICE: EmergencyNotice = {
+  enabled: false,
+  message: '',
+  message_en: '',
+  message_zh: '',
+  severity: 'alert',
+  updatedAt: new Date().toISOString(),
+};
+
 export const DEFAULT_WEATHER_OVERRIDE: WeatherManualOverride = {
   enabled: false,
   temp_c: 21,
@@ -129,7 +147,13 @@ export interface AdminState {
   togglePeriodicCallout: (enabled?: boolean) => void;
   setPeriodicCalloutInterval: (interval: 60 | 120) => void;
 
-  // 3D Mountain Map Display Mode: Live WebGL PoC (https://49.212.213.226/) vs MapLibre GSI 3D Engine
+  // Emergency Special Notice Banner (画面下段テロップ配信)
+  emergencyNotice: EmergencyNotice;
+  setEmergencyNotice: (updates: Partial<EmergencyNotice>) => void;
+  toggleEmergencyNotice: (enabled?: boolean) => void;
+  resetEmergencyNotice: () => void;
+
+  // 3D Mountain Map Display Mode: Takao Local 3D WebGL Engine vs MapLibre GSI 3D Engine
   mountainMapMode: '3d_live_poc' | 'maplibre_interactive';
   setMountainMapMode: (mode: '3d_live_poc' | 'maplibre_interactive') => void;
   toggleMountainMapMode: () => void;
@@ -229,7 +253,33 @@ export const useAdminStore = create<AdminState>()(
       setPeriodicCalloutInterval: (periodicCalloutInterval) =>
         set({ periodicCalloutInterval, lastSavedAt: new Date().toISOString() }),
 
-      // 3D Mountain Map Mode: Direct Live 3D PoC (https://49.212.213.226/) by default
+      // Emergency Special Notice Banner
+      emergencyNotice: DEFAULT_EMERGENCY_NOTICE,
+      setEmergencyNotice: (updates) =>
+        set((s) => ({
+          emergencyNotice: {
+            ...s.emergencyNotice,
+            ...updates,
+            updatedAt: new Date().toISOString(),
+          },
+          lastSavedAt: new Date().toISOString(),
+        })),
+      toggleEmergencyNotice: (enabled) =>
+        set((s) => ({
+          emergencyNotice: {
+            ...s.emergencyNotice,
+            enabled: enabled !== undefined ? enabled : !s.emergencyNotice.enabled,
+            updatedAt: new Date().toISOString(),
+          },
+          lastSavedAt: new Date().toISOString(),
+        })),
+      resetEmergencyNotice: () =>
+        set({
+          emergencyNotice: DEFAULT_EMERGENCY_NOTICE,
+          lastSavedAt: new Date().toISOString(),
+        }),
+
+      // 3D Mountain Map Mode: Takao Local 3D WebGL by default
       mountainMapMode: '3d_live_poc',
       setMountainMapMode: (mountainMapMode) =>
         set({ mountainMapMode, lastSavedAt: new Date().toISOString() }),
@@ -252,6 +302,7 @@ export const useAdminStore = create<AdminState>()(
         weatherOverride: s.weatherOverride,
         periodicCalloutEnabled: s.periodicCalloutEnabled,
         periodicCalloutInterval: s.periodicCalloutInterval,
+        emergencyNotice: s.emergencyNotice,
         mountainMapMode: s.mountainMapMode,
         lastSavedAt: s.lastSavedAt,
       }),

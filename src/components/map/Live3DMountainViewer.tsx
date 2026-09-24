@@ -100,7 +100,7 @@ export function Live3DMountainViewer({
             3Dマップサーバーに接続できませんでした
           </h3>
           <p className="text-xs text-slate-400 max-w-md mb-4 leading-relaxed">
-            3D PoC サーバー（49.212.213.226）が応答していないか、ブラウザのセキュリティ設定によりブロックされた可能性があります。
+            3D PoC サーバー（）が応答していないか、ブラウザのセキュリティ設定によりブロックされた可能性があります。
           </p>
           <div className="flex items-center gap-2">
             <button
