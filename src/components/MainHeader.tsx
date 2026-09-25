@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Cloud, CloudRain, CloudSnow, CloudSun, Sun } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { useAdminStore } from '@/store/useAdminStore';
+import { SalomonEmblem } from '@/components/SalomonLogo';
 import type { WeatherCode } from '@/types';
 
 function WeatherIcon({ code, size = 'sm' }: { code: WeatherCode; size?: 'sm' | 'xs' }) {
@@ -56,11 +57,11 @@ export function MainHeader() {
         style={{ paddingTop: `max(env(safe-area-inset-top, 0px), 12px)` }}>
         {/* Brand */}
         <div className="animate-fadeInLeft opacity-0-start" style={{ animationFillMode: 'forwards' }}>
-          <div className="flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-salomon-red shadow-glow-red animate-pulse-slow" />
-            <span className="text-base font-black tracking-[0.12em] text-white">SALOMON</span>
+          <div className="flex items-center gap-2">
+            <SalomonEmblem className="w-5 h-5 drop-shadow-md" />
+            <span className="text-base font-black tracking-[0.14em] text-white">SALOMON</span>
           </div>
-          <p className="text-salomon-cyan text-[9px] tracking-widest uppercase font-medium leading-none mt-0.5">
+          <p className="text-salomon-cyan text-[9px] tracking-widest uppercase font-bold leading-none mt-0.5">
             Mountain AI Concierge
           </p>
         </div>
@@ -82,12 +83,12 @@ export function MainHeader() {
       {/* ── Desktop header (≥ lg) ────────────────────────────────────── */}
       <div className="hidden lg:grid grid-cols-[auto_1fr_auto] items-center px-6 pt-3 pb-1 gap-6">
         {/* Left: SALOMON brand */}
-        <div className="animate-fadeInLeft opacity-0-start flex flex-col justify-center min-w-[200px]" style={{ animationFillMode: 'forwards' }}>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-salomon-red shadow-glow-red animate-pulse-slow" />
-            <span className="text-xl font-black tracking-[0.15em] text-white">SALOMON</span>
+        <div className="animate-fadeInLeft opacity-0-start flex flex-col justify-center min-w-[210px]" style={{ animationFillMode: 'forwards' }}>
+          <div className="flex items-center gap-2.5">
+            <SalomonEmblem className="w-6 h-6 drop-shadow-md" />
+            <span className="text-xl font-black tracking-[0.16em] text-white">SALOMON</span>
           </div>
-          <p className="text-salomon-cyan text-[10px] tracking-[0.2em] uppercase mt-0.5 font-semibold">
+          <p className="text-salomon-cyan text-[10px] tracking-[0.2em] uppercase mt-0.5 font-bold">
             Mountain AI Concierge
           </p>
           <p className="text-salomon-muted text-[9px] tracking-wider mt-0.5 truncate">

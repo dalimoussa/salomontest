@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   LayoutDashboard, MessageSquare, Package, Settings,
   ExternalLink, ChevronRight, Clock,
@@ -49,6 +49,53 @@ function DashboardWeatherIcon({ code, className = 'w-6 h-6' }: { code: WeatherCo
   }
 }
 
+/* ── Isolated Live Clock to prevent entire Dashboard re-rendering every second ── */
+function AdminLiveClock() {
+  const [time, setTime] = useState<Date>(() => new Date());
+
+  useEffect(() => {
+    const t = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const hh = String(time.getHours()).padStart(2, '0');
+  const mm = String(time.getMinutes()).padStart(2, '0');
+  const ss = String(time.getSeconds()).padStart(2, '0');
+  const dateStr = time.toLocaleDateString('ja-JP', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'short',
+  });
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Clock className="w-4 h-4 text-cyan-400" />
+          <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">現在時刻（JST 日本標準時）</span>
+        </div>
+        <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-white/5 text-slate-400 border border-white/10">
+          東京都八王子市 高尾山
+        </span>
+      </div>
+
+      {/* Big Clock Display */}
+      <div className="py-2 flex items-baseline gap-2">
+        <span className="text-4xl sm:text-5xl font-black text-white tabular-nums tracking-tight font-mono">
+          {hh}:{mm}
+        </span>
+        <span className="text-xl sm:text-2xl font-bold text-cyan-400 tabular-nums font-mono">
+          :{ss}
+        </span>
+      </div>
+      <p className="text-xs text-slate-300 font-medium mt-1">
+        {dateStr}
+      </p>
+    </div>
+  );
+}
+
 /* ── Dashboard content ─────────────────────────────────────────────────── */
 function Dashboard({ onNavigate }: { onNavigate: (s: Section) => void }) {
   const products        = useAdminStore(s => s.products);
@@ -66,15 +113,8 @@ function Dashboard({ onNavigate }: { onNavigate: (s: Section) => void }) {
   const globalWeather    = useStore(s => s.weather);
   const setGlobalWeather = useStore(s => s.setWeather);
 
-  // Live time ticker
-  const [time, setTime] = useState<Date>(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastApiFetchTime, setLastApiFetchTime] = useState<string | null>(null);
-
-  useEffect(() => {
-    const t = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(t);
-  }, []);
 
   const fetchApiWeather = useCallback(async () => {
     setIsRefreshing(true);
@@ -123,19 +163,9 @@ function Dashboard({ onNavigate }: { onNavigate: (s: Section) => void }) {
         customNotice: '',
       };
 
-  const inStock    = products.filter(p => p.stockStatus === 'in_stock').length;
-  const lowStock   = products.filter(p => p.stockStatus === 'low_stock').length;
-  const outOfStock = products.filter(p => p.stockStatus === 'out_of_stock').length;
-
-  const hh = String(time.getHours()).padStart(2, '0');
-  const mm = String(time.getMinutes()).padStart(2, '0');
-  const ss = String(time.getSeconds()).padStart(2, '0');
-  const dateStr = time.toLocaleDateString('ja-JP', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    weekday: 'short',
-  });
+  const inStock    = useMemo(() => products.filter(p => p.stockStatus === 'in_stock').length, [products]);
+  const lowStock   = useMemo(() => products.filter(p => p.stockStatus === 'low_stock').length, [products]);
+  const outOfStock = useMemo(() => products.filter(p => p.stockStatus === 'out_of_stock').length, [products]);
 
   return (
     <div className="space-y-6">
@@ -221,30 +251,7 @@ function Dashboard({ onNavigate }: { onNavigate: (s: Section) => void }) {
           
           {/* 1. Time Display & Indicator */}
           <div className="rounded-xl border border-white/10 bg-slate-900/80 p-4 sm:p-5 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-cyan-400" />
-                  <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">現在時刻（JST 日本標準時）</span>
-                </div>
-                <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-white/5 text-slate-400 border border-white/10">
-                  東京都八王子市 高尾山
-                </span>
-              </div>
-
-              {/* Big Clock Display */}
-              <div className="py-2 flex items-baseline gap-2">
-                <span className="text-4xl sm:text-5xl font-black text-white tabular-nums tracking-tight font-mono">
-                  {hh}:{mm}
-                </span>
-                <span className="text-xl sm:text-2xl font-bold text-cyan-400 tabular-nums font-mono">
-                  :{ss}
-                </span>
-              </div>
-              <p className="text-xs text-slate-300 font-medium mt-1">
-                {dateStr}
-              </p>
-            </div>
+            <AdminLiveClock />
 
             {/* Time Retrieval Mode Indicator */}
             <div className="mt-4 pt-3 border-t border-white/10">
@@ -860,7 +867,7 @@ export function AdminApp({ onLogout }: { onLogout?: () => void }) {
                     transition-all duration-300 ease-in-out h-full overflow-hidden`}
         style={{
           background: '#0A1228',
-          width: sidebarOpen ? '256px' : '0px',
+          width: sidebarOpen ? '288px' : '0px',
           opacity: sidebarOpen ? 1 : 0,
         }}
         aria-hidden={!sidebarOpen}
@@ -942,8 +949,18 @@ export function AdminApp({ onLogout }: { onLogout?: () => void }) {
             </span>
           </div>
 
-          <div className="ml-auto flex items-center gap-2">
-            <Settings className="w-4 h-4 text-slate-600" />
+          {/* Top Bar Actions: Repositioned "コンシェルジュ画面へ" (To Concierge Screen) */}
+          <div className="ml-auto flex items-center gap-3">
+            <a
+              href="/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/35 text-cyan-300 hover:text-white transition-all text-xs font-bold shadow-sm"
+              title="別タブでコンシェルジュ画面を開く"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>コンシェルジュ画面へ</span>
+            </a>
           </div>
         </div>
 

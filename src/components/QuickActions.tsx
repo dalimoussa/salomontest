@@ -3,7 +3,7 @@
 import React, { useEffect } from 'react';
 import { MapPinned, ListChecks, Volume2 } from 'lucide-react';
 import { useStore } from '@/store/useStore';
-import { useAdminStore } from '@/store/useAdminStore';
+import { useAdminStore, isCalloutActiveNow } from '@/store/useAdminStore';
 import { ROUTES } from '@/data/routes';
 import { getRecommendedProducts } from '@/data/products';
 import { getCurrentSeason } from '@/lib/season';
@@ -77,10 +77,21 @@ export function QuickActions() {
   //    「高尾山やおすすめルート、装備について、ご質問があれば話しかけてください。」
   // 2. ユーザーが話しかけた時: 呼びかけタイマー停止 → 会話モードへ
   // 3. 会話終了後: 35秒（30〜60秒）無操作で通常待機へ自動復帰 → 呼びかけ再開
-  // 4. 管理者画面 (/admin) から夜間・無人停止モード（OFF）に切り替え可能
+  // 4. 管理者画面 (/admin) の営業時間スケジュール（または手動夜間停止）とリアルタイム連動
+  const calloutScheduleMode = useAdminStore((s) => s.calloutScheduleMode ?? 'auto');
   const periodicCalloutEnabled = useAdminStore((s) => s.periodicCalloutEnabled ?? true);
+  const businessHoursStart = useAdminStore((s) => s.businessHoursStart ?? '10:00');
+  const businessHoursEnd = useAdminStore((s) => s.businessHoursEnd ?? '19:00');
   const periodicCalloutInterval = useAdminStore((s) => s.periodicCalloutInterval ?? 60);
   const setAdminPeriodicCalloutInterval = useAdminStore((s) => s.setPeriodicCalloutInterval);
+
+  // Check if callout is active based on schedule or manual mode
+  const isCalloutActive = isCalloutActiveNow({
+    calloutScheduleMode,
+    periodicCalloutEnabled,
+    businessHoursStart,
+    businessHoursEnd,
+  });
 
   const {
     mode: calloutMode,
@@ -90,7 +101,7 @@ export function QuickActions() {
     isCalloutSpeaking,
     triggerCallout,
   } = usePeriodicCallout({
-    enabled: periodicCalloutEnabled,
+    enabled: isCalloutActive,
     voiceStatus: status,
     transcript,
     speakText,
@@ -113,11 +124,11 @@ export function QuickActions() {
   // ── AI Camera Presence Bridge Integration ───────────────────────────────────
   // When an AI camera detects someone standing in front of the whiteboard,
   // greet them and automatically begin the hands-free listening loop.
-  // (Disabled if periodicCalloutEnabled is false e.g. at night)
+  // (Disabled if isCalloutActive is false e.g. at night or outside business hours)
   useEffect(() => {
     const cleanup = initCameraPresenceBridge(
       async (greetingText) => {
-        if (!periodicCalloutEnabled) return;
+        if (!isCalloutActive) return;
         unlockAudio();
         if (status === 'idle') {
           await speakText(greetingText);
@@ -129,7 +140,7 @@ export function QuickActions() {
       () => language
     );
     return cleanup;
-  }, [language, status, speakText, periodicCalloutEnabled]);
+  }, [language, status, speakText, isCalloutActive]);
 
   const handleClick = async (action: string) => {
     if (action === 'checklist') {

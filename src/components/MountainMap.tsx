@@ -253,33 +253,6 @@ export function MountainMap() {
         </div>
       </div>
 
-      {/* 3D Interaction hint — centered in upper mountain view on desktop */}
-      <div
-        className="hidden lg:block absolute top-16 left-1/2 -translate-x-1/2 z-20
-                   animate-fadeIn opacity-0-start pointer-events-none"
-        style={{ animationFillMode: 'forwards', animationDelay: '1s' }}
-      >
-        <div className="bg-salomon-dark/85 backdrop-blur-md border border-salomon-cyan/30
-                        rounded-full px-4 py-1.5 shadow-glass">
-          {isLivePoc ? (
-            <p className="text-salomon-text text-[11px] tracking-wide flex items-center gap-2">
-              <span>🖱️ 左ドラッグ: 3D回転</span>
-              <span className="text-salomon-muted">·</span>
-              <span>右ドラッグ: 平行移動</span>
-              <span className="text-salomon-muted">·</span>
-              <span className="text-salomon-cyan font-bold">ホイール: ズーム (3D WebGL)　|　レイヤースイッチ: エンジン切替</span>
-            </p>
-          ) : (
-            <p className="text-salomon-text text-[11px] tracking-wide flex items-center gap-2">
-              <span>🖱️ {t('map.hintPan')}</span>
-              <span className="text-salomon-muted">·</span>
-              <span>{t('map.hintZoom')}</span>
-              <span className="text-salomon-muted">·</span>
-              <span className="text-salomon-cyan font-bold">{t('map.hintRotate')}</span>
-            </p>
-          )}
-        </div>
-      </div>
     </div>
   );
 }

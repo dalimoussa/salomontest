@@ -143,9 +143,14 @@ export interface AdminState {
   // Periodic Callout / Automatic Introduction Feature (夜間・無人稼働時の自動呼びかけ ON/OFF)
   periodicCalloutEnabled: boolean;
   periodicCalloutInterval: 60 | 120;
+  calloutScheduleMode: 'auto' | 'manual';
+  businessHoursStart: string; // e.g. "10:00"
+  businessHoursEnd: string;   // e.g. "19:00"
   setPeriodicCalloutEnabled: (enabled: boolean) => void;
   togglePeriodicCallout: (enabled?: boolean) => void;
   setPeriodicCalloutInterval: (interval: 60 | 120) => void;
+  setCalloutScheduleMode: (mode: 'auto' | 'manual') => void;
+  setBusinessHours: (start: string, end: string) => void;
 
   // Emergency Special Notice Banner (画面下段テロップ配信)
   emergencyNotice: EmergencyNotice;
@@ -240,9 +245,12 @@ export const useAdminStore = create<AdminState>()(
           lastSavedAt: new Date().toISOString(),
         }),
 
-      // Periodic callout defaults to true (enabled) and 60 seconds interval
+      // Periodic callout defaults to true (enabled), auto schedule mode, and 10:00-19:00 business hours
       periodicCalloutEnabled: true,
       periodicCalloutInterval: 60,
+      calloutScheduleMode: 'auto',
+      businessHoursStart: '10:00',
+      businessHoursEnd: '19:00',
       setPeriodicCalloutEnabled: (periodicCalloutEnabled) =>
         set({ periodicCalloutEnabled, lastSavedAt: new Date().toISOString() }),
       togglePeriodicCallout: (enabled) =>
@@ -252,6 +260,10 @@ export const useAdminStore = create<AdminState>()(
         })),
       setPeriodicCalloutInterval: (periodicCalloutInterval) =>
         set({ periodicCalloutInterval, lastSavedAt: new Date().toISOString() }),
+      setCalloutScheduleMode: (calloutScheduleMode) =>
+        set({ calloutScheduleMode, lastSavedAt: new Date().toISOString() }),
+      setBusinessHours: (businessHoursStart, businessHoursEnd) =>
+        set({ businessHoursStart, businessHoursEnd, lastSavedAt: new Date().toISOString() }),
 
       // Emergency Special Notice Banner
       emergencyNotice: DEFAULT_EMERGENCY_NOTICE,
@@ -302,6 +314,9 @@ export const useAdminStore = create<AdminState>()(
         weatherOverride: s.weatherOverride,
         periodicCalloutEnabled: s.periodicCalloutEnabled,
         periodicCalloutInterval: s.periodicCalloutInterval,
+        calloutScheduleMode: s.calloutScheduleMode,
+        businessHoursStart: s.businessHoursStart,
+        businessHoursEnd: s.businessHoursEnd,
         emergencyNotice: s.emergencyNotice,
         mountainMapMode: s.mountainMapMode,
         lastSavedAt: s.lastSavedAt,
@@ -334,6 +349,15 @@ export const useAdminStore = create<AdminState>()(
         if (state.periodicCalloutInterval === undefined) {
           state.periodicCalloutInterval = 60;
         }
+        if (state.calloutScheduleMode === undefined) {
+          state.calloutScheduleMode = 'auto';
+        }
+        if (!state.businessHoursStart) {
+          state.businessHoursStart = '10:00';
+        }
+        if (!state.businessHoursEnd) {
+          state.businessHoursEnd = '19:00';
+        }
         if (!state.mountainMapMode) {
           state.mountainMapMode = '3d_live_poc';
         }
@@ -341,3 +365,39 @@ export const useAdminStore = create<AdminState>()(
     }
   )
 );
+
+/**
+ * Checks if current time is within business hours (e.g. 10:00 - 19:00)
+ */
+export function isWithinBusinessHours(startStr = '10:00', endStr = '19:00', now = new Date()): boolean {
+  try {
+    const [sH, sM] = startStr.split(':').map(Number);
+    const [eH, eM] = endStr.split(':').map(Number);
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    const startMinutes = (isNaN(sH) ? 10 : sH) * 60 + (isNaN(sM) ? 0 : sM);
+    const endMinutes = (isNaN(eH) ? 19 : eH) * 60 + (isNaN(eM) ? 0 : eM);
+
+    if (startMinutes <= endMinutes) {
+      return currentMinutes >= startMinutes && currentMinutes < endMinutes;
+    }
+    // Overnight hours (e.g. 21:00 to 06:00)
+    return currentMinutes >= startMinutes || currentMinutes < endMinutes;
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * Evaluates whether automatic attract callout should be active right now
+ */
+export function isCalloutActiveNow(state: {
+  calloutScheduleMode?: 'auto' | 'manual';
+  periodicCalloutEnabled?: boolean;
+  businessHoursStart?: string;
+  businessHoursEnd?: string;
+}, now = new Date()): boolean {
+  if (state.calloutScheduleMode === 'manual') {
+    return state.periodicCalloutEnabled ?? true;
+  }
+  return isWithinBusinessHours(state.businessHoursStart || '10:00', state.businessHoursEnd || '19:00', now);
+}

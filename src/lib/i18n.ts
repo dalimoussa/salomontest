@@ -36,8 +36,8 @@ export const TRANSLATIONS = {
     // RoutePanel
     'route.title': 'ルート案内',
     'route.coursesShowing': '{count} コース表示中',
-    'route.tabTakao': '高尾山 主要コース',
-    'route.tabSurrounding': '周辺・ロングトレイル',
+    'route.tabTakao': '登山（12コース）',
+    'route.tabSurrounding': 'トレラン（8コース）',
     'route.all': 'すべて',
     'route.beginner': '初級',
     'route.intermediate': '中級',
@@ -234,8 +234,8 @@ export const TRANSLATIONS = {
     // RoutePanel
     'route.title': 'Trail Navigation',
     'route.coursesShowing': '{count} Trails Shown',
-    'route.tabTakao': 'Mt. Takao Courses',
-    'route.tabSurrounding': 'Surrounding & Long Trails',
+    'route.tabTakao': 'Hiking (12 Trails)',
+    'route.tabSurrounding': 'Trail Running (8 Courses)',
     'route.all': 'All',
     'route.beginner': 'Beginner',
     'route.intermediate': 'Intermediate',
@@ -432,8 +432,8 @@ export const TRANSLATIONS = {
     // RoutePanel
     'route.title': '路线向导',
     'route.coursesShowing': '正在显示 {count} 条路线',
-    'route.tabTakao': '高尾山 经典路线',
-    'route.tabSurrounding': '周边·长距离步道',
+    'route.tabTakao': '登山徒步（12条路线）',
+    'route.tabSurrounding': '越野跑（8条路线）',
     'route.all': '全部',
     'route.beginner': '初级',
     'route.intermediate': '中级',

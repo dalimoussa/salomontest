@@ -141,7 +141,7 @@ export const TAKAO_POIS_GEOJSON: FeatureCollection = {
       "properties": {
         "id": "parking_kiyotaki",
         "name": "清滝駅 駐車場",
-        "name_en": "Kiyotaki Station Parking",
+        "name_en": "Kiyotaki Parking",
         "name_zh": "清泷站 停车场",
         "altitude": "200m",
         "category": "facility",
@@ -159,21 +159,115 @@ export const TAKAO_POIS_GEOJSON: FeatureCollection = {
       "type": "Feature",
       "properties": {
         "id": "toilet_summit",
-        "name": "山頂トイレ",
+        "name": "山頂公衆トイレ",
         "name_en": "Summit Restroom",
-        "name_zh": "山顶卫生间",
+        "name_zh": "山顶洗手间",
         "altitude": "595m",
         "category": "facility",
         "icon": "toilet",
-        "description": "バリアフリートイレ併設、暖房便座。",
-        "status": "利用可（やや混雑）",
-        "statusColor": "#FACC15"
+        "description": "バリアフリートイレ併設、暖房便座・ベビーベッド完備。",
+        "status": "利用可（清潔）",
+        "statusColor": "#4ADE80"
       },
       "geometry": {
         "type": "Point",
         "coordinates": [139.2442, 35.6250]
       }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "toilet_kiyotaki",
+        "name": "清滝駅前トイレ",
+        "name_en": "Kiyotaki Station Restroom",
+        "name_zh": "清泷站前洗手间",
+        "altitude": "201m",
+        "category": "facility",
+        "icon": "toilet",
+        "description": "ケーブルカー清滝駅改札横。大型公衆トイレ（バリアフリー対応）。",
+        "status": "利用可",
+        "statusColor": "#4ADE80"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [139.2692, 35.6316]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "toilet_kasumidai",
+        "name": "霞台展望トイレ",
+        "name_en": "Kasumidai Restroom",
+        "name_zh": "霞台展望洗手间",
+        "altitude": "472m",
+        "category": "facility",
+        "icon": "toilet",
+        "description": "ケーブルカー高尾山駅すぐ、ビアマウント下。洋式・多目的トイレ完備。",
+        "status": "利用可",
+        "statusColor": "#4ADE80"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [139.2602, 35.6321]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "teahouse_momiji",
+        "name": "細田屋（もみじ台富士見茶屋）",
+        "name_en": "Hosodaya (Momijidai Teahouse)",
+        "name_zh": "细田屋（红叶台富士见茶屋）",
+        "altitude": "550m",
+        "category": "teahouse",
+        "icon": "coffee",
+        "description": "名物手打ちとろろそば、なめこ汁。富士山を一望できる屋外ベンチ。",
+        "status": "営業中 (~16:00)",
+        "statusColor": "#FACC15"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [139.2372, 35.6241]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "teahouse_shiroyama",
+        "name": "城山茶屋・春美茶屋（小仏城山）",
+        "name_en": "Shiroyama Teahouse",
+        "name_zh": "城山茶社（小佛城山）",
+        "altitude": "670m",
+        "category": "teahouse",
+        "icon": "coffee",
+        "description": "名物巨大かき氷、温かいなめこ汁。小仏城山山頂の芝生広場すぐ。",
+        "status": "営業中 (~15:30)",
+        "statusColor": "#FACC15"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [139.2225, 35.6305]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "toilet_itchodaira",
+        "name": "一丁平 公衆トイレ",
+        "name_en": "Itchodaira Restroom",
+        "name_zh": "一丁目平洗手间",
+        "altitude": "530m",
+        "category": "facility",
+        "icon": "toilet",
+        "description": "奥高尾縦走路の貴重な水洗バイオトイレ。展望デッキ手前。",
+        "status": "利用可",
+        "statusColor": "#4ADE80"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [139.2310, 35.6270]
+      }
     }
   ]
-}
-;
+};

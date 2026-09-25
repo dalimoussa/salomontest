@@ -22,20 +22,9 @@ interface Snowflake {
   wobbleSpeed: number;
 }
 
-interface SunMote {
-  x: number;
-  y: number;
-  radius: number;
-  speedY: number;
-  speedX: number;
-  opacity: number;
-  pulsePhase: number;
-}
-
 const MIN_DROPS = 60;
-const MAX_DROPS = 550;
-const SNOW_FLAKE_COUNT = 180;
-const SUN_MOTE_COUNT = 45;
+const MAX_DROPS = 450;
+const SNOW_FLAKE_COUNT = 140;
 
 export function RainOverlay() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -53,17 +42,20 @@ export function RainOverlay() {
   const windSpeed   = weather?.windSpeed ?? 3; // m/s
   const tempC       = weather?.temp_c ?? 18;
 
-  // Determine current active weather mode
+  // Determine current active precipitation (only animate when actual rain or snow is present)
   const isSnow = weatherCode === 'snowy' || (isRainOverlayVisible && tempC <= 2);
   const isRain = !isSnow && (isRainOverlayVisible || weatherCode === 'rainy' || (weather?.precipitationMmh ?? 0) > 0);
-  const isSun  = weatherCode === 'sunny';
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || (!isRain && !isSnow && !isSun) || prefersReducedMotion) {
+    if (!canvas || (!isRain && !isSnow) || prefersReducedMotion) {
       if (rafRef.current !== null) {
         cancelAnimationFrame(rafRef.current);
         rafRef.current = null;
+      }
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
       }
       return;
     }
@@ -76,15 +68,13 @@ export function RainOverlay() {
     const intensityFraction = Math.min(1, Math.max(0, (effectiveMmh - 1) / 19));
     const dropCount = Math.round(MIN_DROPS + (MAX_DROPS - MIN_DROPS) * intensityFraction);
 
-    // Wind angle calculation (wind speed tilts rain and drives snow drift)
+    // Wind angle calculation
     const rainTilt = Math.max(-0.6, Math.min(0.6, (windSpeed - 1.5) * 0.08));
     const sinA = Math.sin(rainTilt);
     const cosA = Math.cos(rainTilt);
 
-    // Initialize particle arrays
     let drops: Raindrop[] = [];
     let flakes: Snowflake[] = [];
-    let motes: SunMote[] = [];
 
     const initParticles = () => {
       const w = canvas.width;
@@ -94,33 +84,21 @@ export function RainOverlay() {
         drops = Array.from({ length: dropCount }, () => ({
           x: Math.random() * (w + 200) - 100,
           y: Math.random() * -h,
-          length: 12 + Math.random() * 18 * intensityFraction,
-          speed: 9 + Math.random() * 11 * intensityFraction,
-          opacity: 0.28 + Math.random() * 0.45,
+          length: 12 + Math.random() * 20 + intensityFraction * 14,
+          speed: 14 + Math.random() * 12 + intensityFraction * 12,
+          opacity: 0.25 + Math.random() * 0.45,
         }));
       }
 
       if (isSnow) {
         flakes = Array.from({ length: SNOW_FLAKE_COUNT }, () => ({
-          x: Math.random() * (w + 100) - 50,
+          x: Math.random() * w,
           y: Math.random() * h,
           radius: 1.2 + Math.random() * 2.8,
           speed: 0.8 + Math.random() * 1.8,
           opacity: 0.35 + Math.random() * 0.55,
           wobblePhase: Math.random() * Math.PI * 2,
           wobbleSpeed: 0.02 + Math.random() * 0.03,
-        }));
-      }
-
-      if (isSun) {
-        motes = Array.from({ length: SUN_MOTE_COUNT }, () => ({
-          x: Math.random() * w,
-          y: Math.random() * h,
-          radius: 1.0 + Math.random() * 2.2,
-          speedY: -0.2 - Math.random() * 0.4,
-          speedX: (windSpeed * 0.1) + (Math.random() - 0.5) * 0.3,
-          opacity: 0.2 + Math.random() * 0.5,
-          pulsePhase: Math.random() * Math.PI * 2,
         }));
       }
     };
@@ -143,7 +121,7 @@ export function RainOverlay() {
       const h = canvas.height;
       ctx.clearRect(0, 0, w, h);
 
-      // 1. Render Rain Streaks with Wind Tilt
+      // 1. Rain Streaks
       if (isRain) {
         ctx.save();
         ctx.lineWidth = 1.2;
@@ -168,7 +146,7 @@ export function RainOverlay() {
         ctx.restore();
       }
 
-      // 2. Render Soft Snowflakes Drifting in Wind
+      // 2. Snowflakes
       if (isSnow) {
         ctx.save();
         for (const flake of flakes) {
@@ -194,31 +172,6 @@ export function RainOverlay() {
         ctx.restore();
       }
 
-      // 3. Render Sunny Golden Sunbeam Dust Motes
-      if (isSun) {
-        ctx.save();
-        for (const mote of motes) {
-          mote.x += mote.speedX;
-          mote.y += mote.speedY;
-
-          if (mote.y < -10) {
-            mote.y = h + 5;
-            mote.x = Math.random() * w;
-          }
-          if (mote.x > w + 10) mote.x = -5;
-          if (mote.x < -10) mote.x = w + 5;
-
-          const alpha = mote.opacity * (0.6 + 0.4 * Math.sin(time * 0.04 + mote.pulsePhase));
-          ctx.beginPath();
-          ctx.arc(mote.x, mote.y, mote.radius, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(255,230,160,${alpha})`;
-          ctx.shadowColor = 'rgba(255,200,80,0.5)';
-          ctx.shadowBlur = 4;
-          ctx.fill();
-        }
-        ctx.restore();
-      }
-
       rafRef.current = requestAnimationFrame(tick);
     };
 
@@ -231,16 +184,14 @@ export function RainOverlay() {
         rafRef.current = null;
       }
     };
-  }, [isRain, isSnow, isSun, rainIntensityMmh, windSpeed, prefersReducedMotion]);
+  }, [isRain, isSnow, rainIntensityMmh, windSpeed, prefersReducedMotion]);
 
-  if (!isRain && !isSnow && !isSun) return null;
+  if (!isRain && !isSnow) return null;
 
   if (prefersReducedMotion) {
     const label = isSnow
       ? `❄️ 現在降雪中（気温 ${tempC}℃ / 風速 ${windSpeed}m/s）`
-      : isRain
-      ? `☔ 現在雨天（降水量 ${rainIntensityMmh || 2}mm/h）`
-      : `☀️ 快晴（気温 ${tempC}℃）`;
+      : `☔ 現在雨天（降水量 ${rainIntensityMmh || 2}mm/h）`;
 
     return (
       <div
@@ -285,18 +236,7 @@ export function RainOverlay() {
         />
       )}
 
-      {isSun && (
-        <div
-          className="absolute inset-0 pointer-events-none"
-          aria-hidden="true"
-          style={{
-            zIndex: 3,
-            background: 'radial-gradient(circle at 88% 12%, rgba(255,225,160,0.12) 0%, rgba(255,240,200,0.04) 40%, transparent 70%)',
-          }}
-        />
-      )}
-
-      {/* Atmospheric particle canvas (Rain / Snow / Sun Motes) */}
+      {/* Atmospheric particle canvas (Rain / Snow only) */}
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full pointer-events-none"

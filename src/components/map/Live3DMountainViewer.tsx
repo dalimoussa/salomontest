@@ -100,7 +100,7 @@ export function Live3DMountainViewer({
             3Dマップサーバーに接続できませんでした
           </h3>
           <p className="text-xs text-slate-400 max-w-md mb-4 leading-relaxed">
-            3D PoC サーバー（）が応答していないか、ブラウザのセキュリティ設定によりブロックされた可能性があります。
+            3Dマップ描画に問題が発生したか、WebGLコンテキストが一時的に失われた可能性があります。
           </p>
           <div className="flex items-center gap-2">
             <button
@@ -110,31 +110,20 @@ export function Live3DMountainViewer({
               <RefreshCw className="w-3.5 h-3.5" />
               再読込
             </button>
-            <a
-              href={pocUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-slate-300 transition-colors flex items-center gap-1.5"
-            >
-              新しいタブで開く
-              <ExternalLink className="w-3.5 h-3.5" />
-            </a>
+            {pocUrl && (
+              <a
+                href={pocUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-slate-300 transition-colors flex items-center gap-1.5"
+              >
+                新しいタブで開く
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            )}
           </div>
         </div>
       )}
-
-      {/* ── Active 3D Engine Live Badge ───────────────────────────────────────── */}
-      <div className="absolute bottom-16 left-6 z-10 pointer-events-none opacity-80 hover:opacity-100 transition-opacity">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-950/80 border border-cyan-500/30 shadow-lg backdrop-blur-md">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="text-[10px] font-bold text-cyan-300 tracking-wide">
-            Takao 3D WebGL (PoC v0.1)
-          </span>
-          <span className="text-[9px] font-mono text-slate-400">
-            GSI DEM + Forest Impostors
-          </span>
-        </div>
-      </div>
     </div>
   );
 }

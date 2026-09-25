@@ -448,7 +448,24 @@ function buildMapStyle(sunSky: SunSkyConfig, initialGeoId: string, initialLang: 
         type: 'symbol',
         source: POI_SOURCE,
         layout: {
-          'text-field': ['concat', ['get', 'name'], ' ', ['get', 'altitude']],
+          'text-field': [
+            'concat',
+            [
+              'match', ['get', 'icon'],
+              'toilet', '🚻 ',
+              'coffee', '🍵 ',
+              'parking', '🅿️ ',
+              'cablecar', '🚡 ',
+              'mountain', '⛰️ ',
+              'shrine', '⛩️ ',
+              'water', '💧 ',
+              '📍 '
+            ],
+            ['get', 'name'],
+            ' (',
+            ['get', 'altitude'],
+            ')'
+          ],
           'text-size': [
             'match', ['get', 'category'],
             'summit', 14,
