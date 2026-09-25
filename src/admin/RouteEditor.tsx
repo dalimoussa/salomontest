@@ -59,6 +59,10 @@ export function RouteEditor() {
   });
   const [isDirty, setIsDirty] = useState<boolean>(false);
   const [savedFeedback, setSavedFeedback] = useState<boolean>(false);
+  const [categoryFilter, setCategoryFilter] = useState<'all' | 'takao_course' | 'surrounding_trail'>('all');
+
+  const filteredRoutes =
+    categoryFilter === 'all' ? ROUTES : ROUTES.filter((r) => r.category === categoryFilter);
 
   const selectedRoute = ROUTES.find((r) => r.id === selectedRouteId) || ROUTES[0];
 
@@ -202,15 +206,49 @@ export function RouteEditor() {
 
       {/* Main Grid: Left Route Selector, Right Active Editor */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Left Column: 8 Routes Quick List */}
+        {/* Left Column: All 20 Courses Quick List */}
         <div className="lg:col-span-4 space-y-2">
           <div className="flex items-center justify-between px-1 mb-1">
-            <span className="text-xs font-semibold text-slate-300">コース選択 (8コース)</span>
+            <span className="text-xs font-semibold text-slate-300">コース選択 (全20コース)</span>
             <span className="text-[10px] text-slate-500">クリックして編集</span>
           </div>
 
-          <div className="space-y-1.5">
-            {ROUTES.map((route) => {
+          {/* Category Filter Chips: すべて / 登山 12 / トレラン 8 */}
+          <div className="grid grid-cols-3 gap-1 p-1 bg-black/40 rounded-xl border border-white/8 mb-2">
+            <button
+              onClick={() => setCategoryFilter('all')}
+              className={`py-1 text-[11px] font-bold rounded-lg transition-colors ${
+                categoryFilter === 'all'
+                  ? 'bg-cyan-500 text-slate-950 font-black shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              すべて (20)
+            </button>
+            <button
+              onClick={() => setCategoryFilter('takao_course')}
+              className={`py-1 text-[11px] font-bold rounded-lg transition-colors ${
+                categoryFilter === 'takao_course'
+                  ? 'bg-cyan-500 text-slate-950 font-black shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              登山 (12)
+            </button>
+            <button
+              onClick={() => setCategoryFilter('surrounding_trail')}
+              className={`py-1 text-[11px] font-bold rounded-lg transition-colors ${
+                categoryFilter === 'surrounding_trail'
+                  ? 'bg-cyan-500 text-slate-950 font-black shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              トレラン (8)
+            </button>
+          </div>
+
+          <div className="space-y-1.5 max-h-[620px] overflow-y-auto pr-1 custom-scrollbar">
+            {filteredRoutes.map((route) => {
               const setting = routeSettings[route.id] || DEFAULT_ROUTE_SETTINGS[route.id] || {
                 difficulty: route.difficulty,
                 stars: route.difficultyRating ?? 1,

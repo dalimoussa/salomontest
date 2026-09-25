@@ -101,7 +101,7 @@ export function RoutePanel() {
         </span>
       </div>
 
-      {/* Quick 8-Course Difficulty Modal Button (Matches Client Request & Screenshot) */}
+      {/* Quick 20-Course Difficulty Modal Button (登山・トレラン) */}
       <button
         onClick={() => setActiveModal('difficulty')}
         className="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-amber-500/20 via-yellow-400/15 to-emerald-500/15 border border-yellow-400/40 hover:border-yellow-400 text-yellow-300 hover:text-white flex items-center justify-between transition-all duration-200 shadow-sm group active:scale-[0.99]"
@@ -109,7 +109,7 @@ export function RoutePanel() {
         <div className="flex items-center gap-2">
           <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400 group-hover:scale-110 transition-transform" />
           <span className="text-xs font-black tracking-wide">
-            {language === 'en' ? 'Takao 8 Trails Difficulty Guide' : language === 'zh' ? '高尾山8大步道难易度一览' : '高尾山 8大コース難易度一覧'}
+            {language === 'en' ? 'All 20 Courses Difficulty Guide (Hiking & Trail)' : language === 'zh' ? '全20条路线难易度一览（登山・越野跑）' : '全20コース難易度一覧（登山・トレラン）'}
           </span>
         </div>
         <div className="flex items-center gap-1.5">

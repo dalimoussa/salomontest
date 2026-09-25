@@ -64,6 +64,18 @@ export function findRouteByQuery(query: string): Route | null {
   if (/陣馬|jinba/i.test(s)) {
     return ROUTES.find(r => r.id === 'route_jinba') || null;
   }
+  if (/いろは|iroha/i.test(s)) {
+    return ROUTES.find(r => r.id === 'route_iroha') || null;
+  }
+  if (/蛇滝|jataki/i.test(s)) {
+    return ROUTES.find(r => r.id === 'route_jataki') || null;
+  }
+  if (/小仏|kobotoke/i.test(s)) {
+    return ROUTES.find(r => r.id === 'route_kobotoke') || null;
+  }
+  if (/もみじ|一丁平|momiji|itchodaira/i.test(s)) {
+    return ROUTES.find(r => r.id === 'route_momijidai') || null;
+  }
   if (/\b(?:mt|mount|mountain|mountiain|takao|takaosan)\b|高尾山|登山/i.test(s)) {
     return ROUTES.find(r => r.id === 'route_1') || ROUTES[0];
   }
