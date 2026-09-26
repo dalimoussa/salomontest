@@ -118,7 +118,7 @@ export function QuickActions() {
 
   const handleStartListening = async () => {
     unlockAudio();
-    await startListening();
+    await startListening(true);
   };
 
   // ── AI Camera Presence Bridge Integration ───────────────────────────────────

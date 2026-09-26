@@ -81,22 +81,26 @@ async function fetchGoogleTTSAudio(text: string, lang: string): Promise<Buffer |
 }
 
 export async function POST(req: NextRequest) {
-  let text = '';
-  let language = 'ja';
-  let voice = 'onyx'; // Default to authoritative, warm male mountain guide voice
-
   try {
-    const body = (await req.json()) as {
-      text: string;
-      language?: string;
-      voice?: string;
-    };
-    text = body.text || '';
-    language = body.language || 'ja';
-    voice = body.voice || 'onyx';
-  } catch {
-    return NextResponse.json({ error: 'invalid_json' }, { status: 400 });
-  }
+    let text = '';
+    let language = 'ja';
+    let voice = 'onyx'; // Default to authoritative, warm male mountain guide voice
+    let forceAudio = false;
+
+    try {
+      const body = (await req.json()) as {
+        text: string;
+        language?: string;
+        voice?: string;
+        forceAudio?: boolean;
+      };
+      text = body.text || '';
+      language = body.language || 'ja';
+      voice = body.voice || 'onyx';
+      forceAudio = Boolean(body.forceAudio);
+    } catch {
+      return NextResponse.json({ error: 'invalid_json' }, { status: 400 });
+    }
 
   if (!text || text.trim() === '') {
     return NextResponse.json({ error: 'empty_text' }, { status: 400 });
@@ -137,15 +141,34 @@ export async function POST(req: NextRequest) {
       }
 
       const errText = await ttsRes.text().catch(() => '');
-      console.warn('[/api/voice/tts] OpenAI TTS error, falling back to male browser synthesis:', ttsRes.status, errText);
+      console.warn('[/api/voice/tts] OpenAI TTS error, falling back:', ttsRes.status, errText);
     } catch (err) {
-      console.warn('[/api/voice/tts] OpenAI TTS exception, falling back to male browser synthesis:', err);
+      console.warn('[/api/voice/tts] OpenAI TTS exception, falling back:', err);
     }
   }
 
-  // 2. High-reliability fallback: Always return browser local SpeechSynthesis with male pitch tuning
-  // We deliberately bypass Google Translate TTS because Google Translate's Japanese voice is
-  // fixed to a female voice, which the client specifically asked to correct to the male guide persona.
+  // 2. High-reliability fallback if client requested audio output (e.g. browser synth failed or unsupported device)
+  if (forceAudio) {
+    try {
+      const googleBuffer = await fetchGoogleTTSAudio(text, language);
+      if (googleBuffer) {
+        const uint8 = new Uint8Array(googleBuffer);
+        return new NextResponse(uint8, {
+          status: 200,
+          headers: {
+            'Content-Type': 'audio/mpeg',
+            'Content-Length': uint8.byteLength.toString(),
+            'Cache-Control': 'public, max-age=3600',
+            'X-TTS-Engine': 'google_tts_audio',
+          },
+        });
+      }
+    } catch (err) {
+      console.warn('[/api/voice/tts] Google TTS fallback failed:', err);
+    }
+  }
+
+  // 3. Client-side SpeechSynthesis fallback with male pitch tuning
   return NextResponse.json(
     { fallback: true, mode: 'browser_synth', preferredVoice: 'male' },
     {
@@ -155,4 +178,8 @@ export async function POST(req: NextRequest) {
       },
     }
   );
+  } catch (outerErr: any) {
+    console.error('[/api/voice/tts] Exception:', outerErr);
+    return NextResponse.json({ error: outerErr?.message || String(outerErr) }, { status: 500 });
+  }
 }

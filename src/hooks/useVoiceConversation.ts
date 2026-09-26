@@ -21,7 +21,7 @@ export interface UseVoiceConversationReturn {
   audioLevel: number;
   errorMessage: string | null;
   isHandsFree: boolean;
-  startListening: () => Promise<void>;
+  startListening: (force?: boolean) => Promise<void>;
   stopListening: () => void;
   cancelConversation: () => void;
   speakText: (text: string, lang?: string) => Promise<void>;
@@ -55,7 +55,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
   };
 
   const autoLoopRef = useRef<boolean>(true);
-  const startListeningRef = useRef<() => Promise<void>>();
+  const startListeningRef = useRef<(force?: boolean) => Promise<void>>();
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -156,7 +156,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       currentAudioRef.current = null;
     }
 
-    // 3. Immediately halt Web Speech API SpeechSynthesis without Chrome audio buffer bleed
+    // 3. Immediately halt Web Speech API SpeechSynthesis safely
     if (typeof window !== 'undefined' && window.speechSynthesis) {
       try {
         if (currentUtteranceRef.current) {
@@ -164,16 +164,10 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
           currentUtteranceRef.current.onerror = null;
           currentUtteranceRef.current = null;
         }
-        window.speechSynthesis.pause();
+        if (window.speechSynthesis.paused) {
+          window.speechSynthesis.resume();
+        }
         window.speechSynthesis.cancel();
-        // Chrome quirk: A delayed second cancel guarantees the audio thread clears
-        setTimeout(() => {
-          try {
-            if (typeof window !== 'undefined' && window.speechSynthesis) {
-              window.speechSynthesis.cancel();
-            }
-          } catch {}
-        }, 35);
       } catch {}
     }
 
@@ -212,9 +206,13 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     if (currentAudioRef.current && !currentAudioRef.current.paused && !currentAudioRef.current.ended) {
       return true;
     }
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
-        return true;
+    // Only check window.speechSynthesis if we are genuinely in 'speaking' status and have an active utterance
+    // (prevents Chrome's stuck window.speechSynthesis.speaking=true bug from causing permanent lockup)
+    if (statusRef.current === 'speaking' && currentUtteranceRef.current !== null) {
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
+          return true;
+        }
       }
     }
     return false;
@@ -328,9 +326,9 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
 
   // Fallback to Web Speech API speechSynthesis if OpenAI TTS unavailable
   const speakWithBrowserSynth = useCallback((text: string, lang?: string): Promise<void> => {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       if (typeof window === 'undefined' || !window.speechSynthesis) {
-        resolve();
+        reject(new Error('SpeechSynthesis not supported'));
         return;
       }
 
@@ -348,7 +346,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       let watchdog: NodeJS.Timeout | null = null;
       let keepAlive: NodeJS.Timeout | null = null;
 
-      const finish = () => {
+      const finish = (err?: any) => {
         if (!finished) {
           finished = true;
           if (watchdog) clearTimeout(watchdog);
@@ -359,11 +357,15 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
             currentUtteranceRef.current = null;
           }
           abortSpeakingRef.current = null;
-          resolve();
+          if (err && !interruptedRef.current) {
+            reject(err);
+          } else {
+            resolve();
+          }
         }
       };
 
-      abortSpeakingRef.current = finish;
+      abortSpeakingRef.current = () => finish();
 
       const performSpeak = () => {
         if (interruptedRef.current || finished) {
@@ -372,7 +374,10 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         }
 
         try {
-          // Clear any previous queued speech
+          // Clear any previous queued speech safely
+          if (window.speechSynthesis.paused) {
+            window.speechSynthesis.resume();
+          }
           window.speechSynthesis.cancel();
 
           const utterance = new SpeechSynthesisUtterance(text);
@@ -407,14 +412,17 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
             }
           }
 
-          utterance.onend = finish;
+          utterance.onend = () => finish();
           utterance.onerror = (e) => {
-            console.warn('[speakWithBrowserSynth] Utterance finished or canceled:', e?.error);
-            finish();
+            console.warn('[speakWithBrowserSynth] Utterance error:', e?.error);
+            if (e?.error === 'canceled' || e?.error === 'interrupted') {
+              finish();
+            } else {
+              finish(new Error(`SpeechSynthesis error: ${e?.error || 'unknown'}`));
+            }
           };
 
           // Generous watchdog based on realistic speaking duration (~300ms per character).
-          // NEVER abort early at 10s while the speaker is talking!
           const maxMs = Math.max(35000, text.length * 300);
           watchdog = setTimeout(() => {
             if (typeof window !== 'undefined' && window.speechSynthesis && !window.speechSynthesis.speaking) {
@@ -438,7 +446,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
           window.speechSynthesis.speak(utterance);
         } catch (e) {
           console.warn('[speakWithBrowserSynth] Execution failed:', e);
-          finish();
+          finish(e);
         }
       };
 
@@ -461,6 +469,68 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         performSpeak();
       }
     });
+  }, []);
+
+  // Fallback to fetch real MP3 audio stream from server if local browser synth fails or has no sound
+  const playAudioFallback = useCallback(async (textToSpeak: string, langToUse: string, token: number) => {
+    try {
+      const res = await fetch('/api/voice/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: textToSpeak, language: langToUse, voice: 'onyx', forceAudio: true }),
+      });
+
+      if (token !== activeSpeechTokenRef.current || interruptedRef.current || statusRef.current !== 'speaking') {
+        return;
+      }
+
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('audio')) {
+        const blob = await res.blob();
+        if (token !== activeSpeechTokenRef.current || interruptedRef.current || statusRef.current !== 'speaking') {
+          return;
+        }
+
+        const audioUrl = URL.createObjectURL(blob);
+        const audio = new Audio(audioUrl);
+        (audio as any).playsInline = true;
+        audio.setAttribute('playsinline', 'true');
+        currentAudioRef.current = audio;
+
+        await new Promise<void>((resolve) => {
+          let resolved = false;
+          let watchdog: NodeJS.Timeout | null = null;
+          const finish = () => {
+            if (!resolved) {
+              resolved = true;
+              if (watchdog) clearTimeout(watchdog);
+              URL.revokeObjectURL(audioUrl);
+              audio.onended = null;
+              audio.onerror = null;
+              if (currentAudioRef.current === audio) {
+                currentAudioRef.current = null;
+              }
+              abortSpeakingRef.current = null;
+              resolve();
+            }
+          };
+
+          abortSpeakingRef.current = finish;
+          audio.onended = finish;
+          audio.onerror = finish;
+
+          watchdog = setTimeout(() => {
+            if (audio.ended || audio.paused) {
+              finish();
+            }
+          }, Math.max(35000, textToSpeak.length * 300));
+
+          audio.play().catch(finish);
+        });
+      }
+    } catch (e) {
+      console.warn('[playAudioFallback] Execution failed:', e);
+    }
   }, []);
 
   // Text-To-Speech pipeline
@@ -562,7 +632,11 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
               currentAudioRef.current = null;
             }
             if (speechToken === activeSpeechTokenRef.current && !interruptedRef.current && statusRef.current === 'speaking') {
-              await speakWithBrowserSynth(text, currentLang);
+              try {
+                await speakWithBrowserSynth(text, currentLang);
+              } catch {
+                await playAudioFallback(text, currentLang, speechToken);
+              }
             }
             finish();
           };
@@ -584,20 +658,35 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
               currentAudioRef.current = null;
             }
             if (speechToken === activeSpeechTokenRef.current && !interruptedRef.current && statusRef.current === 'speaking') {
-              await speakWithBrowserSynth(text, currentLang);
+              try {
+                await speakWithBrowserSynth(text, currentLang);
+              } catch {
+                await playAudioFallback(text, currentLang, speechToken);
+              }
             }
             finish();
           });
         });
       } else {
         if (speechToken === activeSpeechTokenRef.current && !interruptedRef.current && statusRef.current === 'speaking') {
-          await speakWithBrowserSynth(text, currentLang);
+          try {
+            await speakWithBrowserSynth(text, currentLang);
+          } catch (synthErr) {
+            console.warn('[speakText] Browser synth failed, trying audio fallback:', synthErr);
+            if (speechToken === activeSpeechTokenRef.current && !interruptedRef.current && statusRef.current === 'speaking') {
+              await playAudioFallback(text, currentLang, speechToken);
+            }
+          }
         }
       }
     } catch (e) {
-      console.warn('OpenAI TTS call failed, falling back to browser speech:', e);
+      console.warn('TTS call failed, falling back to browser speech or audio fallback:', e);
       if (speechToken === activeSpeechTokenRef.current && !interruptedRef.current && statusRef.current === 'speaking') {
-        await speakWithBrowserSynth(text, currentLang);
+        try {
+          await speakWithBrowserSynth(text, currentLang);
+        } catch {
+          await playAudioFallback(text, currentLang, speechToken);
+        }
       }
     } finally {
       // ONLY the active speech token is permitted to finalize speech state!
@@ -663,9 +752,14 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       }
 
       audioChunksRef.current = [];
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : undefined,
-      });
+      const supportedMime =
+        typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm')
+          ? 'audio/webm'
+          : typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/mp4')
+          ? 'audio/mp4'
+          : undefined;
+
+      const mediaRecorder = new MediaRecorder(stream, supportedMime ? { mimeType: supportedMime } : undefined);
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -680,7 +774,8 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
           pendingCommittedTextRef.current = '';
           return;
         }
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const mimeType = mediaRecorder.mimeType || supportedMime || 'audio/webm';
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
         const text = pendingCommittedTextRef.current || localTranscriptRef.current.trim();
         pendingCommittedTextRef.current = '';
         setTimeout(() => {
@@ -717,8 +812,9 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
 
     if (!recognizedText && audioBlob && audioBlob.size > 1000) {
       try {
+        const ext = audioBlob.type.includes('mp4') ? 'mp4' : audioBlob.type.includes('ogg') ? 'ogg' : 'webm';
         const formData = new FormData();
-        formData.append('file', audioBlob, 'speech.webm');
+        formData.append('file', audioBlob, `speech.${ext}`);
         formData.append('language', currentLang);
 
         const sttRes = await fetch('/api/voice/stt', {
@@ -736,6 +832,17 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     }
 
     if (!recognizedText) {
+      const SpeechRecognition =
+        typeof window !== 'undefined' ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition : null;
+      if (!SpeechRecognition) {
+        setErrorMessage(
+          currentLang === 'en'
+            ? 'Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari.'
+            : currentLang === 'zh'
+            ? '当前浏览器不支持内置语音识别，请使用 Chrome、Edge 或 Safari。'
+            : 'お使いのブラウザは音声認識に対応していません。Google Chrome、Microsoft Edge、Safariをご利用ください。'
+        );
+      }
       // Did not catch speech — silently resume listening
       setStatus('idle');
       setTranscript('');
@@ -749,11 +856,17 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       return;
     }
 
-    // Language safety heuristic: if user chose English or spoke English text, enforce English
-    const hasEnglishWords = /[a-zA-Z]{2,}/.test(recognizedText);
-    const activeLang = (currentLang === 'en' || (hasEnglishWords && currentLang !== 'zh')) ? 'en' : currentLang;
-    if (activeLang === 'en' && currentLang !== 'en') {
-      useStore.getState().setLanguage('en');
+    // Language safety heuristic: only switch to English if the user didn't speak Japanese or Chinese
+    const hasJapanese = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/.test(recognizedText);
+    const hasChinese = /[\u4E00-\u9FFF]/.test(recognizedText);
+    const hasEnglishWords = /[a-zA-Z]{3,}/.test(recognizedText);
+
+    let activeLang = currentLang;
+    if (currentLang === 'en' || (!hasJapanese && !hasChinese && hasEnglishWords)) {
+      activeLang = 'en';
+      if (currentLang !== 'en') {
+        useStore.getState().setLanguage('en');
+      }
     }
 
     const currentGenId = ++generationIdRef.current;
@@ -1031,9 +1144,18 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     }
   }, [isBusyResponding]);
 
-  const startListening = useCallback(async () => {
-    // ── STRICT REQUIREMENT: Do not start listening if thinking, answering, or in echo-guard ──
-    if (isBusyResponding()) {
+  const startListening = useCallback(async (force = false) => {
+    if (force) {
+      // User manually requested listening: immediately interrupt any pending TTS or echo guard
+      abortSpeaking();
+      if (postSpeechGuardTimerRef.current) {
+        clearTimeout(postSpeechGuardTimerRef.current);
+        postSpeechGuardTimerRef.current = null;
+      }
+      isSpeakingRef.current = false;
+      unmuteMicrophoneHardware();
+    } else if (isBusyResponding()) {
+      // ── STRICT REQUIREMENT: Do not start listening if thinking, answering, or in echo-guard ──
       console.log('[VoiceAI] startListening deferred — AI is currently responding or in echo-guard');
       return;
     }
@@ -1058,6 +1180,36 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     }
 
     const currentLang = useStore.getState().language;
+
+    // Secure context validation (insecure HTTP blocks getUserMedia and SpeechRecognition on mobile & remote browsers)
+    if (
+      typeof window !== 'undefined' &&
+      !window.isSecureContext &&
+      window.location.hostname !== 'localhost' &&
+      window.location.hostname !== '127.0.0.1'
+    ) {
+      const errMsg =
+        currentLang === 'en'
+          ? 'Microphone requires HTTPS or localhost. Please access via HTTPS.'
+          : currentLang === 'zh'
+          ? '麦克风需要 HTTPS 安全连接或 localhost。请使用 HTTPS 访问。'
+          : 'マイクの利用にはHTTPS接続またはlocalhostが必要です。HTTPSでアクセスしてください。';
+      setErrorMessage(errMsg);
+      setStatus('idle');
+      return;
+    }
+
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      const errMsg =
+        currentLang === 'en'
+          ? 'Microphone access is not supported in this browser or device.'
+          : currentLang === 'zh'
+          ? '当前浏览器或设备不支持麦克风访问。'
+          : 'お使いのブラウザまたは端末はマイク入力に対応していません。';
+      setErrorMessage(errMsg);
+      setStatus('idle');
+      return;
+    }
 
     // Initialize real-time Web Speech Recognition for instant feedback
     if (typeof window !== 'undefined') {
@@ -1127,6 +1279,23 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
             recognition.onerror = (e: any) => {
               if (e.error === 'no-speech' || e.error === 'aborted') return;
               console.warn('[useVoiceConversation] Speech recognition error:', e.error);
+              if (e.error === 'not-allowed') {
+                setErrorMessage(
+                  currentLang === 'en'
+                    ? 'Microphone permission denied for speech recognition. Please allow microphone access.'
+                    : currentLang === 'zh'
+                    ? '语音识别的麦克风权限被拒绝，请在设置中开启。'
+                    : '音声認識用のマイク利用が拒否されました。マイクへのアクセスを許可してください。'
+                );
+              } else if (e.error === 'audio-capture') {
+                setErrorMessage(
+                  currentLang === 'en'
+                    ? 'No microphone detected or audio capture failed.'
+                    : currentLang === 'zh'
+                    ? '未检测到麦克风或音频捕获失败。'
+                    : 'マイクが検出されないか、音声キャプチャに失敗しました。'
+                );
+              }
             };
 
             // Continuous recognition lifecycle: only restart if this instance is still active
@@ -1179,9 +1348,14 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       }
 
       audioChunksRef.current = [];
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : undefined,
-      });
+      const supportedMime =
+        typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm')
+          ? 'audio/webm'
+          : typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/mp4')
+          ? 'audio/mp4'
+          : undefined;
+
+      const mediaRecorder = new MediaRecorder(stream, supportedMime ? { mimeType: supportedMime } : undefined);
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -1196,7 +1370,8 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
           pendingCommittedTextRef.current = '';
           return;
         }
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const mimeType = mediaRecorder.mimeType || supportedMime || 'audio/webm';
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
         const text = pendingCommittedTextRef.current || localTranscriptRef.current.trim();
         pendingCommittedTextRef.current = '';
         setTimeout(() => {
@@ -1208,9 +1383,35 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       startLevelMeter(stream);
       mediaRecorder.start(250);
       setStatus('listening');
-    } catch (err) {
+    } catch (err: any) {
       console.warn('Microphone access standby:', err);
       setStatus('idle');
+      const errName = err?.name || '';
+      if (errName === 'NotAllowedError' || errName === 'PermissionDeniedError') {
+        setErrorMessage(
+          currentLang === 'en'
+            ? 'Microphone permission denied. Please allow microphone access in your browser or device settings.'
+            : currentLang === 'zh'
+            ? '麦克风权限被拒绝。请在浏览器或设备设置中允许麦克风访问。'
+            : 'マイクへのアクセスが拒否されました。ブラウザまたは端末の設定でマイクを許可してください。'
+        );
+      } else if (errName === 'NotFoundError' || errName === 'DevicesNotFoundError') {
+        setErrorMessage(
+          currentLang === 'en'
+            ? 'No microphone detected. Please connect an audio input device.'
+            : currentLang === 'zh'
+            ? '未检测到麦克风，请连接音频输入设备。'
+            : 'マイクが検出されませんでした。マイクを接続してください。'
+        );
+      } else if (errName === 'NotReadableError' || errName === 'TrackStartError') {
+        setErrorMessage(
+          currentLang === 'en'
+            ? 'Microphone is already in use by another application.'
+            : currentLang === 'zh'
+            ? '麦克风正被其他应用占用，请关闭其他应用后重试。'
+            : 'マイクが他のアプリで使用中です。他のアプリを閉じてから再試行してください。'
+        );
+      }
     }
   }, [selectedRoute, weather, selectedDifficulty, stopSpeechRecognition, abortSpeaking, commitCurrentSpeech, ensureMediaRecorderActive, isBusyResponding, unmuteMicrophoneHardware, isAudioActivelyPlaying]);
 
