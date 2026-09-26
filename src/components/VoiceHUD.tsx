@@ -51,7 +51,7 @@ export function VoiceHUD({
     ? (language === 'en' ? 'AI Thinking...' : language === 'zh' ? 'AI思考中...' : 'AI山守が考え中…')
     : isSpeaking
     ? (language === 'en' ? 'AI Speaking' : language === 'zh' ? 'AI回答中' : 'AI音声案内中')
-    : (language === 'en' ? 'Voice AI Ready' : language === 'zh' ? '语音AI就绪' : '音声AI待機中');
+    : (language === 'en' ? 'Voice AI • Tap to Speak' : language === 'zh' ? '语音AI • 点击对话' : '音声AI • タップして会話');
 
   const subtitleText = isCalloutSpeaking && isSpeaking
     ? (language === 'en' ? 'Speak anytime to start conversation' : language === 'zh' ? '随时说话即可开始对话' : '話しかけると会話モードが始まります')
@@ -59,15 +59,15 @@ export function VoiceHUD({
     ? (transcript
         ? formatQuote(transcript)
         : language === 'en'
-        ? 'Just speak — asking about Mt. Takao'
+        ? 'Speak now — asking about Mt. Takao'
         : language === 'zh'
-        ? '请说话，了解高尾山资讯'
-        : 'そのままお話しください。高尾山をご案内します')
+        ? '请对着麦克风说话，了解高尾山'
+        : 'マイクに向かってお話しください（高尾山について）')
     : isThinking
     ? (language === 'en' ? 'Processing your request...' : language === 'zh' ? '正在处理...' : '処理中...')
     : isSpeaking
     ? (language === 'en' ? 'Answering your question...' : language === 'zh' ? '正在回答您的问题…' : 'ご質問にお答えしています…')
-    : (language === 'en' ? 'Always-on hands-free • Ask anytime' : language === 'zh' ? '常时免提 • 欢迎随时提问' : '常時ハンズフリー • 何でもお尋ねください');
+    : (language === 'en' ? 'Click here to start or say "Hello"' : language === 'zh' ? '点击此处启动麦克风或直接说话' : 'ここをクリックしてマイクを起動（または発話）');
 
   return (
     <div className="relative w-full md:w-auto">
@@ -150,12 +150,10 @@ export function VoiceHUD({
         </div>
       )}
 
-      {/* ── Hands-free Ambient Real-time Voice HUD Bar (NO PUSH BUTTON) ── */}
+      {/* ── Hands-free Ambient Real-time Voice HUD Bar ── */}
       <div
         onClick={() => {
-          if (isIdle) {
-            onStartListening();
-          }
+          onStartListening();
         }}
         className={`flex items-center justify-between gap-3.5 px-4 py-2.5 rounded-2xl border transition-all duration-300 min-h-[54px] shadow-lg backdrop-blur-md ${
           isListening

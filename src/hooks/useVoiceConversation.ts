@@ -127,11 +127,42 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     recognitionResultCountRef.current = 0;
   }, []);
 
+  const streamRef = useRef<MediaStream | null>(null);
+
+  /**
+   * Hardware microphone muting: physically disables the audio track on the MediaStream.
+   * While disabled, the browser captures absolute silence (zeroed PCM), completely
+   * preventing the AI from hearing itself or picking up user speech during answering.
+   */
+  const muteMicrophoneHardware = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getAudioTracks().forEach((track) => {
+        track.enabled = false;
+      });
+    }
+    setAudioLevel(0);
+  }, []);
+
+  const unmuteMicrophoneHardware = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getAudioTracks().forEach((track) => {
+        track.enabled = true;
+      });
+    }
+  }, []);
+
   const abortSpeaking = useCallback(() => {
     interruptedRef.current = true;
     generationIdRef.current++;
     // Monotonically increment speech token to immediately invalidate any pending TTS fetches or playbacks
     activeSpeechTokenRef.current++;
+
+    if (postSpeechGuardTimerRef.current) {
+      clearTimeout(postSpeechGuardTimerRef.current);
+      postSpeechGuardTimerRef.current = null;
+    }
+    isSpeakingRef.current = false;
+    unmuteMicrophoneHardware();
 
     // 1. Abort any active promise resolver or watchdog
     if (abortSpeakingRef.current) {
@@ -172,31 +203,10 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     }
 
     setResponseText('');
-  }, []);
-
-  const streamRef = useRef<MediaStream | null>(null);
-
-  /**
-   * Hardware microphone muting: physically disables the audio track on the MediaStream.
-   * While disabled, the browser captures absolute silence (zeroed PCM), completely
-   * preventing the AI from hearing itself or picking up user speech during answering.
-   */
-  const muteMicrophoneHardware = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getAudioTracks().forEach((track) => {
-        track.enabled = false;
-      });
+    if (statusRef.current === 'speaking') {
+      setStatus('idle');
     }
-    setAudioLevel(0);
-  }, []);
-
-  const unmuteMicrophoneHardware = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getAudioTracks().forEach((track) => {
-        track.enabled = true;
-      });
-    }
-  }, []);
+  }, [unmuteMicrophoneHardware]);
 
   /**
    * Helper to check if audio or speech synthesis is actively outputting sound.
@@ -249,6 +259,9 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       if (!AudioCtx) return;
       const ctx = new AudioCtx();
       audioContextRef.current = ctx;
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 64;
       analyser.smoothingTimeConstant = 0.2;
@@ -1144,16 +1157,138 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     }
   }, [isBusyResponding]);
 
+  const startSpeechRecognition = useCallback((targetLang: string) => {
+    if (typeof window === 'undefined') return;
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      console.warn('[WebSpeech] Browser does not support Web Speech Recognition');
+      return;
+    }
+
+    // Safely abort any stale existing recognition instance
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.onend = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.abort();
+      } catch {}
+      recognitionRef.current = null;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = targetLang;
+
+      recognition.onstart = () => {
+        console.log('[WebSpeech] Speech recognition listening, lang:', targetLang);
+      };
+
+      recognition.onresult = (event: any) => {
+        recognitionResultCountRef.current = event.results.length;
+
+        if (event.results.length < resultStartIndexRef.current) {
+          resultStartIndexRef.current = 0;
+        }
+
+        if (isBusyResponding()) {
+          resultStartIndexRef.current = event.results.length;
+          localTranscriptRef.current = '';
+          setTranscript('');
+          return;
+        }
+
+        let fullText = '';
+        let isFinalChunk = false;
+        const liveLang = useStore.getState().language;
+
+        const startIndex = Math.max(0, Math.min(resultStartIndexRef.current, event.results.length - 1));
+        for (let i = startIndex; i < event.results.length; ++i) {
+          const chunk = event.results[i][0]?.transcript || '';
+          if (chunk) {
+            if (fullText && !fullText.endsWith(' ') && !chunk.startsWith(' ') && liveLang === 'en') {
+              fullText += ' ';
+            }
+            fullText += chunk;
+          }
+          if (event.results[i].isFinal) isFinalChunk = true;
+        }
+        const clean = fullText.trim();
+        if (!clean) return;
+
+        localTranscriptRef.current = clean;
+        setTranscript(clean);
+
+        const commitDelay = isFinalChunk ? COMMIT_DELAY_FINAL_MS : COMMIT_DELAY_INTERIM_MS;
+        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = setTimeout(() => {
+          commitCurrentSpeech();
+        }, commitDelay);
+      };
+
+      recognition.onerror = (e: any) => {
+        if (e.error === 'no-speech' || e.error === 'aborted') return;
+        console.warn('[WebSpeech] Speech recognition error:', e.error);
+        const currentLang = useStore.getState().language;
+        if (e.error === 'not-allowed') {
+          setErrorMessage(
+            currentLang === 'en'
+              ? 'Microphone permission denied for speech recognition. Please allow microphone access.'
+              : currentLang === 'zh'
+              ? '语音识别的麦克风权限被拒绝，请在设置中开启。'
+              : '音声認識用のマイク利用が拒否されました。マイクへのアクセスを許可してください。'
+          );
+        } else if (e.error === 'audio-capture') {
+          setErrorMessage(
+            currentLang === 'en'
+              ? 'No microphone detected or audio capture failed.'
+              : currentLang === 'zh'
+              ? '未检测到麦克风或音频捕获失败。'
+              : 'マイクが検出されないか、音声キャプチャに失敗しました。'
+          );
+        }
+      };
+
+      recognition.onend = () => {
+        if (
+          autoLoopRef.current &&
+          statusRef.current === 'listening' &&
+          !isSpeakingRef.current &&
+          !isAudioActivelyPlaying() &&
+          recognitionRef.current === recognition
+        ) {
+          try {
+            recognition.start();
+          } catch {
+            setTimeout(() => {
+              if (
+                autoLoopRef.current &&
+                statusRef.current === 'listening' &&
+                !isSpeakingRef.current &&
+                !isAudioActivelyPlaying()
+              ) {
+                startSpeechRecognition(targetLang);
+              }
+            }, 180);
+          }
+        }
+      };
+
+      recognition.start();
+      recognitionRef.current = recognition;
+    } catch (e) {
+      console.warn('[WebSpeech] init exception:', e);
+      recognitionRef.current = null;
+    }
+  }, [commitCurrentSpeech, isAudioActivelyPlaying, isBusyResponding]);
+
   const startListening = useCallback(async (force = false) => {
     if (force) {
       // User manually requested listening: immediately interrupt any pending TTS or echo guard
       abortSpeaking();
-      if (postSpeechGuardTimerRef.current) {
-        clearTimeout(postSpeechGuardTimerRef.current);
-        postSpeechGuardTimerRef.current = null;
-      }
-      isSpeakingRef.current = false;
-      unmuteMicrophoneHardware();
     } else if (isBusyResponding()) {
       // ── STRICT REQUIREMENT: Do not start listening if thinking, answering, or in echo-guard ──
       console.log('[VoiceAI] startListening deferred — AI is currently responding or in echo-guard');
@@ -1211,131 +1346,9 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       return;
     }
 
-    // Initialize real-time Web Speech Recognition for instant feedback
-    if (typeof window !== 'undefined') {
-      const SpeechRecognition =
-        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        const targetLang = getTargetRecognitionLang(currentLang);
-        // If an existing recognition instance is using a different language, tear it down
-        if (recognitionRef.current && recognitionRef.current.lang !== targetLang) {
-          stopSpeechRecognition();
-        }
-
-        if (!recognitionRef.current) {
-          try {
-            const recognition = new SpeechRecognition();
-            recognition.continuous = true;
-            recognition.interimResults = true;
-            recognition.lang = targetLang;
-
-            recognition.onresult = (event: any) => {
-              recognitionResultCountRef.current = event.results.length;
-
-              // Only reset start index if recognition was restarted from scratch by browser
-              // (strictly fewer results than previous start index, NEVER <=)
-              if (event.results.length < resultStartIndexRef.current) {
-                resultStartIndexRef.current = 0;
-              }
-
-              // ── STRICT REQUIREMENT: Ignore user questions while AI is answering, thinking, or in echo guard ──
-              if (isBusyResponding()) {
-                resultStartIndexRef.current = event.results.length;
-                localTranscriptRef.current = '';
-                setTranscript('');
-                return;
-              }
-
-              let fullText = '';
-              let isFinalChunk = false;
-              const liveLang = useStore.getState().language;
-
-              const startIndex = Math.max(0, Math.min(resultStartIndexRef.current, event.results.length - 1));
-              for (let i = startIndex; i < event.results.length; ++i) {
-                const chunk = event.results[i][0]?.transcript || '';
-                if (chunk) {
-                  if (fullText && !fullText.endsWith(' ') && !chunk.startsWith(' ') && liveLang === 'en') {
-                    fullText += ' ';
-                  }
-                  fullText += chunk;
-                }
-                if (event.results[i].isFinal) isFinalChunk = true;
-              }
-              const clean = fullText.trim();
-              if (!clean) return;
-
-              localTranscriptRef.current = clean;
-              setTranscript(clean);
-
-              // Raised silence thresholds: 600ms on final result, 1200ms on interim.
-              // Gives users time to pause naturally within a single question.
-              const commitDelay = isFinalChunk ? COMMIT_DELAY_FINAL_MS : COMMIT_DELAY_INTERIM_MS;
-              if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-              silenceTimerRef.current = setTimeout(() => {
-                commitCurrentSpeech();
-              }, commitDelay);
-            };
-
-            recognition.onerror = (e: any) => {
-              if (e.error === 'no-speech' || e.error === 'aborted') return;
-              console.warn('[useVoiceConversation] Speech recognition error:', e.error);
-              if (e.error === 'not-allowed') {
-                setErrorMessage(
-                  currentLang === 'en'
-                    ? 'Microphone permission denied for speech recognition. Please allow microphone access.'
-                    : currentLang === 'zh'
-                    ? '语音识别的麦克风权限被拒绝，请在设置中开启。'
-                    : '音声認識用のマイク利用が拒否されました。マイクへのアクセスを許可してください。'
-                );
-              } else if (e.error === 'audio-capture') {
-                setErrorMessage(
-                  currentLang === 'en'
-                    ? 'No microphone detected or audio capture failed.'
-                    : currentLang === 'zh'
-                    ? '未检测到麦克风或音频捕获失败。'
-                    : 'マイクが検出されないか、音声キャプチャに失敗しました。'
-                );
-              }
-            };
-
-            // Continuous recognition lifecycle: only restart if this instance is still active
-            recognition.onend = () => {
-              if (
-                autoLoopRef.current &&
-                statusRef.current === 'listening' &&
-                !isSpeakingRef.current &&
-                !isAudioActivelyPlaying() &&
-                recognitionRef.current === recognition
-              ) {
-                try {
-                  recognition.start();
-                } catch {
-                  setTimeout(() => {
-                    if (
-                      autoLoopRef.current &&
-                      statusRef.current === 'listening' &&
-                      !isSpeakingRef.current &&
-                      !isAudioActivelyPlaying() &&
-                      recognitionRef.current === recognition
-                    ) {
-                      try { recognition.start(); } catch {}
-                    }
-                  }, 150);
-                }
-              }
-            };
-
-            recognition.start();
-            recognitionRef.current = recognition;
-          } catch (e) {
-            console.warn('Web Speech Recognition init:', e);
-          }
-        }
-      }
-    }
-
+    // Step 1: Ensure user media microphone stream is active FIRST
+    let stream = streamRef.current;
     try {
-      let stream = streamRef.current;
       if (!stream || !stream.active) {
         stream = await navigator.mediaDevices.getUserMedia({
           audio: {
@@ -1346,7 +1359,47 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         });
         streamRef.current = stream;
       }
+    } catch (err: any) {
+      console.warn('Microphone access standby:', err);
+      setStatus('idle');
+      const errName = err?.name || '';
+      if (errName === 'NotAllowedError' || errName === 'PermissionDeniedError') {
+        setErrorMessage(
+          currentLang === 'en'
+            ? 'Microphone permission denied. Please allow microphone access in your browser or device settings.'
+            : currentLang === 'zh'
+            ? '麦克风权限被拒绝。请在浏览器或设备设置中允许麦克风访问。'
+            : 'マイクへのアクセスが拒否されました。ブラウザまたは端末の設定でマイクを許可してください。'
+        );
+      } else if (errName === 'NotFoundError' || errName === 'DevicesNotFoundError') {
+        setErrorMessage(
+          currentLang === 'en'
+            ? 'No microphone detected. Please connect an audio input device.'
+            : currentLang === 'zh'
+            ? '未检测到麦克风，请连接音频输入设备。'
+            : 'マイクが検出されませんでした。マイクを接続してください。'
+        );
+      } else if (errName === 'NotReadableError' || errName === 'TrackStartError') {
+        setErrorMessage(
+          currentLang === 'en'
+            ? 'Microphone is already in use by another application.'
+            : currentLang === 'zh'
+            ? '麦克风正被其他应用占用，请关闭其他应用后重试。'
+            : 'マイクが他のアプリで使用中です。他のアプリを閉じてから再試行してください。'
+        );
+      }
+      return;
+    }
 
+    // Step 2: Now that mic stream is active, mark status as listening!
+    setStatus('listening');
+
+    // Step 3: Start Web Speech Recognition with the active language
+    const targetLang = getTargetRecognitionLang(currentLang);
+    startSpeechRecognition(targetLang);
+
+    // Step 4: Initialize MediaRecorder and Level Meter
+    try {
       audioChunksRef.current = [];
       const supportedMime =
         typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported('audio/webm')
@@ -1382,38 +1435,10 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       mediaRecorderRef.current = mediaRecorder;
       startLevelMeter(stream);
       mediaRecorder.start(250);
-      setStatus('listening');
     } catch (err: any) {
-      console.warn('Microphone access standby:', err);
-      setStatus('idle');
-      const errName = err?.name || '';
-      if (errName === 'NotAllowedError' || errName === 'PermissionDeniedError') {
-        setErrorMessage(
-          currentLang === 'en'
-            ? 'Microphone permission denied. Please allow microphone access in your browser or device settings.'
-            : currentLang === 'zh'
-            ? '麦克风权限被拒绝。请在浏览器或设备设置中允许麦克风访问。'
-            : 'マイクへのアクセスが拒否されました。ブラウザまたは端末の設定でマイクを許可してください。'
-        );
-      } else if (errName === 'NotFoundError' || errName === 'DevicesNotFoundError') {
-        setErrorMessage(
-          currentLang === 'en'
-            ? 'No microphone detected. Please connect an audio input device.'
-            : currentLang === 'zh'
-            ? '未检测到麦克风，请连接音频输入设备。'
-            : 'マイクが検出されませんでした。マイクを接続してください。'
-        );
-      } else if (errName === 'NotReadableError' || errName === 'TrackStartError') {
-        setErrorMessage(
-          currentLang === 'en'
-            ? 'Microphone is already in use by another application.'
-            : currentLang === 'zh'
-            ? '麦克风正被其他应用占用，请关闭其他应用后重试。'
-            : 'マイクが他のアプリで使用中です。他のアプリを閉じてから再試行してください。'
-        );
-      }
+      console.warn('MediaRecorder/level meter start error:', err);
     }
-  }, [selectedRoute, weather, selectedDifficulty, stopSpeechRecognition, abortSpeaking, commitCurrentSpeech, ensureMediaRecorderActive, isBusyResponding, unmuteMicrophoneHardware, isAudioActivelyPlaying]);
+  }, [abortSpeaking, isBusyResponding, startSpeechRecognition, unmuteMicrophoneHardware]);
 
   startListeningRef.current = startListening;
 
@@ -1533,13 +1558,12 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
 
     // 2. Fallback: activate automatically on first user click or tap anywhere on the screen
     const handleFirstTouch = () => {
+      unlockAudio();
       if (didInit) return;
       didInit = true;
       autoLoopRef.current = true;
       setIsHandsFree(true);
-      if (statusRef.current === 'idle') {
-        startListeningRef.current?.().catch(() => {});
-      }
+      startListeningRef.current?.(true).catch(() => {});
     };
 
     window.addEventListener('pointerdown', handleFirstTouch, { once: true });
