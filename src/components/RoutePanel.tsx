@@ -155,19 +155,21 @@ export function RoutePanel() {
         ))}
       </div>
 
-      {/* Client Touch Guide Callout: "↓ ここをタップしてね❗️ ⭕️" */}
-      <div className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-cyan-950/60 to-blue-950/40 border border-cyan-500/40 text-cyan-300 shadow-sm">
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs animate-bounce">👇</span>
-          <span className="text-[11px] font-black tracking-wide">
+      {/* Client Touch Guide Callout: "◀︎ ココをタップしたら、各コースMAPが見れるよ❗️ ⭕️" */}
+      <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-gradient-to-r from-cyan-950/80 via-blue-950/60 to-slate-900/80 border border-cyan-400/60 text-cyan-300 shadow-glow-cyan/20 animate-pulse-subtle">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="w-5 h-5 rounded-full bg-cyan-400/20 border border-cyan-400 flex items-center justify-center text-[10px] font-black text-cyan-300 animate-pulse shrink-0">
+            ◀︎
+          </span>
+          <span className="text-[10.5px] xl:text-[11px] font-black tracking-tight text-white leading-tight drop-shadow-sm">
             {language === 'en'
-              ? 'Tap any course below to inspect 3D path!'
+              ? '◀︎ Tap here to see each course MAP!'
               : language === 'zh'
-              ? '点击下方步道查看3D路线轨迹！'
-              : '↓ ここをタップしてコース選択！'}
+              ? '◀︎ 点击此处可查看各路线地图！'
+              : '◀︎ ココをタップしたら、各コースMAPが見れるよ❗️'}
           </span>
         </div>
-        <div className="relative flex items-center justify-center w-5 h-5 shrink-0">
+        <div className="relative flex items-center justify-center w-5 h-5 shrink-0 ml-1">
           <span className="absolute inset-0 rounded-full bg-cyan-400/40 animate-beaconRing" />
           <span className="w-3.5 h-3.5 rounded-full border-2 border-salomon-cyan animate-pulseBeacon shadow-glow-cyan flex items-center justify-center text-[8px] font-black text-salomon-cyan">
             ⭕

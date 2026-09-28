@@ -82,7 +82,7 @@ export function MountainMap() {
   const selectedRoute   = useStore((s) => s.selectedRoute);
   const mountainMapMode = useAdminStore((s) => s.mountainMapMode);
   const toggleMountainMapMode = useAdminStore((s) => s.toggleMountainMapMode);
-  const { t } = useT();
+  const { t, language } = useT();
   const [perspectiveIndex, setPerspectiveIndex] = useState(0);
   const [pocReloadKey, setPocReloadKey] = useState(0);
 
@@ -177,6 +177,37 @@ export function MountainMap() {
           </div>
         </div>
       )}
+
+      {/* Interactive Navigation Guidance Callout (Client Demand: ◀︎ココをタップしたら、各コースMAPが見れるよ❗️) */}
+      <div
+        className="hidden lg:flex items-center gap-2.5 absolute top-28 left-4 lg:left-[310px] xl:left-[340px] 2xl:left-[380px] z-20
+                   animate-fadeIn opacity-0-start pointer-events-none"
+        style={{ animationFillMode: 'forwards', animationDelay: '0.6s' }}
+      >
+        <div className="bg-[#0b1b36]/90 backdrop-blur-md border border-salomon-cyan/60
+                        rounded-2xl px-3.5 py-1.5 shadow-glow-cyan/20 flex items-center gap-2.5">
+          <span className="w-5 h-5 rounded-full bg-salomon-cyan/25 border border-salomon-cyan flex items-center justify-center text-[10px] font-black text-salomon-cyan animate-pulse shrink-0">
+            ◀︎
+          </span>
+          <div className="flex flex-col">
+            <span className="text-[11.5px] font-black tracking-wide text-white drop-shadow-sm flex items-center gap-1.5">
+              {language === 'en'
+                ? '◀︎ Tap course list to view each 3D map!'
+                : language === 'zh'
+                ? '◀︎ 点击此处可查看各路线地图！'
+                : '◀︎ ココをタップしたら、各コースMAPが見れるよ❗️'}
+              <span className="text-xs">🗺️</span>
+            </span>
+            <span className="text-[9.5px] text-cyan-300/80 font-medium">
+              {language === 'en'
+                ? 'Select any of 20 hiking & trail routes'
+                : language === 'zh'
+                ? '全20条高尾山登山・越野跑路线3D切换'
+                : '全20コースの登山・トレランルートを3D表示'}
+            </span>
+          </div>
+        </div>
+      </div>
 
       {/* Map Action Controls (Floating within the central mountain viewport) */}
       <div
