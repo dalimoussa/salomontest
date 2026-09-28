@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ZoomIn, ZoomOut, Maximize2, TrainFront, Compass, Layers, RotateCcw } from 'lucide-react';
 import type { Map } from 'maplibre-gl';
 import { useStore } from '@/store/useStore';
@@ -82,9 +82,29 @@ export function MountainMap() {
   const selectedRoute   = useStore((s) => s.selectedRoute);
   const mountainMapMode = useAdminStore((s) => s.mountainMapMode);
   const toggleMountainMapMode = useAdminStore((s) => s.toggleMountainMapMode);
-  const { t } = useT();
+  const { t, language } = useT();
   const [perspectiveIndex, setPerspectiveIndex] = useState(0);
   const [pocReloadKey, setPocReloadKey] = useState(0);
+  const [showNavGuide, setShowNavGuide] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('salomon_nav_guide_dismissed') !== '1';
+    }
+    return true;
+  });
+
+  const dismissNavGuide = useCallback(() => {
+    setShowNavGuide(false);
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('salomon_nav_guide_dismissed', '1');
+    }
+  }, []);
+
+  const initialRouteIdRef = useRef<string | null>(selectedRoute?.id || null);
+  useEffect(() => {
+    if (selectedRoute && initialRouteIdRef.current && selectedRoute.id !== initialRouteIdRef.current) {
+      dismissNavGuide();
+    }
+  }, [selectedRoute, dismissNavGuide]);
 
   const handleMapReady = useCallback((map: Map) => {
     mapInstanceRef.current = map;
@@ -175,6 +195,36 @@ export function MountainMap() {
               {isLivePoc ? `${selectedRoute.name} (3Dリアルタイムシーン)` : `${selectedRoute.name} (3D地形ルート)`}
             </span>
           </div>
+        </div>
+      )}
+
+      {/* Onboarding Navigation Hint (Dismissible on tap or course selection) */}
+      {showNavGuide && (
+        <div
+          onClick={dismissNavGuide}
+          className="hidden lg:flex items-center gap-2 absolute top-28 left-4 lg:left-[310px] xl:left-[340px] 2xl:left-[380px] z-30
+                     bg-[#081326]/92 backdrop-blur-md border border-cyan-400/50 rounded-xl px-3.5 py-1.5 shadow-glow-cyan/20
+                     cursor-pointer hover:border-cyan-300 transition-all duration-300 animate-fadeIn"
+          title="クリックで閉じる"
+        >
+          <span className="text-cyan-400 font-black text-xs animate-pulse">◀︎</span>
+          <span className="text-[11px] font-bold text-white tracking-wide">
+            {language === 'en'
+              ? 'Tap any course on the left to view 3D map'
+              : language === 'zh'
+              ? '点击左侧路线列表查看3D地图'
+              : '◀︎ ココをタップしたら、各コースMAPが見れるよ❗️'}
+          </span>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              dismissNavGuide();
+            }}
+            className="ml-1.5 text-slate-400 hover:text-white text-xs w-4 h-4 flex items-center justify-center rounded-full hover:bg-white/10"
+            aria-label="閉じる"
+          >
+            ✕
+          </button>
         </div>
       )}
 

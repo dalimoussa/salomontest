@@ -377,6 +377,13 @@ function MainApp() {
 /* ── Entry point ────────────────────────────────────────────────────────── */
 export function ConciergeApp() {
   const [splashDone, setSplashDone] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.search.includes('nosplash')) {
+      setSplashDone(true);
+    }
+  }, []);
+
   return splashDone
     ? <MainApp />
     : <HeroSplash onComplete={() => setSplashDone(true)} />;

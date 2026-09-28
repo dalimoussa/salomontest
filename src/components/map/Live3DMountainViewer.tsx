@@ -63,10 +63,9 @@ export function Live3DMountainViewer({
         onError={() => setHasError(true)}
       />
 
-      {/* ── Subtle Vignette & Contrast Overlay for Floating UI Panels ─────────── */}
+      {/* ── Soft Edge Gradient for Header/Footer HUD Legibility (No Multiply) ── */}
       <div
-        className="absolute inset-0 pointer-events-none bg-gradient-to-t from-[#070D1E]/70 via-transparent to-[#070D1E]/40"
-        style={{ mixBlendMode: 'multiply' }}
+        className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/25 via-transparent to-black/15"
       />
 
       {/* ── Loading Spinner Overlay ───────────────────────────────────────────── */}
