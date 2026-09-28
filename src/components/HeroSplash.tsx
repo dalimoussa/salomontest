@@ -12,16 +12,33 @@ export function HeroSplash({ onComplete }: Props) {
 
   useEffect(() => {
     setMounted(true);
+    if (typeof window !== 'undefined') {
+      if (
+        sessionStorage.getItem('splash_shown') === '1' ||
+        window.location.search.includes('nosplash') ||
+        window.location.search.includes('skipSplash')
+      ) {
+        onComplete();
+        return;
+      }
+      sessionStorage.setItem('splash_shown', '1');
+    }
     const timer = setTimeout(() => {
       setFadeOut(true);
-      setTimeout(onComplete, 800);
-    }, 3000);
+      setTimeout(onComplete, 400);
+    }, 1500);
     return () => clearTimeout(timer);
   }, [onComplete]);
 
+  const handleSkip = () => {
+    setFadeOut(true);
+    setTimeout(onComplete, 250);
+  };
+
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-center justify-center bg-mountain bg-cover bg-center transition-opacity duration-700 ${
+      onClick={handleSkip}
+      className={`fixed inset-0 z-50 flex items-center justify-center bg-mountain bg-cover bg-center transition-opacity duration-700 cursor-pointer select-none ${
         fadeOut ? 'opacity-0' : 'opacity-100'
       }`}
     >
