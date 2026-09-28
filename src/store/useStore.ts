@@ -27,10 +27,6 @@ interface AppState {
   setSelectedRoute: (route: Route | null) => void;
   setSelectedDifficulty: (difficulty: Difficulty | null) => void;
 
-  // Independent Facilities & Restrooms Layer
-  showFacilitiesOnly: boolean;
-  setShowFacilitiesOnly: (show: boolean) => void;
-
   // Chat
   messages: ChatMessage[];
   isGenerating: boolean;
@@ -63,12 +59,8 @@ export const useStore = create<AppState>((set) => ({
   // Route Selection (default to 1号路 beginner for kiosk signage display)
   selectedRoute: ROUTES[0],
   selectedDifficulty: 'beginner',
-  setSelectedRoute: (selectedRoute) => set({ selectedRoute, showFacilitiesOnly: false }),
+  setSelectedRoute: (selectedRoute) => set({ selectedRoute }),
   setSelectedDifficulty: (selectedDifficulty) => set({ selectedDifficulty }),
-
-  // Independent Facilities & Restrooms Layer
-  showFacilitiesOnly: false,
-  setShowFacilitiesOnly: (showFacilitiesOnly) => set({ showFacilitiesOnly }),
 
   // Chat
   messages: [],

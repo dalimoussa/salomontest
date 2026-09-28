@@ -23,8 +23,6 @@ export function RightPanel() {
   const messages   = useStore(s => s.messages);
   const isGenerating = useStore(s => s.isGenerating);
   const clearMessages = useStore(s => s.clearMessages);
-  const showFacilitiesOnly = useStore(s => s.showFacilitiesOnly);
-  const setShowFacilitiesOnly = useStore(s => s.setShowFacilitiesOnly);
   const { t, language } = useT();
 
   const latestMessage = messages[messages.length - 1];
@@ -122,26 +120,6 @@ export function RightPanel() {
             );
           })}
         </div>
-
-        {/* Toggle Independent 3D Facilities & Restrooms Button */}
-        <button
-          onClick={() => setShowFacilitiesOnly(!showFacilitiesOnly)}
-          className={`w-full mt-2.5 py-1.5 px-3 rounded-xl border flex items-center justify-between text-xs font-bold transition-all shadow-sm active:scale-[0.99] ${
-            showFacilitiesOnly
-              ? 'bg-amber-500/25 border-amber-400 text-amber-300 ring-2 ring-amber-400/40'
-              : 'bg-gradient-to-r from-amber-500/20 via-blue-500/15 to-emerald-500/15 border-amber-400/40 hover:border-amber-400 text-amber-300 hover:text-white'
-          }`}
-        >
-          <span className="flex items-center gap-1.5">
-            <span>🚻</span>
-            <span>
-              {showFacilitiesOnly
-                ? (language === 'en' ? 'Showing All Facilities (Tap to return)' : language === 'zh' ? '正在独立全景显示（点击返回）' : '全施設・トイレ単独表示中 (戻る)')
-                : (language === 'en' ? 'Show All Facilities & Restrooms on 3D Map' : language === 'zh' ? '在3D地图上独立显示全部设施' : '全施設・トイレを3Dマップに単独表示')}
-            </span>
-          </span>
-          <span className="text-xs font-mono">{showFacilitiesOnly ? '⭕️' : '›'}</span>
-        </button>
       </div>
 
       {/* Zone ⑦ AI Advice */}

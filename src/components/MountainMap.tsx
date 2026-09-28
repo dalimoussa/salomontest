@@ -80,11 +80,9 @@ export function MountainMap() {
   const setUserMovedCamera = useMapStore((s) => s.setUserMovedCamera);
   const setActiveModal = useStore((s) => s.setActiveModal);
   const selectedRoute   = useStore((s) => s.selectedRoute);
-  const showFacilitiesOnly = useStore((s) => s.showFacilitiesOnly);
-  const setShowFacilitiesOnly = useStore((s) => s.setShowFacilitiesOnly);
   const mountainMapMode = useAdminStore((s) => s.mountainMapMode);
   const toggleMountainMapMode = useAdminStore((s) => s.toggleMountainMapMode);
-  const { t, language } = useT();
+  const { t } = useT();
   const [perspectiveIndex, setPerspectiveIndex] = useState(0);
   const [pocReloadKey, setPocReloadKey] = useState(0);
 
@@ -152,8 +150,8 @@ export function MountainMap() {
       <ErrorBoundary fallback={<MountainVisualSlot />}>
         {isLivePoc ? (
           <Live3DMountainViewer
-            key={`${showFacilitiesOnly ? 'facilities' : (selectedRoute?.id || 'route_1')}-${pocReloadKey}`}
-            routeId={showFacilitiesOnly ? 'facilities' : (selectedRoute?.id || 'route_1')}
+            key={`${selectedRoute?.id || 'route_1'}-${pocReloadKey}`}
+            routeId={selectedRoute?.id || 'route_1'}
           />
         ) : (
           <MountainMapGL onMapReady={handleMapReady} />
@@ -164,7 +162,7 @@ export function MountainMap() {
       <RainOverlay />
 
       {/* 3D Course Status Indicator Badge */}
-      {(selectedRoute || showFacilitiesOnly) && (
+      {selectedRoute && (
         <div
           className="hidden lg:block absolute top-16 left-4 lg:left-[310px] xl:left-[340px] 2xl:left-[380px] z-20
                      animate-fadeIn opacity-0-start pointer-events-none"
@@ -172,46 +170,13 @@ export function MountainMap() {
         >
           <div className="bg-[#081226]/90 backdrop-blur-md border border-salomon-cyan/40
                           rounded-full px-3.5 py-1 shadow-glass flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${showFacilitiesOnly ? 'bg-amber-400' : 'bg-salomon-cyan'} animate-pulse ring-2 ring-salomon-cyan/30`} />
-            <span className={`text-[11px] font-bold ${showFacilitiesOnly ? 'text-amber-300' : 'text-salomon-cyan'}`}>
-              {showFacilitiesOnly
-                ? (language === 'en' ? '🚻 All Facilities & Restrooms (Independent View)' : language === 'zh' ? '🚻 全设施与卫生间（独立全景）' : '🚻 全施設・トイレ・展望台案内 (単独表示中)')
-                : (isLivePoc ? `${selectedRoute?.name} (3Dリアルタイムシーン)` : `${selectedRoute?.name} (3D地形ルート)`)}
+            <span className="w-2 h-2 rounded-full bg-salomon-cyan animate-pulse ring-2 ring-salomon-cyan/30" />
+            <span className="text-[11px] font-bold text-salomon-cyan">
+              {isLivePoc ? `${selectedRoute.name} (3Dリアルタイムシーン)` : `${selectedRoute.name} (3D地形ルート)`}
             </span>
           </div>
         </div>
       )}
-
-      {/* Interactive Navigation Guidance Callout (Client Demand: ◀︎ココをタップしたら、各コースMAPが見れるよ❗️) */}
-      <div
-        className="hidden lg:flex items-center gap-2.5 absolute top-28 left-4 lg:left-[310px] xl:left-[340px] 2xl:left-[380px] z-20
-                   animate-fadeIn opacity-0-start pointer-events-none"
-        style={{ animationFillMode: 'forwards', animationDelay: '0.6s' }}
-      >
-        <div className="bg-[#0b1b36]/90 backdrop-blur-md border border-salomon-cyan/60
-                        rounded-2xl px-3.5 py-1.5 shadow-glow-cyan/20 flex items-center gap-2.5">
-          <span className="w-5 h-5 rounded-full bg-salomon-cyan/25 border border-salomon-cyan flex items-center justify-center text-[10px] font-black text-salomon-cyan animate-pulse shrink-0">
-            ◀︎
-          </span>
-          <div className="flex flex-col">
-            <span className="text-[11.5px] font-black tracking-wide text-white drop-shadow-sm flex items-center gap-1.5">
-              {language === 'en'
-                ? '◀︎ Tap course list to view each 3D map!'
-                : language === 'zh'
-                ? '◀︎ 点击此处可查看各路线地图！'
-                : '◀︎ ココをタップしたら、各コースMAPが見れるよ❗️'}
-              <span className="text-xs">🗺️</span>
-            </span>
-            <span className="text-[9.5px] text-cyan-300/80 font-medium">
-              {language === 'en'
-                ? 'Select any of 20 hiking & trail routes'
-                : language === 'zh'
-                ? '全20条高尾山登山・越野跑路线3D切换'
-                : '全20コースの登山・トレランルートを3D表示'}
-            </span>
-          </div>
-        </div>
-      </div>
 
       {/* Map Action Controls (Floating within the central mountain viewport) */}
       <div
@@ -231,20 +196,6 @@ export function MountainMap() {
           }`}
         >
           <Layers className="w-4 h-4" />
-        </button>
-
-        {/* All Facilities & Restrooms Independent Mode Button (トイレ・施設単独表示) */}
-        <button
-          onClick={() => setShowFacilitiesOnly(!showFacilitiesOnly)}
-          aria-label="全施設・トイレ単独表示"
-          title={showFacilitiesOnly ? "コースルート表示へ戻る" : "全施設・トイレ単独表示 (ルートに関係なく山全体の施設を表示)"}
-          className={`w-9 h-9 rounded-xl backdrop-blur-md border flex items-center justify-center transition-all duration-200 shadow-glass active:scale-95 group ${
-            showFacilitiesOnly
-              ? 'bg-amber-500/25 border-amber-400/80 text-amber-300 hover:bg-amber-500/35 shadow-amber-500/20 ring-2 ring-amber-400/40'
-              : 'bg-salomon-card/90 border-salomon-border hover:border-amber-400/60 text-salomon-muted group-hover:text-amber-300'
-          }`}
-        >
-          <span className="text-sm">🚻</span>
         </button>
 
         {/* Cable Car Info Shortcut Button */}

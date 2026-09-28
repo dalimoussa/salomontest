@@ -51,7 +51,7 @@ export function Live3DMountainViewer({
   };
 
   return (
-    <div className="relative w-full h-full overflow-hidden bg-[#244569] select-none">
+    <div className="relative w-full h-full overflow-hidden bg-[#070D1E] select-none">
       {/* ── Live WebGL 3D Mountain Iframe ─────────────────────────────────────── */}
       <iframe
         ref={iframeRef}
@@ -63,9 +63,10 @@ export function Live3DMountainViewer({
         onError={() => setHasError(true)}
       />
 
-      {/* ── Clean Ambient Edge Gradient for Top/Bottom HUD Legibility (No Multiply) ── */}
+      {/* ── Subtle Vignette & Contrast Overlay for Floating UI Panels ─────────── */}
       <div
-        className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/25 via-transparent to-black/15"
+        className="absolute inset-0 pointer-events-none bg-gradient-to-t from-[#070D1E]/70 via-transparent to-[#070D1E]/40"
+        style={{ mixBlendMode: 'multiply' }}
       />
 
       {/* ── Loading Spinner Overlay ───────────────────────────────────────────── */}

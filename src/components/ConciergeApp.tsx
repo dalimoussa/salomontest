@@ -167,9 +167,9 @@ function MainApp() {
       {/* Unattended kiosk reliability watchdog (inactivity reset + daily purge) */}
       <KioskWatchdog />
 
-      {/* Soft ambient vignette keeping the central mountain aerial view bright and crisp */}
+      {/* Subtle vignette gradient that lets the central mountain aerial visual pop */}
       <div
-        className="absolute inset-0 bg-gradient-to-b from-black/15 via-transparent to-black/20 pointer-events-none"
+        className="absolute inset-0 bg-gradient-to-b from-salomon-dark/40 via-transparent to-salomon-dark/50 pointer-events-none"
         style={{ zIndex: 5 }}
       />
 
@@ -248,26 +248,6 @@ function MainApp() {
                   <ChevronRight className="w-3.5 h-3.5" />
                 </div>
               </button>
-            </div>
-
-            {/* Mobile Navigation Guidance Prompt (Client Demand: ココをタップしたら、各コースMAPが見れるよ❗️) */}
-            <div className="px-4 pt-1 pointer-events-auto">
-              <div
-                onClick={() => setMobileTab('routes')}
-                className="w-full flex items-center justify-between px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-950/70 to-blue-950/50 border border-cyan-400/50 text-cyan-300 shadow-sm cursor-pointer active:scale-[0.98] transition-transform"
-              >
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="text-xs font-black text-cyan-400 animate-pulse">👇</span>
-                  <span className="text-[11px] font-black text-white truncate">
-                    {language === 'en'
-                      ? 'Tap here to see each course MAP!'
-                      : language === 'zh'
-                      ? '点击此处可查看各路线地图！'
-                      : 'ココをタップしたら、各コースMAPが見れるよ❗️'}
-                  </span>
-                </div>
-                <span className="text-[10px] text-cyan-300 font-bold shrink-0">⭕</span>
-              </div>
             </div>
 
             {/* Bottom floating widgets: Collapsed Gear Pill + Quick Voice Concierge */}
@@ -397,19 +377,6 @@ function MainApp() {
 /* ── Entry point ────────────────────────────────────────────────────────── */
 export function ConciergeApp() {
   const [splashDone, setSplashDone] = useState(false);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      if (
-        sessionStorage.getItem('splash_shown') === '1' ||
-        window.location.search.includes('nosplash') ||
-        window.location.search.includes('skipSplash')
-      ) {
-        setSplashDone(true);
-      }
-    }
-  }, []);
-
   return splashDone
     ? <MainApp />
     : <HeroSplash onComplete={() => setSplashDone(true)} />;
