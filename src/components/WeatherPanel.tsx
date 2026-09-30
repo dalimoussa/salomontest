@@ -112,7 +112,7 @@ export function WeatherPanel() {
          style={{ animationFillMode: 'forwards', animationDelay: '0.15s' }}>
       
       {/* Mountain Header */}
-      <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
+      <div className="flex items-center justify-between pb-1.5 border-b border-white/6">
         <div className="flex items-center gap-1.5">
           <Mountain className="w-4 h-4 text-salomon-cyan" />
           <span className="text-sm font-bold text-white tracking-wide">{t('weather.mountain')}</span>
@@ -173,7 +173,7 @@ export function WeatherPanel() {
       </div>
 
       {/* Crowd forecast card — rule-based estimate, labeled as such */}
-      <div className="bg-white/5 rounded-xl p-2 border border-salomon-border/80">
+      <div className="bg-black/25 rounded-xl p-2 border border-white/6">
         <div className="flex items-center justify-between text-[11px]">
           <div className="flex items-center gap-1 text-salomon-muted">
             <Users className="w-3.5 h-3.5 text-amber-400" />

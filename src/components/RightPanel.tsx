@@ -93,7 +93,7 @@ export function RightPanel() {
             return (
               <div
                 key={f.id}
-                className={`bg-white/5 rounded-xl p-2.5 border border-salomon-border flex flex-col justify-between gap-1.5 ${isFullWidth ? 'col-span-2' : ''}`}
+                className={`bg-black/25 rounded-xl p-2.5 border border-white/6 flex flex-col justify-between gap-1.5 ${isFullWidth ? 'col-span-2' : ''}`}
               >
                 <div className="flex items-start justify-between gap-1 flex-wrap">
                   <div className="flex items-center gap-1.5 min-w-0">
@@ -123,7 +123,7 @@ export function RightPanel() {
       </div>
 
       {/* Zone ⑦ AI Advice */}
-      <div className="glass-card p-3 border-salomon-cyan/30 flex-1 min-h-0 flex flex-col animate-fadeInRight opacity-0-start relative overflow-hidden" style={{ animationFillMode: 'forwards', animationDelay: '0.4s' }}>
+      <div className="glass-card p-3 flex-1 min-h-0 flex flex-col animate-fadeInRight opacity-0-start relative overflow-hidden" style={{ animationFillMode: 'forwards', animationDelay: '0.4s' }}>
         {/* Subtle glow */}
         <div className="absolute top-0 right-0 w-24 h-24 bg-salomon-cyan/5 rounded-full blur-2xl pointer-events-none" />
 

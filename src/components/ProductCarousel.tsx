@@ -109,8 +109,8 @@ export function ProductCarousel() {
           {/* Client Auto-Hide / Manual Hide Button */}
           <button
             onClick={() => setIsCollapsed(true)}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/8 hover:bg-white/15
-                       border border-salomon-border text-[11px] font-bold text-salomon-muted hover:text-white
+            className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/25 hover:bg-black/40
+                       border border-white/8 text-[11px] font-bold text-salomon-muted hover:text-white
                        transition-colors active:scale-95 ml-1 cursor-pointer"
             title="下に隠す"
           >
@@ -131,7 +131,7 @@ export function ProductCarousel() {
                        flex flex-col items-center gap-2 cursor-pointer
                        animate-fadeInUp opacity-0-start active:scale-95 transition-transform"
             style={{ animationFillMode: 'forwards', animationDelay: `${0.4 + i * 0.07}s` }}>
-            <div className="w-full h-24 md:h-20 rounded-lg overflow-hidden bg-white/5">
+            <div className="w-full h-24 md:h-20 rounded-lg overflow-hidden bg-black/30">
               <img src={product.imageUrl} alt={product.name}
                 className="w-full h-full object-cover hover:scale-110 transition-transform duration-300"
                 onError={e => { (e.target as HTMLImageElement).src = 'https://placehold.co/135x90/0D1529/7B8DB0?text=S'; }}
@@ -155,7 +155,7 @@ export function ProductCarousel() {
                         transition-all duration-200 min-h-[32px] active:scale-95 ${
               activeFilter === f.value
                 ? 'bg-salomon-cyan text-salomon-black shadow-glow-cyan'
-                : 'bg-white/8 text-salomon-muted border border-salomon-border hover:text-white hover:border-salomon-cyan/40'
+                : 'bg-black/25 text-salomon-muted border border-white/8 hover:text-white hover:border-salomon-cyan/40'
             }`}>
             {f.label}
           </button>
