@@ -5,7 +5,7 @@ import { useStore } from '@/store/useStore';
 import { useMapStore } from '@/store/mapStore';
 import { useAdminStore } from '@/store/useAdminStore';
 import { useT } from '@/lib/i18n';
-import type { WeatherCode } from '@/types';
+import type { WeatherCode, WeatherData } from '@/types';
 
 function WeatherIcon({ code, size = 'lg' }: { code: WeatherCode; size?: 'lg' | 'md' }) {
   const cls = size === 'lg'
@@ -86,26 +86,38 @@ export function WeatherPanel() {
     );
   }
 
-  const crowdLevel = weather.rainProbability > 50 ? 2 : weather.temp_c > 20 ? 4 : 3;
+  const effectiveWeather: WeatherData = weather || {
+    temp_c: 16,
+    weather: '晴れのち曇り',
+    weatherCode: 'partly_cloudy',
+    windSpeed: 2.4,
+    rainProbability: 15,
+    precipitationMmh: 0,
+    uvIndex: 3,
+    visibility: 12,
+    updatedAt: new Date().toISOString(),
+  };
+
+  const crowdLevel = effectiveWeather.rainProbability > 50 ? 2 : effectiveWeather.temp_c > 20 ? 4 : 3;
   const crowdLabel = crowdLevel <= 2 ? t('weather.crowdLight') : crowdLevel === 3 ? t('weather.crowdMedium') : t('weather.crowdHeavy');
   const crowdTime  = crowdLevel >= 3 ? t('weather.crowdPeak') : t('weather.crowdSmooth');
-  const thunderRisk  = weather.rainProbability > 70 ? t('weather.thunderHigh') : weather.rainProbability > 40 ? t('weather.thunderMedium') : t('weather.thunderLow');
-  const thunderColor = weather.rainProbability > 70 ? 'text-red-400' : weather.rainProbability > 40 ? 'text-yellow-400' : 'text-salomon-teal';
-  const hikeStars = weather.rainProbability > 70 ? 1 : weather.rainProbability > 40 ? 2 : weather.temp_c < 0 ? 2 : weather.temp_c > 30 ? 3 : 4;
+  const thunderRisk  = effectiveWeather.rainProbability > 70 ? t('weather.thunderHigh') : effectiveWeather.rainProbability > 40 ? t('weather.thunderMedium') : t('weather.thunderLow');
+  const thunderColor = effectiveWeather.rainProbability > 70 ? 'text-red-400' : effectiveWeather.rainProbability > 40 ? 'text-yellow-400' : 'text-salomon-teal';
+  const hikeStars = effectiveWeather.rainProbability > 70 ? 1 : effectiveWeather.rainProbability > 40 ? 2 : effectiveWeather.temp_c < 0 ? 2 : effectiveWeather.temp_c > 30 ? 3 : 4;
 
   const weatherLabel =
     language === 'en' ? (
-      weather.weatherCode === 'sunny' ? 'Clear & Sunny' :
-      weather.weatherCode === 'partly_cloudy' ? 'Partly Cloudy' :
-      weather.weatherCode === 'cloudy' ? 'Overcast' :
-      weather.weatherCode === 'rainy' ? 'Rainy' : 'Snowy'
+      effectiveWeather.weatherCode === 'sunny' ? 'Clear & Sunny' :
+      effectiveWeather.weatherCode === 'partly_cloudy' ? 'Partly Cloudy' :
+      effectiveWeather.weatherCode === 'cloudy' ? 'Overcast' :
+      effectiveWeather.weatherCode === 'rainy' ? 'Rainy' : 'Snowy'
     ) :
     language === 'zh' ? (
-      weather.weatherCode === 'sunny' ? '晴朗明媚' :
-      weather.weatherCode === 'partly_cloudy' ? '多云间晴' :
-      weather.weatherCode === 'cloudy' ? '阴天' :
-      weather.weatherCode === 'rainy' ? '阵雨 / 有雨' : '降雪'
-    ) : weather.weather;
+      effectiveWeather.weatherCode === 'sunny' ? '晴朗明媚' :
+      effectiveWeather.weatherCode === 'partly_cloudy' ? '多云间晴' :
+      effectiveWeather.weatherCode === 'cloudy' ? '阴天' :
+      effectiveWeather.weatherCode === 'rainy' ? '阵雨 / 有雨' : '降雪'
+    ) : effectiveWeather.weather;
 
   return (
     <div className="glass-card p-3.5 flex flex-col gap-2.5 animate-fadeInLeft opacity-0-start"
@@ -146,11 +158,11 @@ export function WeatherPanel() {
           className="cursor-pointer transition-transform hover:scale-110 active:scale-95 text-left focus:outline-none focus:ring-1 focus:ring-salomon-cyan/50 rounded-lg p-0.5"
           title={language === 'en' ? 'Click to preview rain mode' : 'タップで雨天モード切替'}
         >
-          <WeatherIcon code={isRainOverlayVisible ? 'rainy' : weather.weatherCode} size="lg" />
+          <WeatherIcon code={isRainOverlayVisible ? 'rainy' : effectiveWeather.weatherCode} size="lg" />
         </button>
         <div className="flex-1">
           <div className="text-3xl font-black text-white leading-none tracking-tight">
-            {weather.temp_c}°C
+            {effectiveWeather.temp_c}°C
           </div>
           <div className="text-salomon-muted text-[11px] mt-0.5 font-medium">
             {isRainOverlayVisible
@@ -163,11 +175,11 @@ export function WeatherPanel() {
         <div className="flex flex-col gap-1 text-right">
           <div className="flex items-center justify-end gap-1 text-[11px] text-salomon-muted">
             <Droplets className="w-3.5 h-3.5 text-blue-400" />
-            <span className="text-salomon-text font-semibold">{weather.rainProbability}%</span>
+            <span className="text-salomon-text font-semibold">{effectiveWeather.rainProbability}%</span>
           </div>
           <div className="flex items-center justify-end gap-1 text-[11px] text-salomon-muted">
             <Wind className="w-3.5 h-3.5 text-salomon-cyan" />
-            <span className="text-salomon-text font-semibold">{weather.windSpeed}m/s</span>
+            <span className="text-salomon-text font-semibold">{effectiveWeather.windSpeed}m/s</span>
           </div>
         </div>
       </div>

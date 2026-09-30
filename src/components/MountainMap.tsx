@@ -181,53 +181,6 @@ export function MountainMap() {
       {/* Rain particle overlay — above map canvas, below UI controls */}
       <RainOverlay />
 
-      {/* 3D Course Status Indicator Badge */}
-      {selectedRoute && (
-        <div
-          className="hidden lg:block absolute top-16 left-4 lg:left-[310px] xl:left-[340px] 2xl:left-[380px] z-20
-                     animate-fadeIn opacity-0-start pointer-events-none"
-          style={{ animationFillMode: 'forwards', animationDelay: '0.4s' }}
-        >
-          <div className="bg-[#0c202b]/95 backdrop-blur-md border border-[rgba(80,168,198,0.50)]
-                          rounded-full px-3.5 py-1.5 shadow-xl shadow-black/60 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-salomon-cyan animate-pulse ring-2 ring-salomon-cyan/40" />
-            <span className="text-[11px] font-bold text-white">
-              {isLivePoc ? `${selectedRoute.name} (3Dリアルタイムシーン)` : `${selectedRoute.name} (3D地形ルート)`}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Onboarding Navigation Hint (Dismissible on tap or course selection) */}
-      {showNavGuide && (
-        <div
-          onClick={dismissNavGuide}
-          className="hidden lg:flex items-center gap-2 absolute top-28 left-4 lg:left-[310px] xl:left-[340px] 2xl:left-[380px] z-30
-                     bg-[#0c202b]/95 backdrop-blur-md border border-cyan-400/50 rounded-xl px-3.5 py-1.5 shadow-xl shadow-black/60
-                     cursor-pointer hover:border-cyan-300 transition-all duration-300 animate-fadeIn"
-          title="クリックで閉じる"
-        >
-          <span className="text-cyan-400 font-black text-xs animate-pulse">◀︎</span>
-          <span className="text-[11px] font-bold text-white tracking-wide">
-            {language === 'en'
-              ? 'Tap any course on the left to view 3D map'
-              : language === 'zh'
-              ? '点击左侧路线列表查看3D地图'
-              : '◀︎ ココをタップしたら、各コースMAPが見れるよ❗️'}
-          </span>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              dismissNavGuide();
-            }}
-            className="ml-1.5 text-slate-400 hover:text-white text-xs w-4 h-4 flex items-center justify-center rounded-full hover:bg-white/10"
-            aria-label="閉じる"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
       {/* Map Action Controls (Floating within the central mountain viewport) */}
       <div
         className="absolute top-16 right-3 lg:right-[310px] xl:right-[340px] 2xl:right-[380px] z-30 flex flex-col gap-2

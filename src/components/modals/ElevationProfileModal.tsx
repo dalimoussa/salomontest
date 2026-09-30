@@ -494,7 +494,9 @@ export function ElevationProfileModal() {
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] tracking-widest uppercase font-mono px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                {activeTab === 'trail' ? 'TAKAO TRAIL HUB' : 'TAKAO MOUNTAIN HIKING'}
+                {activeTab === 'trail'
+                  ? (language === 'en' ? 'TAKAO TRAIL HUB' : language === 'zh' ? '高尾山越野跑中心' : 'TAKAO TRAIL HUB')
+                  : (language === 'en' ? 'TAKAO MOUNTAIN HIKING' : language === 'zh' ? '高尾山登山步道' : 'TAKAO MOUNTAIN HIKING')}
               </span>
               <span className="text-[11px] text-slate-400 font-medium">
                 {language === 'en'
@@ -505,7 +507,19 @@ export function ElevationProfileModal() {
               </span>
             </div>
             <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white mt-1 flex items-center gap-2">
-              <span>{activeTab === 'trail' ? '高尾山トレイルハブ 7+トレイルコース' : '高尾山登山道 12ルート標高一括比較'}</span>
+              <span>
+                {activeTab === 'trail'
+                  ? (language === 'en'
+                      ? 'Mt. Takao Trail Hub (8 Trail Running Courses)'
+                      : language === 'zh'
+                      ? '高尾山越野跑中心（8条越野跑路线）'
+                      : '高尾山トレイルハブ（8トレイルコース）')
+                  : (language === 'en'
+                      ? 'Mt. Takao 12 Hiking Trails Elevation Comparison'
+                      : language === 'zh'
+                      ? '高尾山登山步道 12条路线海拔一览'
+                      : '高尾山登山道 12ルート標高一括比較')}
+              </span>
             </h2>
             <p className="text-xs text-slate-300 mt-0.5">
               {language === 'en'
@@ -520,21 +534,35 @@ export function ElevationProfileModal() {
           <div className="flex items-center gap-3 bg-white/[0.06] border border-white/15 rounded-2xl px-4 py-2.5 shrink-0 self-stretch sm:self-auto justify-between sm:justify-start">
             <div className="text-left">
               <p className="text-[9px] uppercase font-mono text-slate-400">
-                {activeTab === 'trail' ? 'トレイル 合計データ' : '登山道 合計データ'}
+                {activeTab === 'trail'
+                  ? (language === 'en' ? 'Trail Run Total Data' : language === 'zh' ? '越野跑 汇总数据' : 'トレイル 合計データ')
+                  : (language === 'en' ? 'Hiking Total Data' : language === 'zh' ? '登山步道 汇总数据' : '登山道 合計データ')}
               </p>
               <div className="flex items-baseline gap-1 mt-0.5">
-                <span className="text-[10px] text-slate-400">総距離:</span>
-                <span className="text-sm font-black text-white font-mono">約 {totalDistance.toFixed(1)}km</span>
+                <span className="text-[10px] text-slate-400">
+                  {language === 'en' ? 'Total Dist:' : language === 'zh' ? '总距离:' : '総距離:'}
+                </span>
+                <span className="text-sm font-black text-white font-mono">
+                  {language === 'en' ? 'Approx ' : language === 'zh' ? '约 ' : '約 '}
+                  {totalDistance.toFixed(1)}km
+                </span>
               </div>
             </div>
             <div className="w-px h-8 bg-white/15" />
             <div className="text-left">
               <div className="flex items-baseline gap-1">
-                <span className="text-[10px] text-slate-400">累積標高:</span>
-                <span className="text-sm font-black text-cyan-300 font-mono">約 {totalElevationGain.toLocaleString()}m</span>
+                <span className="text-[10px] text-slate-400">
+                  {language === 'en' ? 'Elev Gain:' : language === 'zh' ? '累计爬升:' : '累積標高:'}
+                </span>
+                <span className="text-sm font-black text-cyan-300 font-mono">
+                  {language === 'en' ? 'Approx ' : language === 'zh' ? '约 ' : '約 '}
+                  {totalElevationGain.toLocaleString()}m
+                </span>
               </div>
               <div className="flex items-baseline gap-1">
-                <span className="text-[10px] text-slate-400">最高標高:</span>
+                <span className="text-[10px] text-slate-400">
+                  {language === 'en' ? 'Max Alt:' : language === 'zh' ? '最高海拔:' : '最高標高:'}
+                </span>
                 <span className="text-xs font-bold text-amber-300 font-mono">{maxAltitude}m</span>
               </div>
             </div>
@@ -561,7 +589,13 @@ export function ElevationProfileModal() {
                   : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
               }`}
             >
-              <span>🏃 トレイルランニング（8コース）</span>
+              <span>
+                {language === 'en'
+                  ? '🏃 Trail Running (8 Courses)'
+                  : language === 'zh'
+                  ? '🏃 越野跑路线（8条路线）'
+                  : '🏃 トレイルランニング（8コース）'}
+              </span>
             </button>
             <button
               onClick={() => { setActiveTab('hiking'); setHoveredCourseId(null); }}
@@ -571,13 +605,25 @@ export function ElevationProfileModal() {
                   : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
               }`}
             >
-              <span>🥾 登山道コース（12コース）</span>
+              <span>
+                {language === 'en'
+                  ? '🥾 Hiking Trails (12 Courses)'
+                  : language === 'zh'
+                  ? '🥾 登山步道路线（12条路线）'
+                  : '🥾 登山道コース（12コース）'}
+              </span>
             </button>
           </div>
 
           <div className="hidden sm:flex items-center gap-2 text-[11px] text-slate-400">
             <Compass className="w-3.5 h-3.5 text-cyan-400 animate-spin-slow" />
-            <span>コースをクリックすると3Dマップ上でルートを即座に表示します</span>
+            <span>
+              {language === 'en'
+                ? 'Click a course to inspect its route on 3D map'
+                : language === 'zh'
+                ? '点击路线卡片即可在3D地图上同步查看'
+                : 'コースをクリックすると3Dマップ上でルートを即座に表示します'}
+            </span>
           </div>
         </div>
 
@@ -589,11 +635,19 @@ export function ElevationProfileModal() {
               <div className="flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-cyan-400" />
                 <span className="text-xs font-bold text-white tracking-wide">
-                  標高プロファイル（イメージ） / ELEVATION PROFILES OVERVIEW
+                  {language === 'en'
+                    ? 'ELEVATION PROFILES OVERVIEW (3D SILHOUETTE)'
+                    : language === 'zh'
+                    ? '海拔高度剖面总览（3D群山剪影）'
+                    : '標高プロファイル（イメージ） / 群山シルエット'}
                 </span>
               </div>
               <span className="text-[10px] text-slate-400 font-mono">
-                Y: 標高(m) / X: コース相対距離(km)
+                {language === 'en'
+                  ? 'Y: Altitude (m) / X: Distance (km)'
+                  : language === 'zh'
+                  ? 'Y: 海拔高度(m) / X: 路线距离(km)'
+                  : 'Y: 標高(m) / X: コース相対距離(km)'}
               </span>
             </div>
 
@@ -673,7 +727,7 @@ export function ElevationProfileModal() {
                   textAnchor="end"
                   fontFamily="monospace"
                 >
-                  距離 (km)
+                  {language === 'en' ? 'Dist (km)' : language === 'zh' ? '距离 (km)' : '距離 (km)'}
                 </text>
 
                 {/* Render Overlapping Mountain Profile Curves */}
@@ -784,10 +838,18 @@ export function ElevationProfileModal() {
           <div>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-black uppercase tracking-wider text-slate-300">
-                コース別詳細データ / INDIVIDUAL COURSE BREAKDOWN
+                {language === 'en'
+                  ? 'INDIVIDUAL COURSE BREAKDOWN'
+                  : language === 'zh'
+                  ? '各路线详细高程与难度 / INDIVIDUAL COURSE BREAKDOWN'
+                  : 'コース別詳細データ / INDIVIDUAL COURSE BREAKDOWN'}
               </h3>
               <span className="text-[10px] text-slate-400">
-                {language === 'en' ? 'Click card to select route' : language === 'zh' ? '点击路线卡片直接在3D地图查看' : 'カードをタップして3Dマップで確認'}
+                {language === 'en'
+                  ? 'Click card to inspect route on 3D map'
+                  : language === 'zh'
+                  ? '点击卡片直接在3D地图中查看路线'
+                  : 'カードをタップして3Dマップで確認'}
               </span>
             </div>
 
@@ -817,10 +879,10 @@ export function ElevationProfileModal() {
                         </span>
                         <div className="min-w-0">
                           <p className="text-xs font-bold text-white truncate leading-tight">
-                            {p.name}
+                            {language === 'en' ? p.name_en : language === 'zh' ? p.name_zh : p.name}
                           </p>
                           <p className="text-[9px] text-slate-400 font-mono truncate">
-                            {p.name_en}
+                            {language === 'en' ? p.name : language === 'zh' ? p.name : p.name_en}
                           </p>
                         </div>
                       </div>
@@ -828,11 +890,15 @@ export function ElevationProfileModal() {
                       {/* Distance & Elevation Gain */}
                       <div className="grid grid-cols-2 gap-1.5 py-1.5 px-2 rounded-xl bg-black/40 border border-white/10 text-center font-mono">
                         <div>
-                          <p className="text-[8.5px] text-slate-400 uppercase">距離</p>
+                          <p className="text-[8.5px] text-slate-400 uppercase">
+                            {language === 'en' ? 'DISTANCE' : language === 'zh' ? '距离' : '距離'}
+                          </p>
                           <p className="text-xs font-black text-white">{p.distanceKm}km</p>
                         </div>
                         <div>
-                          <p className="text-[8.5px] text-slate-400 uppercase">累積上り</p>
+                          <p className="text-[8.5px] text-slate-400 uppercase">
+                            {language === 'en' ? 'ASCENT' : language === 'zh' ? '累计爬升' : '累積上り'}
+                          </p>
                           <p className="text-xs font-black text-cyan-300">↑{p.elevationGainM}m</p>
                         </div>
                       </div>
@@ -842,10 +908,12 @@ export function ElevationProfileModal() {
                     <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between text-[10px]">
                       <span className="text-amber-300 font-bold flex items-center gap-0.5">
                         {'★'.repeat(p.difficultyStars)}
-                        <span className="text-slate-400 ml-1 font-medium">{p.difficultyLabel}</span>
+                        <span className="text-slate-400 ml-1 font-medium">
+                          {language === 'en' ? p.difficultyLabel_en : language === 'zh' ? p.difficultyLabel_zh : p.difficultyLabel}
+                        </span>
                       </span>
                       <span className="text-[9px] text-cyan-400 font-mono font-bold group-hover:translate-x-0.5 transition-transform">
-                        3D表示 ›
+                        {language === 'en' ? 'View 3D ›' : language === 'zh' ? '3D查看 ›' : '3D表示 ›'}
                       </span>
                     </div>
                   </div>
@@ -860,24 +928,44 @@ export function ElevationProfileModal() {
             <div className="md:col-span-4 p-3.5 rounded-2xl bg-white/[0.04] border border-white/15 flex flex-col justify-between">
               <div>
                 <p className="text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-1">
-                  トレイル難易度基準 / DIFFICULTY RATINGS
+                  {language === 'en'
+                    ? 'DIFFICULTY RATINGS'
+                    : language === 'zh'
+                    ? '步道难度等级标准 / DIFFICULTY'
+                    : 'トレイル難易度基準 / DIFFICULTY RATINGS'}
                 </p>
                 <div className="space-y-1 text-[10.5px]">
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-300">初心者向け</span>
-                    <span className="text-amber-400 font-bold">★☆☆☆☆ (全線舗装路)</span>
+                    <span className="text-slate-300">
+                      {language === 'en' ? 'Beginner' : language === 'zh' ? '初学者 / 休闲入门' : '初心者向け'}
+                    </span>
+                    <span className="text-amber-400 font-bold">
+                      ★☆☆☆☆ {language === 'en' ? '(Paved Path)' : language === 'zh' ? '(全线铺装路面)' : '(全線舗装路)'}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-300">初中級者向け</span>
-                    <span className="text-amber-400 font-bold">★★☆☆☆ (自然山道)</span>
+                    <span className="text-slate-300">
+                      {language === 'en' ? 'Easy / Moderate' : language === 'zh' ? '初中级 / 适度徒步' : '初中級者向け'}
+                    </span>
+                    <span className="text-amber-400 font-bold">
+                      ★★☆☆☆ {language === 'en' ? '(Natural Trail)' : language === 'zh' ? '(自然山道/阶梯)' : '(自然山道)'}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-300">中級者向け</span>
-                    <span className="text-amber-400 font-bold">★★★☆☆ (適度な起伏)</span>
+                    <span className="text-slate-300">
+                      {language === 'en' ? 'Intermediate' : language === 'zh' ? '中级 / 经典山脊' : '中級者向け'}
+                    </span>
+                    <span className="text-amber-400 font-bold">
+                      ★★★☆☆ {language === 'en' ? '(Moderate Slopes)' : language === 'zh' ? '(适度起伏坡道)' : '(適度な起伏)'}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-300">中上級・上級</span>
-                    <span className="text-amber-400 font-bold">★★★★★ (本格トレイル)</span>
+                    <span className="text-slate-300">
+                      {language === 'en' ? 'Advanced / Expert' : language === 'zh' ? '高难度 / 专家越野' : '中上級・上級'}
+                    </span>
+                    <span className="text-amber-400 font-bold">
+                      ★★★★★ {language === 'en' ? '(Technical Ridge)' : language === 'zh' ? '(长距离技术越野)' : '(本格トレイル)'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -889,7 +977,11 @@ export function ElevationProfileModal() {
                 <div className="flex items-center gap-1.5">
                   <Footprints className="w-3.5 h-3.5 text-cyan-400" />
                   <span className="text-xs font-bold text-white tracking-wide">
-                    おすすめシューズ / RECOMMENDED SALOMON FOOTWEAR
+                    {language === 'en'
+                      ? 'RECOMMENDED SALOMON FOOTWEAR'
+                      : language === 'zh'
+                      ? '推荐萨洛蒙鞋款 / RECOMMENDED SALOMON FOOTWEAR'
+                      : 'おすすめシューズ / RECOMMENDED SALOMON FOOTWEAR'}
                   </span>
                 </div>
                 <span className="text-[10px] font-mono tracking-widest text-slate-400 uppercase font-black">
@@ -901,14 +993,22 @@ export function ElevationProfileModal() {
                 {/* Shoe 1: X ULTRA 360 */}
                 <div className="p-2.5 rounded-xl bg-black/40 border border-white/10 flex flex-col justify-between">
                   <div>
-                    <span className="text-[9px] text-cyan-400 font-bold">ハイク・初心者向け</span>
+                    <span className="text-[9px] text-cyan-400 font-bold">
+                      {language === 'en' ? 'Hiking · Beginner' : language === 'zh' ? '徒步 · 初学者入门' : 'ハイク・初心者向け'}
+                    </span>
                     <h4 className="text-xs font-black text-white mt-0.5">X ULTRA 360</h4>
                     <p className="text-[9.5px] text-slate-400 mt-0.5 leading-snug">
-                      抜群の安定性とGORE-TEX防水。足首のブレを防ぎ快適な歩行をサポート。
+                      {language === 'en'
+                        ? 'Outstanding stability with GORE-TEX waterproof protection. Prevents ankle wobble for smooth, comfortable hiking.'
+                        : language === 'zh'
+                        ? '出色的稳定支撑与GORE-TEX防水保护。有效稳定脚踝，带来舒适惬意的徒步体验。'
+                        : '抜群の安定性とGORE-TEX防水。足首のブレを防ぎ快適な歩行をサポート。'}
                     </p>
                   </div>
                   <div className="mt-2 pt-1 border-t border-white/10 flex items-center justify-between text-[9px] text-slate-400">
-                    <span>1号路〜6号路に最適</span>
+                    <span>
+                      {language === 'en' ? 'Ideal for Trails 1 - 6' : language === 'zh' ? '最适合 1号路〜6号路' : '1号路〜6号路に最適'}
+                    </span>
                     <span className="text-cyan-400 font-bold">★1〜2</span>
                   </div>
                 </div>
@@ -916,14 +1016,22 @@ export function ElevationProfileModal() {
                 {/* Shoe 2: XA PRO 3D V9 */}
                 <div className="p-2.5 rounded-xl bg-black/40 border border-white/10 flex flex-col justify-between">
                   <div>
-                    <span className="text-[9px] text-emerald-400 font-bold">トレイルラン・中級者向け</span>
+                    <span className="text-[9px] text-emerald-400 font-bold">
+                      {language === 'en' ? 'Trail Run · Intermediate' : language === 'zh' ? '越野跑 · 中级进阶' : 'トレイルラン・中級者向け'}
+                    </span>
                     <h4 className="text-xs font-black text-white mt-0.5">XA PRO 3D V9</h4>
                     <p className="text-[9.5px] text-slate-400 mt-0.5 leading-snug">
-                      3D Advanced Chassisによる高安定性と堅牢な耐久性。岩場や急坂でも安心。
+                      {language === 'en'
+                        ? '3D Advanced Chassis provides high stability and rugged durability. Confident grip on rocky sections and steep slopes.'
+                        : language === 'zh'
+                        ? '搭载3D Advanced Chassis底盘系统，具备极高稳定性与耐磨性。无惧岩石路与陡坡。'
+                        : '3D Advanced Chassisによる高安定性と堅牢な耐久性。岩場や急坂でも安心。'}
                     </p>
                   </div>
                   <div className="mt-2 pt-1 border-t border-white/10 flex items-center justify-between text-[9px] text-slate-400">
-                    <span>南高尾・城山に最適</span>
+                    <span>
+                      {language === 'en' ? 'Ideal for S.Takao & Shiroyama' : language === 'zh' ? '最适合 南高尾・城山路线' : '南高尾・城山に最適'}
+                    </span>
                     <span className="text-emerald-400 font-bold">★3〜4</span>
                   </div>
                 </div>
@@ -931,14 +1039,22 @@ export function ElevationProfileModal() {
                 {/* Shoe 3: S/LAB GENESIS */}
                 <div className="p-2.5 rounded-xl bg-black/40 border border-white/10 flex flex-col justify-between">
                   <div>
-                    <span className="text-[9px] text-rose-400 font-bold">テクニカル・上級者向け</span>
+                    <span className="text-[9px] text-rose-400 font-bold">
+                      {language === 'en' ? 'Technical · Expert Race' : language === 'zh' ? '技术越野 · 专家竞速' : 'テクニカル・上級者向け'}
+                    </span>
                     <h4 className="text-xs font-black text-white mt-0.5">S/LAB GENESIS</h4>
                     <p className="text-[9.5px] text-slate-400 mt-0.5 leading-snug">
-                      過酷なトレイルを高速で駆け抜ける最高峰レースモデル。最強のグリップ力。
+                      {language === 'en'
+                        ? 'Pinnacle racing model engineered to conquer demanding trails at speed. Ultimate grip, energy return, and protection.'
+                        : language === 'zh'
+                        ? '专为高速征服崎岖险峻越野赛道打造的顶级竞速鞋。具备极致抓地力与保护性能。'
+                        : '過酷なトレイルを高速で駆け抜ける最高峰レースモデル。最強のグリップ力。'}
                     </p>
                   </div>
                   <div className="mt-2 pt-1 border-t border-white/10 flex items-center justify-between text-[9px] text-slate-400">
-                    <span>天狗・陣馬山稜に最適</span>
+                    <span>
+                      {language === 'en' ? 'Ideal for Tengu & Jinba Ridges' : language === 'zh' ? '最适合 天狗・阵马山脊' : '天狗・陣馬山稜に最適'}
+                    </span>
                     <span className="text-rose-400 font-bold">★5〜6</span>
                   </div>
                 </div>
