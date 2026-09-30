@@ -25,6 +25,8 @@ export interface UseVoiceConversationReturn {
   stopListening: () => void;
   cancelConversation: () => void;
   speakText: (text: string, lang?: string) => Promise<void>;
+  submitTextQuestion: (text: string) => Promise<void>;
+  testAudioOutput: () => Promise<void>;
 }
 
 function getTargetRecognitionLang(lang: 'ja' | 'en' | 'zh'): string {
@@ -1549,12 +1551,20 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     autoLoopRef.current = true;
     let didInit = false;
 
-    // 1. Attempt immediate start (succeeds if browser already granted mic permission)
-    const initialTimer = setTimeout(() => {
-      if (!didInit && statusRef.current === 'idle') {
-        startListeningRef.current?.().catch(() => {});
-      }
-    }, 1000);
+    // 1. Only attempt unprompted start if microphone permission is already explicitly granted
+    if (typeof navigator !== 'undefined' && (navigator as any).permissions?.query) {
+      try {
+        (navigator as any).permissions
+          .query({ name: 'microphone' as PermissionName })
+          .then((perm: any) => {
+            if (perm && perm.state === 'granted' && !didInit && statusRef.current === 'idle') {
+              didInit = true;
+              startListeningRef.current?.().catch(() => {});
+            }
+          })
+          .catch(() => {});
+      } catch {}
+    }
 
     // 2. Fallback: activate automatically on first user click or tap anywhere on the screen
     const handleFirstTouch = () => {
@@ -1570,11 +1580,39 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     window.addEventListener('keydown', handleFirstTouch, { once: true });
 
     return () => {
-      clearTimeout(initialTimer);
       window.removeEventListener('pointerdown', handleFirstTouch);
       window.removeEventListener('keydown', handleFirstTouch);
     };
   }, [enabled, cancelConversation]);
+
+  // ── One-Click Text Question Submission (Reliable on all devices regardless of mic permissions) ──
+  const submitTextQuestion = useCallback(async (text: string) => {
+    if (!text || !text.trim()) return;
+    unlockAudio();
+    cancelConversation();
+    const query = text.trim();
+    setTranscript(query);
+    setResponseText('');
+    setErrorMessage(null);
+    setStatus('thinking');
+    await processRecordedAudioRef.current?.(null, query);
+  }, [cancelConversation]);
+
+  // ── One-Click Speaker & Audio Output Test ──
+  const testAudioOutput = useCallback(async () => {
+    unlockAudio();
+    setErrorMessage(null);
+    const activeLang = useStore.getState().language;
+    const testMsg =
+      activeLang === 'en'
+        ? 'Hello! Salomon AI Mountain Concierge is online and audio output is working properly. Feel free to ask about any course or gear recommendation!'
+        : activeLang === 'zh'
+        ? '您好！萨洛蒙AI向导语音播报正常运行。欢迎咨询高尾山登山路线、天气或装备建议！'
+        : 'こんにちは！サロモンAIコンシェルジュです。音声出力は正常に動作しています。高尾山のおすすめコースや天気など、何でもお尋ねください。';
+    setResponseText(testMsg);
+    setStatus('speaking');
+    await speakText(testMsg, activeLang);
+  }, [speakText]);
 
   return {
     status,
@@ -1587,6 +1625,8 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     stopListening,
     cancelConversation,
     speakText,
+    submitTextQuestion,
+    testAudioOutput,
   };
 }
 

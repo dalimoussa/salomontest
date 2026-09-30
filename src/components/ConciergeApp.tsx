@@ -14,6 +14,7 @@ import { EquipmentModal } from './modals/EquipmentModal';
 import { StaffModal } from './modals/StaffModal';
 import { CableCarModal } from './modals/CableCarModal';
 import { DifficultyModal } from './modals/DifficultyModal';
+import { ElevationProfileModal } from './modals/ElevationProfileModal';
 import { HeroSplash } from './HeroSplash';
 import { KioskWatchdog } from './KioskWatchdog';
 import { TouchRipple } from './TouchRipple';
@@ -27,7 +28,7 @@ import { getTrailStatus } from '@/data/trailStatus';
 import { getFacilities } from '@/data/facilities';
 import { useT } from '@/lib/i18n';
 import { Compass, Mountain, Info, ShoppingBag, ChevronRight } from 'lucide-react';
-import type { WeatherData } from '@/types';
+import type { WeatherData, ActiveModal } from '@/types';
 
 function makeKey(routeId: string, difficulty: string, lang: string) {
   return `${routeId}__${difficulty}__${lang}`;
@@ -38,6 +39,7 @@ function useAppData() {
   const selectedRoute       = useStore(s => s.selectedRoute);
   const selectedDifficulty  = useStore(s => s.selectedDifficulty);
   const language            = useStore(s => s.language);
+  const setActiveModal      = useStore(s => s.setActiveModal);
   const setWeather          = useStore(s => s.setWeather);
   const setWeatherLoading   = useStore(s => s.setWeatherLoading);
   const setWeatherError     = useStore(s => s.setWeatherError);
@@ -106,6 +108,16 @@ function useAppData() {
   }, [selectedRoute?.id, setHighlightedRouteId]);
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const m = params.get('modal');
+      if (m === 'elevation' || m === 'equipment' || m === 'staff' || m === 'cablecar' || m === 'difficulty') {
+        setActiveModal(m as ActiveModal);
+      }
+    }
+  }, [setActiveModal]);
+
+  useEffect(() => {
     if (!selectedRoute || !selectedDifficulty || !weather) return;
     const key = makeKey(selectedRoute.id, selectedDifficulty, language);
     if (key === lastKey) return;
@@ -167,9 +179,9 @@ function MainApp() {
       {/* Unattended kiosk reliability watchdog (inactivity reset + daily purge) */}
       <KioskWatchdog />
 
-      {/* Subtle vignette gradient that lets the central mountain aerial visual pop */}
+      {/* Subtle non-darkening atmospheric ambient layer */}
       <div
-        className="absolute inset-0 bg-gradient-to-b from-salomon-dark/40 via-transparent to-salomon-dark/50 pointer-events-none"
+        className="absolute inset-0 pointer-events-none"
         style={{ zIndex: 5 }}
       />
 
@@ -363,6 +375,7 @@ function MainApp() {
       {activeModal === 'staff'      && <StaffModal />}
       {activeModal === 'cablecar'   && <CableCarModal />}
       {activeModal === 'difficulty' && <DifficultyModal />}
+      {activeModal === 'elevation'  && <ElevationProfileModal />}
 
       {/* ── Emergency Notice Ticker (fixed bottom, above mobile tab bar) ── */}
       <div className="fixed bottom-14 md:bottom-0 left-0 right-0 z-40 pointer-events-none">

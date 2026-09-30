@@ -70,6 +70,8 @@ export function QuickActions() {
     stopListening,
     cancelConversation,
     speakText,
+    submitTextQuestion,
+    testAudioOutput,
   } = voice;
 
   // ── Periodic Standby Attract Callout & Conversation Lifecycle ───────────────
@@ -422,6 +424,8 @@ export function QuickActions() {
           onStartListening={handleStartListening}
           onStopListening={stopListening}
           onCancel={cancelConversation}
+          onSubmitQuestion={submitTextQuestion}
+          onTestAudio={testAudioOutput}
           language={language}
           isCalloutSpeaking={isCalloutSpeaking}
         />

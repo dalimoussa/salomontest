@@ -213,4 +213,5 @@ export type ActiveModal =
   | 'equipment'
   | 'staff'
   | 'cablecar'
-  | 'difficulty';
+  | 'difficulty'
+  | 'elevation';

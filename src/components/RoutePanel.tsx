@@ -101,6 +101,25 @@ export function RoutePanel() {
         </span>
       </div>
 
+      {/* Client Requirement [29/09/2026 06:38]: 標高プロファイルを全コース一気に見られるカード (TAKAO TRAIL HUB) */}
+      <button
+        onClick={() => setActiveModal('elevation')}
+        className="w-full py-1.5 px-3 rounded-xl bg-gradient-to-r from-cyan-500/20 via-blue-500/15 to-purple-500/15 border border-cyan-400/40 hover:border-cyan-400 text-cyan-300 hover:text-white flex items-center justify-between transition-all duration-200 shadow-sm group active:scale-[0.99]"
+      >
+        <div className="flex items-center gap-2">
+          <TrendingUp className="w-3.5 h-3.5 text-cyan-400 group-hover:scale-110 transition-transform" />
+          <span className="text-xs font-black tracking-wide">
+            {language === 'en' ? 'All-Course Elevation Profile Hub' : language === 'zh' ? '全路线海拔高度剖面总览' : '全コース標高プロファイル（登山・トレラン）'}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-400/20 text-cyan-300 border border-cyan-400/40 font-black font-mono">
+            HUB
+          </span>
+          <span className="text-xs text-cyan-400 font-bold group-hover:translate-x-0.5 transition-transform">›</span>
+        </div>
+      </button>
+
       {/* Quick 20-Course Difficulty Modal Button (登山・トレラン) */}
       <button
         onClick={() => setActiveModal('difficulty')}

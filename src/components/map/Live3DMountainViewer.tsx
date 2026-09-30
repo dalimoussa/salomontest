@@ -63,9 +63,9 @@ export function Live3DMountainViewer({
         onError={() => setHasError(true)}
       />
 
-      {/* ── Soft Edge Gradient for Header/Footer HUD Legibility (No Multiply) ── */}
+      {/* ── Transparent Overlay Layer ── */}
       <div
-        className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black/25 via-transparent to-black/15"
+        className="absolute inset-0 pointer-events-none"
       />
 
       {/* ── Loading Spinner Overlay ───────────────────────────────────────────── */}

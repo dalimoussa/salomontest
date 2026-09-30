@@ -109,47 +109,16 @@ interface SunSkyConfig {
  * Computes dynamic CG sun & sky parameters based on local hour
  */
 function getSunSkyConfig(hour: number): SunSkyConfig {
-  if (hour >= 6 && hour < 10) {
-    // Morning: warm golden side-light (#FFE0B2)
-    return {
-      skyColor: '#1A233A',
-      horizonColor: '#4A3B32',
-      fogColor: '#2C2224',
-      lightColor: '#FFE0B2',
-      lightIntensity: 0.65,
-      lightPosition: [1.5, 80, 45],
-    };
-  } else if (hour >= 10 && hour < 15) {
-    // Midday: high-noon crisp light with rich blue sky (#0A1E3F)
-    return {
-      skyColor: '#0A1E3F',
-      horizonColor: '#16325C',
-      fogColor: '#0D2140',
-      lightColor: '#FFFFFF',
-      lightIntensity: 0.85,
-      lightPosition: [1.5, 180, 75],
-    };
-  } else if (hour >= 15 && hour < 18) {
-    // Afternoon / Sunset: dramatic amber horizon with purple atmospheric tint
-    return {
-      skyColor: '#1E1233',
-      horizonColor: '#7C3A27',
-      fogColor: '#451D2C',
-      lightColor: '#FFB74D',
-      lightIntensity: 0.70,
-      lightPosition: [1.5, 255, 30],
-    };
-  } else {
-    // Evening / Night: deep navy twilight with illuminated pins
-    return {
-      skyColor: '#060B18',
-      horizonColor: '#0C162E',
-      fogColor: '#091024',
-      lightColor: '#90CAF9',
-      lightIntensity: 0.35,
-      lightPosition: [1.5, 210, 20],
-    };
-  }
+  // Retail Signage & Kiosk Standard: Always display in bright daytime illumination
+  // so customers can clearly see mountain relief, green forests, and trails.
+  return {
+    skyColor: '#388BFD',
+    horizonColor: '#BAE6FD',
+    fogColor: '#E0F2FE',
+    lightColor: '#FFFFFF',
+    lightIntensity: 1.35,
+    lightPosition: [1.5, 180, 75],
+  };
 }
 
 /** Maps app route IDs to GeoJSON feature route_id values */
@@ -254,6 +223,9 @@ function buildMapStyle(sunSky: SunSkyConfig, initialGeoId: string, initialLang: 
           'raster-opacity': 1.0,
           'raster-resampling': 'linear',
           'raster-fade-duration': 100,
+          'raster-brightness-max': 1.18,
+          'raster-contrast': 0.16,
+          'raster-saturation': 0.22,
         },
       },
       // ── 1. Trail lines base casing (dark underlayer ensures contrast against all terrain) ──

@@ -13,20 +13,22 @@
 }
 
 @layer components {
-  /* ── Glassmorphism card ─────────────────────────────────────────────── */
+  /* ── Clear Glassmorphism card (matching Image 2 & client feedback) ───── */
   .glass-card {
-    @apply rounded-2xl border border-salomon-border;
-    background: rgba(8,16,40,0.82);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    box-shadow: 0 4px 24px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.07);
+    @apply rounded-2xl;
+    background: rgba(6, 14, 30, 0.48);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.14);
   }
   .glass-card-hover {
     @apply glass-card transition-all duration-300 cursor-pointer;
   }
   .glass-card-hover:hover {
-    border-color: rgba(0,200,255,0.4);
-    box-shadow: 0 8px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,200,255,0.15), inset 0 1px 0 rgba(255,255,255,0.1);
+    border-color: rgba(0, 200, 255, 0.5);
+    background: rgba(8, 18, 40, 0.58);
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(0, 200, 255, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.18);
     transform: translateY(-1px);
   }
 

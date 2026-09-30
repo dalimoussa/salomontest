@@ -14,6 +14,8 @@ interface VoiceHUDProps {
   onStartListening: () => void;
   onStopListening: () => void;
   onCancel: () => void;
+  onSubmitQuestion?: (text: string) => void;
+  onTestAudio?: () => void;
   language: 'ja' | 'en' | 'zh';
   isCalloutSpeaking?: boolean;
 }
@@ -26,6 +28,8 @@ export function VoiceHUD({
   errorMessage,
   onStartListening,
   onCancel,
+  onSubmitQuestion,
+  onTestAudio,
   language,
   isCalloutSpeaking = false,
 }: VoiceHUDProps) {
@@ -33,6 +37,14 @@ export function VoiceHUD({
   const isThinking     = status === 'thinking';
   const isSpeaking     = status === 'speaking';
   const isIdle         = status === 'idle';
+
+  // Sample prompt chips for instant zero-friction voice interaction
+  const SAMPLE_QUESTIONS =
+    language === 'en'
+      ? ['Beginner trails?', 'Current weather & gear?', 'Famous snacks & shrines?']
+      : language === 'zh'
+      ? ['推荐初学者路线？', '山顶天气与穿搭？', '特色美食与景点？']
+      : ['初心者おすすめコースは？', '今日の天気とおすすめ服装は？', '名物天狗焼や茶屋はどこ？'];
 
   // Localized quote styling helper: English uses "", Chinese uses “”, Japanese uses 「」
   const formatQuote = (text: string) => {
@@ -67,19 +79,60 @@ export function VoiceHUD({
     ? (language === 'en' ? 'Processing your request...' : language === 'zh' ? '正在处理...' : '処理中...')
     : isSpeaking
     ? (language === 'en' ? 'Answering your question...' : language === 'zh' ? '正在回答您的问题…' : 'ご質問にお答えしています…')
-    : (language === 'en' ? 'Click here to start or say "Hello"' : language === 'zh' ? '点击此处启动麦克风或直接说话' : 'ここをクリックしてマイクを起動（または発話）');
+    : (language === 'en' ? 'Click here to speak or select quick questions below' : language === 'zh' ? '点击此处启动麦克风，或选择下方快捷提问' : 'ここをクリックしてマイクを起動（または下の質問をタップ）');
 
   return (
     <div className="relative w-full md:w-auto">
-      {/* ── Error Banner ── */}
+      {/* ── Error Banner & Diagnostic Fallback ── */}
       {errorMessage && (
         <div className="absolute bottom-full mb-3 left-0 right-0 z-50 animate-fadeInUp">
-          <div className="p-3 rounded-xl bg-red-950/95 border border-red-500/50 text-red-200 text-xs flex items-center justify-between shadow-2xl">
-            <span>{errorMessage}</span>
-            <button onClick={onCancel} className="text-white/60 hover:text-white font-bold ml-2">
-              ×
-            </button>
+          <div className="p-3.5 rounded-2xl bg-[#1e0a10]/95 border border-red-500/60 text-red-200 text-xs shadow-2xl backdrop-blur-xl flex flex-col gap-2">
+            <div className="flex items-start justify-between gap-2">
+              <span className="leading-snug">{errorMessage}</span>
+              <button onClick={onCancel} className="text-white/60 hover:text-white font-bold text-sm ml-1 shrink-0">
+                ×
+              </button>
+            </div>
+            {/* Action buttons inside error banner */}
+            <div className="flex items-center gap-2 pt-1 border-t border-red-500/20">
+              <button
+                onClick={onStartListening}
+                className="px-2.5 py-1 rounded-lg bg-red-500/30 hover:bg-red-500/50 border border-red-400/40 text-[11px] font-bold text-white transition-colors"
+              >
+                🔄 {language === 'en' ? 'Retry Mic' : language === 'zh' ? '重试麦克风' : 'マイクを再試行'}
+              </button>
+              {onTestAudio && (
+                <button
+                  onClick={onTestAudio}
+                  className="px-2.5 py-1 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/40 border border-cyan-400/40 text-[11px] font-bold text-cyan-300 transition-colors"
+                >
+                  🔊 {language === 'en' ? 'Test Speaker' : language === 'zh' ? '测试扬声器' : '音声出力テスト'}
+                </button>
+              )}
+            </div>
           </div>
+        </div>
+      )}
+
+      {/* ── Quick Question Suggestions Chips (Always accessible for zero-friction interaction) ── */}
+      {isIdle && onSubmitQuestion && (
+        <div className="hidden sm:flex items-center gap-1.5 absolute -top-8 right-0 animate-fadeIn">
+          <span className="text-[10px] text-salomon-cyan font-bold flex items-center gap-1 mr-1">
+            <Sparkles className="w-3 h-3" />
+            {language === 'en' ? 'Quick AI Ask:' : language === 'zh' ? '快捷提问:' : 'ワンクリック質問:'}
+          </span>
+          {SAMPLE_QUESTIONS.map((q, idx) => (
+            <button
+              key={idx}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSubmitQuestion(q);
+              }}
+              className="px-2.5 py-1 rounded-full bg-white/[0.08] hover:bg-salomon-cyan/25 border border-white/15 hover:border-salomon-cyan/50 text-[10px] text-slate-200 hover:text-white transition-all duration-200 shadow-sm whitespace-nowrap active:scale-95"
+            >
+              💬 {q}
+            </button>
+          ))}
         </div>
       )}
 

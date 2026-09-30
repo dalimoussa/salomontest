@@ -8,15 +8,18 @@ const file = path.resolve(process.cwd(), process.argv[3] || 'public/screenshot.p
 const size = process.argv[4] || '1920,1080';
 
 console.log(`Snapping ${url} -> ${file} (${size})`);
+const [width, height] = size.split(',');
 spawnSync(chrome, [
   '--headless=new',
   '--disable-gpu',
   '--no-sandbox',
-  `--window-size=${size}`,
-  '--virtual-time-budget=4000',
+  '--hide-scrollbars',
+  '--disable-extensions',
+  '--run-all-compositor-stages-before-draw',
+  `--window-size=${width || '1920'},${height || '1080'}`,
   `--screenshot=${file}`,
   url
-], { timeout: 15000, stdio: 'inherit' });
+], { timeout: 30000, stdio: 'inherit' });
 
 console.log('Exists:', fs.existsSync(file));
 if (fs.existsSync(file)) {
