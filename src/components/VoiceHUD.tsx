@@ -215,7 +215,7 @@ export function VoiceHUD({
             ? 'bg-gradient-to-r from-amber-500/15 via-[#1a1508]/90 to-amber-500/10 border-amber-400/60 shadow-glass'
             : isSpeaking
             ? 'bg-gradient-to-r from-salomon-teal/20 via-[#071926]/90 to-salomon-cyan/15 border-salomon-teal/60 shadow-glow-cyan'
-            : 'bg-white/5 hover:bg-white/10 border-white/15 hover:border-salomon-cyan/40 cursor-pointer'
+            : 'bg-[#0c202b]/95 hover:bg-[#112a38] border border-[rgba(80,168,198,0.45)] hover:border-salomon-cyan shadow-xl shadow-black/60 cursor-pointer'
         }`}
       >
         {/* Left: Animated Status Aura */}
@@ -240,7 +240,7 @@ export function VoiceHUD({
                   ? 'bg-amber-400/20 text-amber-300 border border-amber-400/50'
                   : isSpeaking
                   ? 'bg-salomon-teal/20 text-salomon-cyan border border-salomon-teal/50'
-                  : 'bg-white/10 text-white/70 border border-white/10'
+                  : 'bg-[#091722] text-salomon-cyan border border-[rgba(80,168,198,0.45)]'
               }`}
             >
               {isThinking ? (
@@ -266,7 +266,7 @@ export function VoiceHUD({
                     ? 'text-amber-300'
                     : isSpeaking
                     ? 'text-salomon-teal'
-                    : 'text-white/80'
+                    : 'text-white font-bold'
                 }`}
               >
                 {titleText}
@@ -277,7 +277,7 @@ export function VoiceHUD({
                 </span>
               )}
             </div>
-            <p className="text-[11px] text-salomon-muted leading-tight mt-0.5 truncate font-medium">
+            <p className="text-[11px] text-slate-300 leading-tight mt-0.5 truncate font-medium">
               {subtitleText}
             </p>
           </div>
@@ -288,7 +288,7 @@ export function VoiceHUD({
           {/* Quick Language Toggle */}
           <div
             onClick={(e) => e.stopPropagation()}
-            className="flex items-center gap-0.5 bg-black/50 border border-white/10 rounded-lg p-0.5"
+            className="flex items-center gap-0.5 bg-[#091722] border border-[rgba(80,168,198,0.35)] rounded-lg p-0.5"
             title="Language / 言語 / 语言"
           >
             {(
@@ -317,7 +317,7 @@ export function VoiceHUD({
           </div>
 
           {/* Dynamic Frequency Bars */}
-          <div className="flex items-center gap-1 h-6 px-2 py-1 bg-black/40 rounded-lg border border-white/10">
+          <div className="flex items-center gap-1 h-6 px-2 py-1 bg-[#091722] rounded-lg border border-[rgba(80,168,198,0.35)]">
             {Array.from({ length: 5 }).map((_, i) => {
               const active = isListening || isSpeaking;
               const h = active

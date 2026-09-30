@@ -104,7 +104,7 @@ export function RoutePanel() {
       {/* Client Requirement [29/09/2026 06:38]: 標高プロファイルを全コース一気に見られるカード (TAKAO TRAIL HUB) */}
       <button
         onClick={() => setActiveModal('elevation')}
-        className="w-full py-1.5 px-3 rounded-xl bg-cyan-950/30 border border-cyan-400/20 hover:border-cyan-400/40 text-cyan-300 hover:text-white flex items-center justify-between transition-all duration-200 shadow-sm group active:scale-[0.99]"
+        className="w-full py-1.5 px-3 rounded-xl bg-[#0c2330]/85 border border-cyan-400/35 hover:border-cyan-400/60 text-cyan-300 hover:text-white flex items-center justify-between transition-all duration-200 shadow-sm group active:scale-[0.99]"
       >
         <div className="flex items-center gap-2">
           <TrendingUp className="w-3.5 h-3.5 text-cyan-400 group-hover:scale-110 transition-transform" />
@@ -113,7 +113,7 @@ export function RoutePanel() {
           </span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-400/15 text-cyan-300 border border-cyan-400/25 font-black font-mono">
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-400/20 text-cyan-300 border border-cyan-400/35 font-black font-mono">
             HUB
           </span>
           <span className="text-xs text-cyan-400 font-bold group-hover:translate-x-0.5 transition-transform">›</span>
@@ -123,7 +123,7 @@ export function RoutePanel() {
       {/* Quick 20-Course Difficulty Modal Button (登山・トレラン) */}
       <button
         onClick={() => setActiveModal('difficulty')}
-        className="w-full py-1.5 px-3 rounded-xl bg-amber-950/30 border border-yellow-400/20 hover:border-yellow-400/40 text-yellow-300 hover:text-white flex items-center justify-between transition-all duration-200 shadow-sm group active:scale-[0.99]"
+        className="w-full py-1.5 px-3 rounded-xl bg-[#221c0e]/85 border border-yellow-400/35 hover:border-yellow-400/60 text-yellow-300 hover:text-white flex items-center justify-between transition-all duration-200 shadow-sm group active:scale-[0.99]"
       >
         <div className="flex items-center gap-2">
           <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400 group-hover:scale-110 transition-transform" />
@@ -138,7 +138,7 @@ export function RoutePanel() {
       </button>
 
       {/* Primary Category Tabs */}
-      <div className="grid grid-cols-2 gap-1 p-1 bg-black/40 rounded-xl border border-white/8">
+      <div className="grid grid-cols-2 gap-1 p-1 bg-[#081520]/90 rounded-xl border border-[rgba(80,168,198,0.30)]">
         {CATEGORY_TABS.map(tab => {
           const isActive = activeCategory === tab.value;
           return (
@@ -148,7 +148,7 @@ export function RoutePanel() {
               className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all duration-200 min-h-[36px] flex items-center justify-center text-center leading-tight ${
                 isActive
                   ? 'bg-salomon-cyan text-salomon-black shadow-glow-cyan font-black'
-                  : 'text-salomon-muted hover:text-white hover:bg-white/5'
+                  : 'text-slate-300 hover:text-white hover:bg-white/5'
               }`}
             >
               {tab.label}
@@ -165,8 +165,8 @@ export function RoutePanel() {
             onClick={() => setActiveDifficultyFilter(tab.value)}
             className={`flex-1 py-1 rounded-lg text-[10px] font-bold transition-all duration-200 min-h-[30px] ${
               activeDifficultyFilter === tab.value
-                ? 'bg-salomon-cyan/20 text-salomon-cyan border border-salomon-cyan/60 shadow-glow-cyan/20'
-                : 'bg-white/5 text-salomon-muted hover:text-white border border-salomon-border'
+                ? 'bg-salomon-cyan/25 text-salomon-cyan border border-salomon-cyan/60 shadow-glow-cyan/20'
+                : 'bg-[#091722] text-slate-300 hover:text-white border border-[rgba(80,168,198,0.30)] hover:border-salomon-cyan/50'
             }`}
           >
             {tab.label}
@@ -225,7 +225,7 @@ export function RoutePanel() {
               className={`p-2.5 rounded-xl border transition-all duration-200 cursor-pointer relative ${
                 isSelected
                   ? 'bg-salomon-cyan/20 border-salomon-cyan/70 shadow-glow-cyan/40 ring-1 ring-salomon-cyan/50'
-                  : 'bg-black/25 border-white/6 hover:border-salomon-cyan/30 hover:bg-black/35 active:scale-[0.99]'
+                  : 'bg-[#091722]/85 border border-[rgba(80,168,198,0.25)] hover:border-salomon-cyan/50 hover:bg-[#0d2230] active:scale-[0.99]'
               }`}
             >
               {/* Route Title & Badges */}

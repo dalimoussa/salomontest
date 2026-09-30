@@ -261,10 +261,10 @@ export function QuickActions() {
       </p>
 
       {/* ── Kiosk Standby Attract & Audio Status Bar ── */}
-      <div className={`flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 mb-2.5 rounded-xl border text-[11px] shadow-sm backdrop-blur-md transition-colors ${
+      <div className={`flex flex-wrap items-center justify-between gap-2 px-3.5 py-2 mb-2.5 rounded-xl border text-[11px] shadow-lg backdrop-blur-md transition-colors ${
         !periodicCalloutEnabled
-          ? 'bg-slate-900/60 border-white/5 text-slate-400'
-          : 'bg-white/[0.04] border-white/10 text-salomon-muted'
+          ? 'bg-[#091722]/95 border-[rgba(80,168,198,0.25)] text-slate-400'
+          : 'bg-[#091722]/95 border-[rgba(80,168,198,0.38)] text-slate-200'
       }`}>
         <div className="flex items-center gap-2 min-w-0">
           <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
@@ -387,12 +387,13 @@ export function QuickActions() {
                 key={i}
                 onClick={() => handleClick(a.action)}
                 className="relative flex items-center gap-3 p-3 rounded-xl
-                           bg-white/8 border border-salomon-border
-                           hover:border-salomon-cyan/70 hover:bg-white/12
-                           active:scale-[0.98] transition-all duration-200 group text-left min-h-[58px] overflow-hidden"
+                           bg-[#0c202b]/95 border border-[rgba(80,168,198,0.45)]
+                           hover:border-salomon-cyan hover:bg-[#112a38]
+                           shadow-xl shadow-black/60
+                           active:scale-[0.98] transition-all duration-200 group text-left min-h-[58px] overflow-hidden cursor-pointer"
               >
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-salomon-cyan/25 to-salomon-teal/15
-                                border border-salomon-cyan/35 flex items-center justify-center flex-shrink-0
+                                border border-salomon-cyan/50 flex items-center justify-center flex-shrink-0
                                 group-hover:shadow-glow-cyan group-hover:scale-105 transition-all duration-200">
                   <Icon className="w-4 h-4 text-salomon-cyan" strokeWidth={2} />
                 </div>
@@ -401,11 +402,11 @@ export function QuickActions() {
                     <span className="text-white text-xs sm:text-[13px] font-bold group-hover:text-salomon-cyan transition-colors truncate">
                       {a.label}
                     </span>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-salomon-cyan/15 text-salomon-cyan border border-salomon-cyan/30 flex-shrink-0">
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-salomon-cyan/20 text-salomon-cyan border border-salomon-cyan/50 flex-shrink-0 font-bold">
                       {a.badge}
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-400 group-hover:text-slate-200 transition-colors truncate mt-0.5">
+                  <p className="text-[11px] text-slate-300 group-hover:text-white transition-colors truncate mt-0.5">
                     {a.subLabel}
                   </p>
                 </div>

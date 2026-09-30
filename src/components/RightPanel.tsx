@@ -93,7 +93,7 @@ export function RightPanel() {
             return (
               <div
                 key={f.id}
-                className={`bg-black/25 rounded-xl p-2.5 border border-white/6 flex flex-col justify-between gap-1.5 ${isFullWidth ? 'col-span-2' : ''}`}
+                className={`bg-[#081520]/80 rounded-xl p-2.5 border border-[rgba(80,168,198,0.25)] flex flex-col justify-between gap-1.5 ${isFullWidth ? 'col-span-2' : ''}`}
               >
                 <div className="flex items-start justify-between gap-1 flex-wrap">
                   <div className="flex items-center gap-1.5 min-w-0">

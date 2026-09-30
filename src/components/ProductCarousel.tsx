@@ -59,9 +59,9 @@ export function ProductCarousel() {
       <div className="flex justify-center w-full animate-fadeInUp">
         <button
           onClick={() => setIsCollapsed(false)}
-          className="group px-4 py-2 rounded-full glass-card border border-salomon-cyan/40 hover:border-salomon-cyan
-                     flex items-center gap-2.5 shadow-glow-cyan/25 hover:shadow-glow-cyan/50
-                     transition-all duration-300 active:scale-95 text-xs font-bold text-white cursor-pointer"
+          className="group px-4 py-2 rounded-full bg-[#0c202b]/95 border-2 border-[rgba(80,168,198,0.60)] hover:border-salomon-cyan
+                     flex items-center gap-2.5 shadow-xl shadow-black/70 hover:shadow-glow-cyan/40
+                     transition-all duration-300 active:scale-95 text-xs font-bold text-white cursor-pointer backdrop-blur-md"
         >
           <span className="w-2 h-2 rounded-full bg-salomon-cyan animate-pulse ring-2 ring-salomon-cyan/40" />
           <span className="text-salomon-cyan font-black">🎒 Salomon</span>
@@ -97,20 +97,20 @@ export function ProductCarousel() {
           {(['left','right'] as const).map(dir => (
             <button key={dir} onClick={() => scroll(dir)}
               aria-label={dir === 'left' ? t('products.prev') : t('products.next')}
-              className="w-7 h-7 rounded-full bg-white/8 border border-salomon-border
-                         flex items-center justify-center hover:bg-white/15
+              className="w-7 h-7 rounded-full bg-[#0a1822] border border-[rgba(80,168,198,0.40)]
+                         flex items-center justify-center hover:bg-[#122e3d] hover:border-salomon-cyan
                          transition-colors active:scale-90">
               {dir === 'left'
-                ? <ChevronLeft  className="w-4 h-4 text-salomon-muted" />
-                : <ChevronRight className="w-4 h-4 text-salomon-muted" />}
+                ? <ChevronLeft  className="w-4 h-4 text-salomon-cyan" />
+                : <ChevronRight className="w-4 h-4 text-salomon-cyan" />}
             </button>
           ))}
 
           {/* Client Auto-Hide / Manual Hide Button */}
           <button
             onClick={() => setIsCollapsed(true)}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/25 hover:bg-black/40
-                       border border-white/8 text-[11px] font-bold text-salomon-muted hover:text-white
+            className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#0a1822] hover:bg-[#122e3d]
+                       border border-[rgba(80,168,198,0.40)] hover:border-salomon-cyan text-[11px] font-bold text-slate-300 hover:text-white
                        transition-colors active:scale-95 ml-1 cursor-pointer"
             title="下に隠す"
           >
@@ -154,8 +154,8 @@ export function ProductCarousel() {
             className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold
                         transition-all duration-200 min-h-[32px] active:scale-95 ${
               activeFilter === f.value
-                ? 'bg-salomon-cyan text-salomon-black shadow-glow-cyan'
-                : 'bg-black/25 text-salomon-muted border border-white/8 hover:text-white hover:border-salomon-cyan/40'
+                ? 'bg-salomon-cyan text-salomon-black font-black shadow-glow-cyan'
+                : 'bg-[#0a1822] text-slate-300 border border-[rgba(80,168,198,0.35)] hover:text-white hover:border-salomon-cyan'
             }`}>
             {f.label}
           </button>

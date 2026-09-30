@@ -188,10 +188,10 @@ export function MountainMap() {
                      animate-fadeIn opacity-0-start pointer-events-none"
           style={{ animationFillMode: 'forwards', animationDelay: '0.4s' }}
         >
-          <div className="bg-[#081226]/90 backdrop-blur-md border border-salomon-cyan/40
-                          rounded-full px-3.5 py-1 shadow-glass flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-salomon-cyan animate-pulse ring-2 ring-salomon-cyan/30" />
-            <span className="text-[11px] font-bold text-salomon-cyan">
+          <div className="bg-[#0c202b]/95 backdrop-blur-md border border-[rgba(80,168,198,0.50)]
+                          rounded-full px-3.5 py-1.5 shadow-xl shadow-black/60 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-salomon-cyan animate-pulse ring-2 ring-salomon-cyan/40" />
+            <span className="text-[11px] font-bold text-white">
               {isLivePoc ? `${selectedRoute.name} (3Dリアルタイムシーン)` : `${selectedRoute.name} (3D地形ルート)`}
             </span>
           </div>
@@ -203,7 +203,7 @@ export function MountainMap() {
         <div
           onClick={dismissNavGuide}
           className="hidden lg:flex items-center gap-2 absolute top-28 left-4 lg:left-[310px] xl:left-[340px] 2xl:left-[380px] z-30
-                     bg-[#081326]/92 backdrop-blur-md border border-cyan-400/50 rounded-xl px-3.5 py-1.5 shadow-glow-cyan/20
+                     bg-[#0c202b]/95 backdrop-blur-md border border-cyan-400/50 rounded-xl px-3.5 py-1.5 shadow-xl shadow-black/60
                      cursor-pointer hover:border-cyan-300 transition-all duration-300 animate-fadeIn"
           title="クリックで閉じる"
         >

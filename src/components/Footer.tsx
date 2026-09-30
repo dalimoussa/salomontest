@@ -42,7 +42,7 @@ export function Footer() {
       {/* Language Switcher & Terms */}
       <div className="flex items-center gap-4">
         {/* Language selector chips (min 44px touch ergonomics) */}
-        <div className="flex items-center gap-1.5 bg-white/5 border border-salomon-border rounded-xl p-1">
+        <div className="flex items-center gap-1.5 bg-[#091722] border border-[rgba(80,168,198,0.35)] rounded-xl p-1 shadow-md">
           <Globe className="w-4 h-4 text-salomon-cyan ml-1.5" />
           {LANGUAGES.map(lang => (
             <button
@@ -51,7 +51,7 @@ export function Footer() {
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors min-h-[36px] ${
                 language === lang.code
                   ? 'bg-salomon-cyan text-salomon-black font-bold shadow-glow-cyan'
-                  : 'text-salomon-muted hover:text-white'
+                  : 'text-slate-300 hover:text-white'
               }`}
             >
               {lang.label}
@@ -68,7 +68,7 @@ export function Footer() {
               document.exitFullscreen().catch(() => {});
             }
           }}
-          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-salomon-muted hover:text-white transition-colors min-h-[36px]"
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#091722] hover:bg-[#0f2536] border border-[rgba(80,168,198,0.30)] text-slate-300 hover:text-white transition-colors min-h-[36px]"
           title={t('footer.fullscreen')}
         >
           <span>⛶ {t('footer.fullscreen')}</span>
