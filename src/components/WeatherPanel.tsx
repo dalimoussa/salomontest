@@ -2,6 +2,7 @@
 
 import { Cloud, CloudRain, Sun, CloudSun, CloudSnow, Wind, Droplets, Zap, Sunset, Users, Mountain, AlertCircle, RefreshCw } from 'lucide-react';
 import { useStore } from '@/store/useStore';
+import { useMapStore } from '@/store/mapStore';
 import { useAdminStore } from '@/store/useAdminStore';
 import { useT } from '@/lib/i18n';
 import type { WeatherCode } from '@/types';
@@ -20,12 +21,14 @@ function WeatherIcon({ code, size = 'lg' }: { code: WeatherCode; size?: 'lg' | '
 }
 
 export function WeatherPanel() {
-  const weather         = useStore(s => s.weather);
-  const loading         = useStore(s => s.weatherLoading);
-  const weatherError    = useStore(s => s.weatherError);
-  const refreshWeather  = useStore(s => s.refreshWeather);
-  const weatherOverride = useAdminStore(s => s.weatherOverride);
-  const { t, language } = useT();
+  const weather              = useStore(s => s.weather);
+  const loading              = useStore(s => s.weatherLoading);
+  const weatherError         = useStore(s => s.weatherError);
+  const refreshWeather       = useStore(s => s.refreshWeather);
+  const weatherOverride      = useAdminStore(s => s.weatherOverride);
+  const isRainOverlayVisible = useMapStore(s => s.isRainOverlayVisible);
+  const setRainOverlay       = useMapStore(s => s.setRainOverlay);
+  const { t, language }      = useT();
 
   // Loading skeleton
   if (loading && !weather) {
@@ -137,13 +140,22 @@ export function WeatherPanel() {
 
       {/* Main weather & temp */}
       <div className="flex items-center gap-3">
-        <WeatherIcon code={weather.weatherCode} size="lg" />
+        <button
+          type="button"
+          onClick={() => setRainOverlay(!isRainOverlayVisible, isRainOverlayVisible ? 0 : 8)}
+          className="cursor-pointer transition-transform hover:scale-110 active:scale-95 text-left focus:outline-none focus:ring-1 focus:ring-salomon-cyan/50 rounded-lg p-0.5"
+          title={language === 'en' ? 'Click to preview rain mode' : 'タップで雨天モード切替'}
+        >
+          <WeatherIcon code={isRainOverlayVisible ? 'rainy' : weather.weatherCode} size="lg" />
+        </button>
         <div className="flex-1">
           <div className="text-3xl font-black text-white leading-none tracking-tight">
             {weather.temp_c}°C
           </div>
           <div className="text-salomon-muted text-[11px] mt-0.5 font-medium">
-            {weatherLabel}
+            {isRainOverlayVisible
+              ? (language === 'en' ? 'Rain (Active Preview)' : language === 'zh' ? '降雨模式 (预览中)' : '雨天モード (確認中)')
+              : weatherLabel}
           </div>
         </div>
 

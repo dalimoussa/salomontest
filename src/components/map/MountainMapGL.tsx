@@ -112,11 +112,11 @@ function getSunSkyConfig(hour: number): SunSkyConfig {
   // Retail Signage & Kiosk Standard: Always display in bright daytime illumination
   // so customers can clearly see mountain relief, green forests, and trails.
   return {
-    skyColor: '#388BFD',
-    horizonColor: '#BAE6FD',
-    fogColor: '#E0F2FE',
+    skyColor: '#5CA8FC',
+    horizonColor: '#DCF0FF',
+    fogColor: '#F0F9FF',
     lightColor: '#FFFFFF',
-    lightIntensity: 1.35,
+    lightIntensity: 1.4,
     lightPosition: [1.5, 180, 75],
   };
 }
