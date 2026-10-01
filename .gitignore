@@ -23,3 +23,8 @@ public/admin_gate.png
 .agents/
 .agents
 
+# Client documents & spreadsheets (Never commit confidential client security files)
+*.xlsx
+*.xls
+*.csv
+
