@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from 'react';
 import { Mountain, RefreshCw, AlertTriangle, ExternalLink } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 
+import { ROUTES } from '@/data/routes';
+
 interface Live3DMountainViewerProps {
   routeId?: string;
   pocUrl?: string;
@@ -19,6 +21,20 @@ export function Live3DMountainViewer({
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+
+  // Listen for badge clicks inside 3D viewer iframe
+  useEffect(() => {
+    const handleMessage = (e: MessageEvent) => {
+      if (e.data && e.data.type === 'SALOMON_SELECT_ROUTE' && e.data.routeId) {
+        const target = ROUTES.find((r) => r.id === e.data.routeId);
+        if (target) {
+          useStore.getState().setSelectedRoute(target);
+        }
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
 
   // By default, load our local multi-route 3D mountain viewer which supports all 8 trails
   const effectiveUrl = pocUrl || `/3d-viewer/index.html?route=${encodeURIComponent(routeId)}`;

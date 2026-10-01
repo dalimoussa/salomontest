@@ -89,8 +89,8 @@ const ROUTE_CAMERA_VIEWS: Record<string, { center: [number, number]; zoom: numbe
   trail_kitaapproach:{ center: [139.248, 35.648], zoom: 13.8, pitch: 55, bearing: -25 },
   trail_taiko:      { center: [139.252, 35.655], zoom: 13.6, pitch: 57, bearing: -30 },
   trail_kogezawa:   { center: [139.238, 35.642], zoom: 13.7, pitch: 58, bearing: -28 },
-  trail_tengu:      { center: [139.230, 35.630], zoom: 12.6, pitch: 62, bearing: -32 },
-  trail_meio:       { center: [139.198, 35.635], zoom: 12.8, pitch: 60, bearing: -35 },
+  trail_tengu:      { center: [139.235, 35.632], zoom: 13.5, pitch: 60, bearing: -28 },
+  trail_meio:       { center: [139.233, 35.630], zoom: 13.8, pitch: 60, bearing: -25 },
 };
 
 // GSI Official Tile Sources

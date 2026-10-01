@@ -40,6 +40,29 @@ function renderDifficultyStars(rating: number = 1, maxStars: number = 6) {
   );
 }
 
+const ROUTE_BADGE_MAP: Record<string, { num: number; bg: string; text: string }> = {
+  // Trellan 8 courses (matching TAKAO TRAIL HUB reference poster & 3D map)
+  trail_tengu:        { num: 1, bg: 'bg-[#EF4444]', text: 'text-white' },
+  trail_meio:         { num: 2, bg: 'bg-[#3B82F6]', text: 'text-white' },
+  trail_misawa:       { num: 3, bg: 'bg-[#10B981]', text: 'text-white' },
+  trail_gongen:       { num: 4, bg: 'bg-[#A855F7]', text: 'text-white' },
+  trail_minamitakao:  { num: 5, bg: 'bg-[#F97316]', text: 'text-white' },
+  trail_taiko:        { num: 6, bg: 'bg-[#EAB308]', text: 'text-black' },
+  trail_kogezawa:     { num: 7, bg: 'bg-[#94A3B8]', text: 'text-black' },
+  trail_kitaapproach: { num: 8, bg: 'bg-[#06B6D4]', text: 'text-black' },
+  // Hiking courses
+  route_1:            { num: 1, bg: 'bg-[#38BDF8]', text: 'text-black' },
+  route_2:            { num: 2, bg: 'bg-[#4ADE80]', text: 'text-black' },
+  route_3:            { num: 3, bg: 'bg-[#34D399]', text: 'text-black' },
+  route_4:            { num: 4, bg: 'bg-[#A78BFA]', text: 'text-black' },
+  route_5:            { num: 5, bg: 'bg-[#F472B6]', text: 'text-black' },
+  route_6:            { num: 6, bg: 'bg-[#FACC15]', text: 'text-black' },
+  inariyama:          { num: 7, bg: 'bg-[#00C8FF]', text: 'text-black' },
+  route_inariyama:    { num: 7, bg: 'bg-[#00C8FF]', text: 'text-black' },
+  route_jinba:        { num: 8, bg: 'bg-[#FB923C]', text: 'text-black' },
+  route_kagenobu:     { num: 8, bg: 'bg-[#FB923C]', text: 'text-black' },
+};
+
 export function RoutePanel() {
   const selectedRoute        = useStore(s => s.selectedRoute);
   const setSelectedRoute     = useStore(s => s.setSelectedRoute);
@@ -90,7 +113,7 @@ export function RoutePanel() {
   };
 
   return (
-    <div className="glass-card p-3 flex flex-col gap-2 animate-fadeInLeft opacity-0-start h-full min-h-0"
+    <div className="glass-card p-3 flex flex-col gap-2 animate-fadeInLeft opacity-0-start h-full min-h-0 border border-cyan-400/25 shadow-[0_0_20px_rgba(6,182,212,0.12)]"
          style={{ animationFillMode: 'forwards', animationDelay: '0.25s' }}>
       
       {/* Header with Title & Route Counter */}
@@ -174,12 +197,37 @@ export function RoutePanel() {
         ))}
       </div>
 
+      {/* Visual Instruction Callout Banner (Client Requirement: Visually show people they can learn about each route by selecting this place) */}
+      <div className="relative overflow-hidden rounded-xl p-2 bg-gradient-to-r from-cyan-500/20 via-blue-600/15 to-cyan-500/15 border-2 border-cyan-400/50 shadow-[0_0_16px_rgba(6,182,212,0.25)] flex items-center gap-2 group">
+        <div className="w-7 h-7 rounded-lg bg-salomon-cyan flex items-center justify-center shrink-0 shadow-glow-cyan text-salomon-black">
+          <span className="text-sm font-black animate-bounce">👆</span>
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[9px] font-black uppercase tracking-wider text-salomon-cyan bg-cyan-400/20 px-1.5 py-0.5 rounded border border-cyan-400/40">
+              {language === 'en' ? 'Touch & Explore' : language === 'zh' ? '点击体验' : 'タッチして体験'}
+            </span>
+            <span className="text-[10.5px] font-black text-white truncate">
+              {language === 'en' ? 'Select Route to View 3D Path' : language === 'zh' ? '选择路线联动3D全景' : 'コースを選んで3Dルート体験'}
+            </span>
+          </div>
+          <p className="text-[9.5px] text-slate-300 leading-tight mt-0.5">
+            {language === 'en'
+              ? 'Tap any course to inspect 3D flight, elevation profile & advice'
+              : language === 'zh'
+              ? '点击下方任意路线即在3D地图联动呈现・包含标高剖面与建议'
+              : '各コースをタップすると3Dマップが連動し、詳細情報・標高を表示'}
+          </p>
+        </div>
+      </div>
+
       {/* Route list */}
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 pr-1 space-y-0.5">
         {filteredRoutes.map((rawRoute) => {
           const route = getLocalizedRoute(rawRoute, language);
           const isSelected = selectedRoute?.id === route.id;
           const isPopular = route.id === 'route_1';
+          const badge = ROUTE_BADGE_MAP[route.id];
 
           const adminSetting = routeSettings[rawRoute.id];
           const effDifficulty: Difficulty = adminSetting?.difficulty ?? rawRoute.difficulty;
@@ -202,37 +250,52 @@ export function RoutePanel() {
             <div
               key={route.id}
               onClick={() => handleSelectRoute(rawRoute)}
-              className={`p-2.5 rounded-xl border transition-all duration-200 cursor-pointer relative ${
+              className={`p-2.5 rounded-xl border transition-all duration-200 cursor-pointer relative group ${
                 isSelected
-                  ? 'bg-salomon-cyan/20 border-salomon-cyan/70 shadow-glow-cyan/40 ring-1 ring-salomon-cyan/50'
-                  : 'bg-[#091722]/85 border border-[rgba(80,168,198,0.25)] hover:border-salomon-cyan/50 hover:bg-[#0d2230] active:scale-[0.99]'
+                  ? 'bg-gradient-to-r from-[#0d2a3d] via-[#0b2434] to-[#091b28] border-salomon-cyan shadow-[0_0_24px_rgba(6,182,212,0.35)] ring-2 ring-salomon-cyan/60'
+                  : 'bg-[#091722]/85 border border-[rgba(80,168,198,0.25)] hover:border-salomon-cyan/60 hover:bg-[#0d2435] hover:shadow-[0_0_14px_rgba(6,182,212,0.20)] active:scale-[0.99]'
               }`}
             >
               {/* Route Title & Badges */}
               <div className="flex items-start justify-between gap-1.5 mb-1">
                 <div className="flex items-center gap-2 min-w-0">
-                  {/* Glowing Focus Beacon ⭕ (Client Requirement: ⭕️がビコンビコン光ってるようなフォーカス) */}
-                  {isSelected ? (
-                    <div className="relative w-5 h-5 flex items-center justify-center shrink-0">
+                  {/* Colored Number Badge matching 3D Map */}
+                  {badge && (
+                    <span className={`w-5 h-5 rounded-full ${badge.bg} ${badge.text} flex items-center justify-center text-[10px] font-black shrink-0 shadow-sm border border-white/50`}>
+                      {badge.num}
+                    </span>
+                  )}
+                  {/* Glowing Focus Beacon ⭕ for selected route */}
+                  {isSelected && (
+                    <div className="relative w-4 h-4 flex items-center justify-center shrink-0">
                       <span className="absolute inset-0 rounded-full bg-salomon-cyan/50 animate-beaconRing" />
-                      <span className="w-4 h-4 rounded-full border-2 border-salomon-cyan animate-pulseBeacon shadow-glow-cyan flex items-center justify-center text-[9px] font-black text-salomon-cyan">
+                      <span className="w-3.5 h-3.5 rounded-full border-2 border-salomon-cyan animate-pulseBeacon shadow-glow-cyan flex items-center justify-center text-[8px] font-black text-salomon-cyan">
                         ⭕
                       </span>
                     </div>
-                  ) : (
-                    <div className="w-5 h-5 flex items-center justify-center shrink-0">
-                      <span className="w-2.5 h-2.5 rounded-full border border-salomon-muted/50 bg-white/10" />
-                    </div>
                   )}
-                  <span className={`text-xs font-bold leading-snug ${isSelected ? 'text-white' : 'text-salomon-text'}`}>
+                  <span className={`text-xs font-bold leading-snug ${isSelected ? 'text-white font-black' : 'text-salomon-text group-hover:text-white'}`}>
                     {route.name}
                   </span>
                 </div>
-                {isPopular && (
-                  <span className="text-[9px] font-bold text-amber-300 bg-amber-400/20 px-1.5 py-0.5 rounded-full border border-amber-400/30 flex items-center gap-0.5 shrink-0">
-                    <Sparkles className="w-2.5 h-2.5" /> {t('route.popular')}
-                  </span>
-                )}
+
+                <div className="flex items-center gap-1 shrink-0">
+                  {isSelected ? (
+                    <span className="text-[9px] font-black text-salomon-cyan bg-salomon-cyan/25 px-2 py-0.5 rounded-full border border-salomon-cyan/60 flex items-center gap-1 shadow-glow-cyan/30 animate-pulse">
+                      <span className="w-1.5 h-1.5 rounded-full bg-salomon-cyan animate-ping" />
+                      {language === 'en' ? '3D Active' : language === 'zh' ? '3D联动中' : '3D表示中'}
+                    </span>
+                  ) : (
+                    <span className="text-[9px] font-bold text-salomon-cyan/80 group-hover:text-salomon-cyan bg-salomon-cyan/10 group-hover:bg-salomon-cyan/20 px-1.5 py-0.5 rounded border border-salomon-cyan/30 flex items-center gap-0.5 transition-all">
+                      {language === 'en' ? 'View 3D ›' : language === 'zh' ? '查看3D ›' : '3Dで見る ›'}
+                    </span>
+                  )}
+                  {isPopular && (
+                    <span className="text-[9px] font-bold text-amber-300 bg-amber-400/20 px-1.5 py-0.5 rounded-full border border-amber-400/30 flex items-center gap-0.5 shrink-0">
+                      <Sparkles className="w-2.5 h-2.5" /> {t('route.popular')}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Specs: Distance, Duration (Ascent/Descent), Cumulative Gain, Max Elevation */}
