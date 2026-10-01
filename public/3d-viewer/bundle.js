@@ -4257,6 +4257,7 @@ diffuseColor.rgb = clamp(_c, 0.0, 1.0);
     const _rk = _sp ? (_sp.get('route') || 'route_1') : 'route_1';
     const _ro = typeof window !== 'undefined' && window.__ALL_ROUTES_3D && window.__ALL_ROUTES_3D[_rk];
     if (_ro && _rk !== 'route_1') {
+      if (_ro.color && Ea && Ea.visual && Ea.visual.route && Ea.visual.route.baseLayer) Ea.visual.route.baseLayer.color = _ro.color;
       if (_ro.labels && Ea && Ea.labels) Ea.labels.points = _ro.labels;
       if (Ea && Ea.cameraState && Ea.cameraState.routeFollowSpots) {
         Ea.cameraState.routeFollowSpots.events = _ro.labels.map(l => ({

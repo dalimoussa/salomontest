@@ -1,0 +1,140 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0" version="24.0.0" type="device">
+  <diagram id="salomon-xserver-arch" name="SALOMON AI マウンテンコンシェルジュ (Xserver VPS構成)">
+    <mxGraphModel dx="1600" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1680" pageHeight="1050" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="2" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#CBD5E1;strokeWidth=2;arcSize=3;shadow=1;" parent="1" vertex="1">
+          <mxGeometry x="30" y="30" width="1620" height="990" as="geometry" />
+        </mxCell>
+        <mxCell id="3" value="&lt;div style=&quot;font-family:Inter, Noto Sans JP, sans-serif;&quot;&gt;&#10;      &lt;span style=&quot;background-color:#000000; color:#FFFFFF; font-size:16px; font-weight:800; padding:4px 10px; border-radius:4px; margin-right:12px;&quot;&gt;SALOMON&lt;/span&gt;&#10;      &lt;span style=&quot;font-size:22px; font-weight:800; color:#0F172A;&quot;&gt;AI マウンテンコンシェルジュ — システム構成図&lt;/span&gt;&#10;      &lt;span style=&quot;font-size:12px; font-weight:600; color:#475569; background-color:#F1F5F9; padding:4px 8px; border-radius:4px; margin-left:10px;&quot;&gt;System Architecture (Xserver VPS)&lt;/span&gt;&#10;      &lt;br&gt;&lt;span style=&quot;font-size:12px; color:#64748b; font-weight:500;&quot;&gt;店頭サイネージ端末（110インチ）・Xserver VPS 基盤（国内データセンター）・OpenAI リアルタイム音声対話連携設計&lt;/span&gt;&#10;    &lt;/div&gt;" style="text;html=1;align=left;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="1" vertex="1">
+          <mxGeometry x="60" y="50" width="800" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="4" value="&lt;div style=&quot;text-align:right; font-family:Inter, Noto Sans JP, sans-serif; font-size:11px; font-weight:700;&quot;&gt;&#10;      &lt;span style=&quot;background:#EFF6FF; color:#1E40AF; border:1px solid #BFDBFE; padding:6px 10px; border-radius:6px; margin-right:6px;&quot;&gt;📍 Xserver VPS 国内DC (10Gbps NVMe)&lt;/span&gt;&#10;      &lt;span style=&quot;background:#ECFDF5; color:#065F46; border:1px solid #A7F3D0; padding:6px 10px; border-radius:6px; margin-right:6px;&quot;&gt;🔒 PII 保持ゼロ / TLS 1.3&lt;/span&gt;&#10;      &lt;span style=&quot;background:#FEF3C7; color:#92400E; border:1px solid #FDE68A; padding:6px 10px; border-radius:6px;&quot;&gt;🖥️ 110インチ 大型サイネージ仕様&lt;/span&gt;&#10;    &lt;/div&gt;" style="text;html=1;align=right;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="1" vertex="1">
+          <mxGeometry x="1000" y="50" width="620" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="5" value="&lt;b&gt;1. 利用端末 (CLIENTS)&lt;/b&gt;" style="text;html=1;align=left;verticalAlign=middle;fontColor=#475569;fontSize=12;fontStyle=1;" parent="1" vertex="1">
+          <mxGeometry x="60" y="130" width="200" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="6" value="&lt;b&gt;2. サーバー基盤 (Xserver VPS / 国内データセンター)&lt;/b&gt;" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1E40AF;fontSize=12;fontStyle=1;" parent="1" vertex="1">
+          <mxGeometry x="380" y="130" width="400" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="7" value="&lt;b&gt;3. 外部連携サービス (EXTERNAL APIS)&lt;/b&gt;" style="text;html=1;align=left;verticalAlign=middle;fontColor=#047857;fontSize=12;fontStyle=1;" parent="1" vertex="1">
+          <mxGeometry x="1320" y="130" width="300" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="8" value="&lt;div style=&quot;font-family:Noto Sans JP, sans-serif; text-align:left; padding:4px;&quot;&gt;&#10;      &lt;div style=&quot;color:#0284C7; font-size:11px; font-weight:700;&quot;&gt;In-Store Kiosk Display&lt;/div&gt;&#10;      &lt;div style=&quot;color:#0F172A; font-size:15px; font-weight:800; margin-top:2px;&quot;&gt;店頭サイネージ端末&lt;/div&gt;&#10;      &lt;div style=&quot;margin-top:6px; font-size:11px; color:#475569; line-height:1.5;&quot;&gt;&#10;        ・サロモン高尾店 設置端末&lt;br&gt;&#10;        ・&lt;b&gt;110インチ 大型高精細ディスプレイ&lt;/b&gt;&lt;br&gt;&#10;        ・タッチパネル &amp; マイク音声入力&lt;br&gt;&#10;        ・&lt;b&gt;完全匿名利用（会員登録・ログイン不要）&lt;/b&gt;&lt;br&gt;&#10;        ・個人情報(PII)保持ゼロ&#10;      &lt;/div&gt;&#10;      &lt;div style=&quot;margin-top:8px; display:inline-block; background:#E0F2FE; color:#0369A1; font-size:10px; font-weight:700; padding:3px 8px; border-radius:4px;&quot;&gt;&#10;        HTTPS / WSS (TLS 1.3)&#10;      &lt;/div&gt;&#10;    &lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#38BDF8;strokeWidth=2;align=left;verticalAlign=top;arcSize=6;shadow=1;" parent="1" vertex="1">
+          <mxGeometry x="60" y="170" width="270" height="220" as="geometry" />
+        </mxCell>
+        <mxCell id="9" value="&lt;div style=&quot;font-family:Noto Sans JP, sans-serif; text-align:left; padding:4px;&quot;&gt;&#10;      &lt;div style=&quot;color:#6366F1; font-size:11px; font-weight:700;&quot;&gt;Admin / Editor Console&lt;/div&gt;&#10;      &lt;div style=&quot;color:#0F172A; font-size:15px; font-weight:800; margin-top:2px;&quot;&gt;店舗スタッフ / 管理端末&lt;/div&gt;&#10;      &lt;div style=&quot;margin-top:6px; font-size:11px; color:#475569; line-height:1.5;&quot;&gt;&#10;        ・おすすめコールアウト編集&lt;br&gt;&#10;        ・店舗お知らせ・注意報更新&lt;br&gt;&#10;        ・&lt;b&gt;PIN認証 &amp; 接続元IP制限&lt;/b&gt;&lt;br&gt;&#10;        ・MFA（多要素認証）適用&#10;      &lt;/div&gt;&#10;      &lt;div style=&quot;margin-top:8px; display:inline-block; background:#EEF2FF; color:#4338CA; font-size:10px; font-weight:700; padding:3px 8px; border-radius:4px;&quot;&gt;&#10;        管理権限分離 / 暗号化&#10;      &lt;/div&gt;&#10;    &lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#818CF8;strokeWidth=2;align=left;verticalAlign=top;arcSize=6;shadow=1;" parent="1" vertex="1">
+          <mxGeometry x="60" y="420" width="270" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="10" value="&lt;div style=&quot;font-family:Noto Sans JP, sans-serif; text-align:left; padding:4px;&quot;&gt;&#10;      &lt;div style=&quot;color:#10B981; font-size:11px; font-weight:700;&quot;&gt;Mobile / QR Access&lt;/div&gt;&#10;      &lt;div style=&quot;color:#0F172A; font-size:15px; font-weight:800; margin-top:2px;&quot;&gt;来訪者モバイル端末&lt;/div&gt;&#10;      &lt;div style=&quot;margin-top:6px; font-size:11px; color:#475569; line-height:1.5;&quot;&gt;&#10;        ・110インチ画面のQRコード読取&lt;br&gt;&#10;        ・コースマップ・標高情報の携帯閲覧&lt;br&gt;&#10;        ・&lt;b&gt;個人情報入力画面なし&lt;/b&gt;&lt;br&gt;&#10;        ・完全リードオンリー配信&#10;      &lt;/div&gt;&#10;      &lt;div style=&quot;margin-top:8px; display:inline-block; background:#ECFDF5; color:#047857; font-size:10px; font-weight:700; padding:3px 8px; border-radius:4px;&quot;&gt;&#10;        Nginx エッジ直接配信&#10;      &lt;/div&gt;&#10;    &lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#34D399;strokeWidth=2;align=left;verticalAlign=top;arcSize=6;shadow=1;" parent="1" vertex="1">
+          <mxGeometry x="60" y="640" width="270" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="11" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#2563EB;strokeWidth=2.5;dashed=1;arcSize=4;" parent="1" vertex="1">
+          <mxGeometry x="370" y="160" width="910" height="680" as="geometry" />
+        </mxCell>
+        <mxCell id="12" value="&lt;b&gt;🖥️ Xserver VPS (Linux / Ubuntu 24.04 LTS) — 国内データセンター (10Gbps 高速NVMe)&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2563EB;fontColor=#FFFFFF;fontSize=11;fontStyle=1;strokeColor=none;align=center;" parent="1" vertex="1">
+          <mxGeometry x="390" y="148" width="560" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="13" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#E2E8F0;strokeWidth=1.5;arcSize=4;" parent="1" vertex="1">
+          <mxGeometry x="390" y="190" width="870" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="14" value="&lt;span style='font-size:11px; font-weight:800; color:#475569;'&gt;🛡️ インフラ防護 &amp; セキュリティ層 (NETWORK SECURITY &amp; FIREWALL)&lt;/span&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;" parent="1" vertex="1">
+          <mxGeometry x="410" y="195" width="450" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="15" value="&lt;div style=&quot;font-family:Noto Sans JP, sans-serif; text-align:left;&quot;&gt;&#10;      &lt;div style=&quot;color:#DC2626; font-size:13px; font-weight:800;&quot;&gt;UFW / iptables&lt;/div&gt;&#10;      &lt;div style=&quot;color:#64748B; font-size:10px; font-weight:700;&quot;&gt;パケットフィルタリング&lt;/div&gt;&#10;      &lt;div style=&quot;margin-top:6px; font-size:10.5px; color:#475569; line-height:1.4;&quot;&gt;&#10;        ・Webポート(80, 443)のみ外部開放&lt;br&gt;&#10;        ・SSH(管理用): &lt;b&gt;IPホワイトリスト制限&lt;/b&gt;&lt;br&gt;&#10;        ・パスワード認証完全無効（公開鍵認証）&#10;      &lt;/div&gt;&#10;    &lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF2F2;strokeColor=#F87171;strokeWidth=1.5;align=left;verticalAlign=top;arcSize=6;" parent="1" vertex="1">
+          <mxGeometry x="410" y="225" width="260" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="16" value="&lt;div style=&quot;font-family:Noto Sans JP, sans-serif; text-align:left;&quot;&gt;&#10;      &lt;div style=&quot;color:#DC2626; font-size:13px; font-weight:800;&quot;&gt;Fail2ban&lt;/div&gt;&#10;      &lt;div style=&quot;color:#64748B; font-size:10px; font-weight:700;&quot;&gt;不正侵入・DDoS自動遮断&lt;/div&gt;&#10;      &lt;div style=&quot;margin-top:6px; font-size:10.5px; color:#475569; line-height:1.4;&quot;&gt;&#10;        ・異常アクセスレート検知・即時BAN&lt;br&gt;&#10;        ・悪意あるスキャン・探索攻撃を自動破棄&lt;br&gt;&#10;        ・Jailルールによる動的IPブロック&#10;      &lt;/div&gt;&#10;    &lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF2F2;strokeColor=#F87171;strokeWidth=1.5;align=left;verticalAlign=top;arcSize=6;" parent="1" vertex="1">
+          <mxGeometry x="690" y="225" width="260" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="17" value="&lt;div style=&quot;font-family:Noto Sans JP, sans-serif; text-align:left;&quot;&gt;&#10;      &lt;div style=&quot;color:#059669; font-size:13px; font-weight:800;&quot;&gt;Certbot / SSL証明書&lt;/div&gt;&#10;      &lt;div style=&quot;color:#64748B; font-size:10px; font-weight:700;&quot;&gt;商用暗号化・自動更新&lt;/div&gt;&#10;      &lt;div style=&quot;margin-top:6px; font-size:10.5px; color:#475569; line-height:1.4;&quot;&gt;&#10;        ・Let's Encrypt / 商用SSL 自動更新&lt;br&gt;&#10;        ・&lt;b&gt;TLS 1.3 強制終端&lt;/b&gt;&lt;br&gt;&#10;        ・HSTSヘッダー常時付与 (Preload)&#10;      &lt;/div&gt;&#10;    &lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ECFDF5;strokeColor=#34D399;strokeWidth=1.5;align=left;verticalAlign=top;arcSize=6;" parent="1" vertex="1">
+          <mxGeometry x="970" y="225" width="270" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="18" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#E2E8F0;strokeWidth=1.5;arcSize=4;" parent="1" vertex="1">
+          <mxGeometry x="390" y="360" width="870" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="19" value="&lt;span style='font-size:11px; font-weight:800; color:#475569;'&gt;🌐 WEBサーバー &amp; リバースプロキシ (WEB SERVER &amp; REVERSE PROXY)&lt;/span&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;" parent="1" vertex="1">
+          <mxGeometry x="410" y="365" width="450" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="20" value="&lt;div style=&quot;font-family:Noto Sans JP, sans-serif; text-align:left;&quot;&gt;&#10;      &lt;div style=&quot;display:flex; justify-content:space-between; align-items:center;&quot;&gt;&#10;        &lt;div&gt;&#10;          &lt;span style=&quot;color:#059669; font-size:15px; font-weight:800;&quot;&gt;Nginx Reverse Proxy&lt;/span&gt;&#10;          &lt;span style=&quot;color:#64748B; font-size:11px; font-weight:700; margin-left:6px;&quot;&gt;(高速静的キャッシュ &amp; WSSプロキシ中継)&lt;/span&gt;&#10;        &lt;/div&gt;&#10;      &lt;/div&gt;&#10;      &lt;div style=&quot;margin-top:8px; font-size:11px; color:#334155; line-height:1.5;&quot;&gt;&#10;        ・&lt;b&gt;静的アセット高速配信&lt;/b&gt;: Next.js静的ファイル、高尾山3D地形タイル(DEM)、3Dモデル、画像・音声をメモリ/ディスクキャッシュ&lt;br&gt;&#10;        ・&lt;b&gt;リバースプロキシ &amp; WSS中継&lt;/b&gt;: `/api/*` および `/voice/*` のWebSocket通信をバックエンドNext.jsへセキュア中継&lt;br&gt;&#10;        ・&lt;b&gt;アクセス制御 &amp; 保護&lt;/b&gt;: gzip/brotli 圧縮、CORS保護ヘッダー、レートリミット(Rate Limiting)による過剰アクセス遮断&#10;      &lt;/div&gt;&#10;    &lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#10B981;strokeWidth=2;align=left;verticalAlign=top;arcSize=6;shadow=1;" parent="1" vertex="1">
+          <mxGeometry x="410" y="390" width="830" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="21" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#E2E8F0;strokeWidth=1.5;arcSize=4;" parent="1" vertex="1">
+          <mxGeometry x="390" y="510" width="870" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="22" value="&lt;span style='font-size:11px; font-weight:800; color:#475569;'&gt;⚡ アプリケーション実行基盤 (NEXT.JS APPLICATION RUNTIME)&lt;/span&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;" parent="1" vertex="1">
+          <mxGeometry x="410" y="515" width="450" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="23" value="&lt;div style=&quot;font-family:Noto Sans JP, sans-serif; text-align:left;&quot;&gt;&#10;      &lt;div style=&quot;color:#EA580C; font-size:13px; font-weight:800;&quot;&gt;PM2 Runtime Manager&lt;/div&gt;&#10;      &lt;div style=&quot;color:#64748B; font-size:10px; font-weight:700;&quot;&gt;プロセス永続化・死活監視&lt;/div&gt;&#10;      &lt;div style=&quot;margin-top:6px; font-size:10.5px; color:#475569; line-height:1.4;&quot;&gt;&#10;        ・クラスタリング並行稼働&lt;br&gt;&#10;        ・異常終了時の即時自動再起動&lt;br&gt;&#10;        ・ゼロダウンタイムリロード対応&lt;br&gt;&#10;        ・CPU/メモリ稼働リソース監視&#10;      &lt;/div&gt;&#10;    &lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF7ED;strokeColor=#F97316;strokeWidth=1.5;align=left;verticalAlign=top;arcSize=6;" parent="1" vertex="1">
+          <mxGeometry x="410" y="540" width="260" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="24" value="&lt;div style=&quot;font-family:Noto Sans JP, sans-serif; text-align:left;&quot;&gt;&#10;      &lt;div style=&quot;color:#0F172A; font-size:13px; font-weight:800;&quot;&gt;Next.js Full-Stack App (Port 3000)&lt;/div&gt;&#10;      &lt;div style=&quot;color:#64748B; font-size:10px; font-weight:700;&quot;&gt;UIレンダリング &amp; 音声AI対話プロキシ&lt;/div&gt;&#10;      &lt;div style=&quot;margin-top:6px; font-size:10.5px; color:#475569; line-height:1.45;&quot;&gt;&#10;        ・&lt;b&gt;110インチ最適化 UI&lt;/b&gt; &amp; 3Dマップレンダリングロジック配信&lt;br&gt;&#10;        ・リアルタイムAI音声対話セッション中継（WebSocketプロキシ）&lt;br&gt;&#10;        ・気象データ取得・標高タイル中継API&lt;br&gt;&#10;        ・&lt;b&gt;音声データ・PIIはメモリ処理のみ（ディスク保存ゼロ原則）&lt;/b&gt;&#10;      &lt;/div&gt;&#10;    &lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0F172A;strokeWidth=2;align=left;verticalAlign=top;arcSize=6;shadow=1;" parent="1" vertex="1">
+          <mxGeometry x="690" y="540" width="550" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="25" value="&lt;div style=&quot;font-family:Noto Sans JP, sans-serif; text-align:left;&quot;&gt;&#10;      &lt;div style=&quot;color:#D97706; font-size:11.5px; font-weight:800;&quot;&gt;🔑 環境変数保護 (.env.production)&lt;/div&gt;&#10;      &lt;div style=&quot;margin-top:4px; font-size:9.5px; color:#475569; line-height:1.35;&quot;&gt;&#10;        OpenAI APIキー等を `chmod 600` で保護。コード内ハードコード完全排除。&#10;      &lt;/div&gt;&#10;    &lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFBEB;strokeColor=#FBBF24;strokeWidth=1;align=left;verticalAlign=top;arcSize=6;" parent="1" vertex="1">
+          <mxGeometry x="410" y="690" width="260" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="26" value="&lt;div style=&quot;font-family:Noto Sans JP, sans-serif; text-align:left;&quot;&gt;&#10;      &lt;div style=&quot;color:#0284C7; font-size:11.5px; font-weight:800;&quot;&gt;📋 Logrotate / アクセスログ&lt;/div&gt;&#10;      &lt;div style=&quot;margin-top:4px; font-size:9.5px; color:#475569; line-height:1.35;&quot;&gt;&#10;        Nginx/PM2アクセスログを日次ローテーション、90日間暗号化保管。&#10;      &lt;/div&gt;&#10;    &lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0F9FF;strokeColor=#38BDF8;strokeWidth=1;align=left;verticalAlign=top;arcSize=6;" parent="1" vertex="1">
+          <mxGeometry x="690" y="690" width="260" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="27" value="&lt;div style=&quot;font-family:Noto Sans JP, sans-serif; text-align:left;&quot;&gt;&#10;      &lt;div style=&quot;color:#7C3AED; font-size:11.5px; font-weight:800;&quot;&gt;💾 Xserver 自動スナップショット&lt;/div&gt;&#10;      &lt;div style=&quot;margin-top:4px; font-size:9.5px; color:#475569; line-height:1.35;&quot;&gt;&#10;        OS・データ全体の定期自動バックアップにより迅速な障害復旧を実現。&#10;      &lt;/div&gt;&#10;    &lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F3FF;strokeColor=#A78BFA;strokeWidth=1;align=left;verticalAlign=top;arcSize=6;" parent="1" vertex="1">
+          <mxGeometry x="970" y="690" width="270" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="28" value="&lt;div style=&quot;font-family:Noto Sans JP, sans-serif; text-align:left; padding:4px;&quot;&gt;&#10;      &lt;div style=&quot;color:#16A34A; font-size:11px; font-weight:700;&quot;&gt;GPT-4o / Realtime Voice Engine&lt;/div&gt;&#10;      &lt;div style=&quot;color:#0F172A; font-size:15px; font-weight:800; margin-top:2px;&quot;&gt;OpenAI API Platform&lt;/div&gt;&#10;      &lt;div style=&quot;margin-top:6px; font-size:11px; color:#475569; line-height:1.5;&quot;&gt;&#10;        ・リアルタイム音声認識・自然言語解析・回答音声合成&lt;br&gt;&#10;        ・&lt;b&gt;Zero Data Retention (ZDR) Policy&lt;/b&gt;&lt;br&gt;&#10;        　(APIデータ再学習完全不使用)&lt;br&gt;&#10;        ・&lt;b&gt;SOC 2 Type II 認定取得基盤&lt;/b&gt;&lt;br&gt;&#10;        ・TLS 1.3 暗号化通信 (WSS)&#10;      &lt;/div&gt;&#10;      &lt;div style=&quot;margin-top:8px; display:inline-block; background:#DCFCE7; color:#15803D; font-size:10px; font-weight:700; padding:3px 8px; border-radius:4px;&quot;&gt;&#10;        AIモデル再学習完全不使用&#10;      &lt;/div&gt;&#10;    &lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#10B981;strokeWidth=2;align=left;verticalAlign=top;arcSize=6;shadow=1;" parent="1" vertex="1">
+          <mxGeometry x="1320" y="170" width="290" height="220" as="geometry" />
+        </mxCell>
+        <mxCell id="29" value="&lt;div style=&quot;font-family:Noto Sans JP, sans-serif; text-align:left; padding:4px;&quot;&gt;&#10;      &lt;div style=&quot;color:#0284C7; font-size:11px; font-weight:700;&quot;&gt;Open Data &amp; Open-Meteo&lt;/div&gt;&#10;      &lt;div style=&quot;color:#0F172A; font-size:15px; font-weight:800; margin-top:2px;&quot;&gt;国土地理院 (GSI) &amp; 気象API&lt;/div&gt;&#10;      &lt;div style=&quot;margin-top:6px; font-size:11px; color:#475569; line-height:1.5;&quot;&gt;&#10;        ・国土地理院 標高タイル (DEM)&lt;br&gt;&#10;        ・高尾山 3D地形マップレンダリング&lt;br&gt;&#10;        ・Open-Meteo リアルタイム山岳気象&lt;br&gt;&#10;        ・気温・風速・雨量予報データ中継&#10;      &lt;/div&gt;&#10;      &lt;div style=&quot;margin-top:8px; display:inline-block; background:#E0F2FE; color:#0369A1; font-size:10px; font-weight:700; padding:3px 8px; border-radius:4px;&quot;&gt;&#10;        パブリックオープンAPI&#10;      &lt;/div&gt;&#10;    &lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#38BDF8;strokeWidth=2;align=left;verticalAlign=top;arcSize=6;shadow=1;" parent="1" vertex="1">
+          <mxGeometry x="1320" y="420" width="290" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="30" value="&lt;div style=&quot;font-family:Noto Sans JP, sans-serif; text-align:left; padding:4px;&quot;&gt;&#10;      &lt;div style=&quot;color:#64748B; font-size:11px; font-weight:700;&quot;&gt;Future Enterprise IT Systems&lt;/div&gt;&#10;      &lt;div style=&quot;color:#0F172A; font-size:15px; font-weight:800; margin-top:2px;&quot;&gt;Amer Sports 基盤 (将来構想)&lt;/div&gt;&#10;      &lt;div style=&quot;margin-top:6px; font-size:11px; color:#64748B; line-height:1.5;&quot;&gt;&#10;        ・現フェーズ：&lt;b&gt;直接連携なし（完全スタンドアロン）&lt;/b&gt;&lt;br&gt;&#10;        ・将来構想：Azure AD (Entra ID) SAML SSO連携 / リアルタイム店舗在庫API連携&#10;      &lt;/div&gt;&#10;      &lt;div style=&quot;margin-top:8px; display:inline-block; background:#F1F5F9; color:#475569; font-size:10px; font-weight:700; padding:3px 8px; border-radius:4px;&quot;&gt;&#10;        現フェーズ非接続&#10;      &lt;/div&gt;&#10;    &lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#94A3B8;strokeWidth=1.5;dashed=1;align=left;verticalAlign=top;arcSize=6;" parent="1" vertex="1">
+          <mxGeometry x="1320" y="640" width="290" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="31" value="HTTPS / TLS 1.3 (UI配信)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0284C7;strokeWidth=2.2;fontColor=#0284C7;fontSize=10;fontStyle=1;labelBackgroundColor=#FFFFFF;labelBorderColor=#0284C7;" parent="1" edge="1" source="8" target="15">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="32" value="WSS 音声対話" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#EA580C;strokeWidth=2.2;fontColor=#EA580C;fontSize=10;fontStyle=1;labelBackgroundColor=#FFFFFF;labelBorderColor=#EA580C;" parent="1" edge="1" source="8" target="20">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="33" value="PIN / IP制限 管理" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#7C3AED;strokeWidth=2.2;dashed=1;fontColor=#7C3AED;fontSize=10;fontStyle=1;labelBackgroundColor=#FFFFFF;labelBorderColor=#7C3AED;" parent="1" edge="1" source="9" target="20">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="34" value="QR 直接アクセス" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#16A34A;strokeWidth=2.2;fontColor=#16A34A;fontSize=10;fontStyle=1;labelBackgroundColor=#FFFFFF;labelBorderColor=#16A34A;" parent="1" edge="1" source="10" target="20">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="35" value="検査通過" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0284C7;strokeWidth=2.2;fontColor=#0284C7;fontSize=10;fontStyle=1;labelBackgroundColor=#FFFFFF;labelBorderColor=#0284C7;" parent="1" edge="1" source="15" target="20">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="36" value="Reverse Proxy (Port 3000)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#EA580C;strokeWidth=2.2;fontColor=#EA580C;fontSize=10;fontStyle=1;labelBackgroundColor=#FFFFFF;labelBorderColor=#EA580C;" parent="1" edge="1" source="20" target="24">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="37" value="Realtime AI対話 (WSS)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#16A34A;strokeWidth=2.2;fontColor=#16A34A;fontSize=10;fontStyle=1;labelBackgroundColor=#FFFFFF;labelBorderColor=#16A34A;" parent="1" edge="1" source="24" target="28">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="38" value="標高タイル・気象API" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0284C7;strokeWidth=2.2;fontColor=#0284C7;fontSize=10;fontStyle=1;labelBackgroundColor=#FFFFFF;labelBorderColor=#0284C7;" parent="1" edge="1" source="24" target="29">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="39" value="APIキー安全注入" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#D97706;strokeWidth=2;dashed=1;fontColor=#D97706;fontSize=10;fontStyle=1;labelBackgroundColor=#FFFFFF;labelBorderColor=#D97706;" parent="1" edge="1" source="25" target="24">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="40" value="&lt;div style=&quot;font-family:Noto Sans JP, sans-serif; font-size:11.5px; color:#334155; line-height:1.5;&quot;&gt;&#10;      &lt;b&gt;エンドツーエンド・データフロー概要 (質問C1/D12対応)&lt;/b&gt;: &amp;nbsp;&#10;      &lt;b&gt;① 起動・静的配信&lt;/b&gt;: 110インチ端末起動 → Xserver VPS (Nginx) から Next.js UI &amp; 3Dアセットを高速キャッシュ配信 (TLS 1.3) &amp;nbsp;|&amp;nbsp;&#10;      &lt;b&gt;② 音声対話&lt;/b&gt;: 利用者発話 → Nginx (WSS中継) → Next.js (エフェメラルセッション) → OpenAI API 音声解析・回答生成 &amp;nbsp;|&amp;nbsp;&#10;      &lt;b&gt;③ 保存ゼロ原則&lt;/b&gt;: 音声ストリームはメモリ上でのみ処理され、ディスク・ログへの保存なし（完全即時破棄）&#10;    &lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#E2E8F0;strokeWidth=1;align=left;verticalAlign=middle;arcSize=4;" parent="1" vertex="1">
+          <mxGeometry x="60" y="860" width="1550" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="41" value="&lt;b&gt;🔒 PII 保持ゼロ（完全匿名）&lt;/b&gt;&lt;br&gt;&lt;span style='font-size:10px; color:#64748b;'&gt;氏名・住所・決済・生体情報は一切取得・保持しません。マイク音声はメモリ処理後即時破棄。&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#E2E8F0;align=left;verticalAlign=top;arcSize=4;" parent="1" vertex="1">
+          <mxGeometry x="60" y="920" width="365" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="42" value="&lt;b&gt;🛡️ 全域暗号化 (In-Transit &amp; At-Rest)&lt;/b&gt;&lt;br&gt;&lt;span style='font-size:10px; color:#64748b;'&gt;通信は TLS 1.3 強制、シークレットは root 権限 600 で保護。OpenAI API キーは外部へ一切露出なし。&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#E2E8F0;align=left;verticalAlign=top;arcSize=4;" parent="1" vertex="1">
+          <mxGeometry x="455" y="920" width="365" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="43" value="&lt;b&gt;⚡ UFW + Fail2ban 二重防護&lt;/b&gt;&lt;br&gt;&lt;span style='font-size:10px; color:#64748b;'&gt;不要ポート完全閉鎖、SSHは鍵認証&amp;IP制限。不正レート・攻撃アクセスは即時自動IP BAN。&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#E2E8F0;align=left;verticalAlign=top;arcSize=4;" parent="1" vertex="1">
+          <mxGeometry x="850" y="920" width="365" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="44" value="&lt;b&gt;🏢 国内専用 VPS &amp; 国際認証基盤&lt;/b&gt;&lt;br&gt;&lt;span style='font-size:10px; color:#64748b;'&gt;他社DB相乗りなしの専用VPS。OpenAI API は SOC 2 Type II 準拠 &amp; Zero Data Retention 保証。&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#E2E8F0;align=left;verticalAlign=top;arcSize=4;" parent="1" vertex="1">
+          <mxGeometry x="1245" y="920" width="365" height="65" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

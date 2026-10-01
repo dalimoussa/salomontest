@@ -172,24 +172,24 @@ const TRAIL_RUN_PROFILES: CourseProfile[] = [
     points: [[0, 210], [2.2, 330], [4.5, 530], [6.0, 350], [7.0, 210]],
   },
   {
-    id: 'trail_kitatakao',
+    id: 'trail_kitaapproach',
     badgeNum: 8,
-    name: '北高尾山稜縦走トレイル',
-    name_en: 'KITA-TAKAO RIDGE TRAIL',
-    name_zh: '北高尾山脊纵走越野线',
-    color: '#EC4899',
-    gradientFrom: '#EC4899',
-    gradientTo: '#BE185D',
-    distanceKm: 14.0,
-    elevationGainM: 1100,
-    maxAltitudeM: 750,
-    difficultyStars: 5,
-    difficultyLabel: '上級者向け',
-    difficultyLabel_en: 'Expert',
-    difficultyLabel_zh: '高难度/专业',
-    recommendedShoe: 'S/LAB GENESIS',
-    recommendedShoeDesc: 'テクニカル・上級者向け',
-    points: [[0, 200], [3.0, 480], [6.5, 750], [9.8, 620], [12.0, 680], [14.0, 205]],
+    name: '北高尾アプローチトレイル',
+    name_en: 'NORTH TAKAO APPROACH TRAIL',
+    name_zh: '北高尾接入探索步道',
+    color: '#2DD4BF',
+    gradientFrom: '#2DD4BF',
+    gradientTo: '#0F766E',
+    distanceKm: 4.0,
+    elevationGainM: 190,
+    maxAltitudeM: 350,
+    difficultyStars: 1,
+    difficultyLabel: '初心者向け',
+    difficultyLabel_en: 'Beginner',
+    difficultyLabel_zh: '初学者',
+    recommendedShoe: 'X ULTRA 360',
+    recommendedShoeDesc: 'ハイク・初心者向け',
+    points: [[0, 205], [1.5, 260], [2.8, 350], [4.0, 340]],
   },
 ];
 
@@ -471,7 +471,11 @@ export function ElevationProfileModal() {
   };
 
   const handleSelectCourse = (courseId: string) => {
-    const targetRoute = ROUTES.find((r) => r.id === courseId);
+    const aliasMap: Record<string, string> = {
+      trail_kitatakao: 'trail_kitaapproach',
+    };
+    const realId = aliasMap[courseId] || courseId;
+    const targetRoute = ROUTES.find((r) => r.id === realId);
     if (targetRoute) {
       setSelectedRoute(targetRoute);
       setActiveModal(null);

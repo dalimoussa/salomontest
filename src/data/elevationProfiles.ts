@@ -110,6 +110,136 @@ export const ELEVATION_PROFILES: Record<string, RouteElevationProfile> = {
       { distanceKm: 20.0, elevationM: 857, landmark: '陣馬山頂' },
     ],
   },
+
+  // ─── 8 Surrounding Trail Running Courses ─────────────────────────
+  // 権現平往復トレイル 11.0km, ↑520m
+  trail_gongen: {
+    routeId: 'trail_gongen',
+    minElevationM: 201,
+    maxElevationM: 580,
+    totalGainM: 520,
+    totalDistanceKm: 11.0,
+    points: [
+      { distanceKm: 0.0, elevationM: 201, landmark: '高尾山口駅' },
+      { distanceKm: 2.8, elevationM: 380 },
+      { distanceKm: 5.5, elevationM: 580, landmark: '権現平' },
+      { distanceKm: 8.2, elevationM: 390 },
+      { distanceKm: 11.0, elevationM: 201, landmark: '高尾山口駅' },
+    ],
+  },
+
+  // 南高尾東尾根トレイル 5.0km, ↑280m
+  trail_minamitakao: {
+    routeId: 'trail_minamitakao',
+    minElevationM: 201,
+    maxElevationM: 410,
+    totalGainM: 280,
+    totalDistanceKm: 5.0,
+    points: [
+      { distanceKm: 0.0, elevationM: 201, landmark: '高尾山口駅' },
+      { distanceKm: 1.8, elevationM: 320 },
+      { distanceKm: 3.2, elevationM: 410, landmark: '草戸山' },
+      { distanceKm: 4.4, elevationM: 290 },
+      { distanceKm: 5.0, elevationM: 201, landmark: '高尾山口駅' },
+    ],
+  },
+
+  // 三沢峠周回トレイル 10.0km, ↑490m
+  trail_misawa: {
+    routeId: 'trail_misawa',
+    minElevationM: 201,
+    maxElevationM: 560,
+    totalGainM: 490,
+    totalDistanceKm: 10.0,
+    points: [
+      { distanceKm: 0.0, elevationM: 201, landmark: '高尾山口駅' },
+      { distanceKm: 2.5, elevationM: 360 },
+      { distanceKm: 5.0, elevationM: 560, landmark: '三沢峠' },
+      { distanceKm: 7.2, elevationM: 420, landmark: '津久井湖眺望' },
+      { distanceKm: 8.8, elevationM: 320 },
+      { distanceKm: 10.0, elevationM: 201, landmark: '高尾山口駅' },
+    ],
+  },
+
+  // 北高尾アプローチトレイル 4.0km, ↑190m
+  trail_kitaapproach: {
+    routeId: 'trail_kitaapproach',
+    minElevationM: 205,
+    maxElevationM: 350,
+    totalGainM: 190,
+    totalDistanceKm: 4.0,
+    points: [
+      { distanceKm: 0.0, elevationM: 205, landmark: '北高尾登山口' },
+      { distanceKm: 1.5, elevationM: 260 },
+      { distanceKm: 2.8, elevationM: 350, landmark: '駒木野林道' },
+      { distanceKm: 4.0, elevationM: 340, landmark: '北高尾山稜アプローチ' },
+    ],
+  },
+
+  // 太鼓曲輪尾根トレイル 6.0km, ↑320m
+  trail_taiko: {
+    routeId: 'trail_taiko',
+    minElevationM: 201,
+    maxElevationM: 460,
+    totalGainM: 320,
+    totalDistanceKm: 6.0,
+    points: [
+      { distanceKm: 0.0, elevationM: 201, landmark: '高尾山口駅' },
+      { distanceKm: 1.5, elevationM: 290 },
+      { distanceKm: 3.0, elevationM: 380, landmark: '八王子城跡' },
+      { distanceKm: 4.2, elevationM: 460, landmark: '太鼓曲輪尾根' },
+      { distanceKm: 6.0, elevationM: 201, landmark: '周回完了' },
+    ],
+  },
+
+  // 小下沢林道トレイル 7.0km, ↑260m
+  trail_kogezawa: {
+    routeId: 'trail_kogezawa',
+    minElevationM: 201,
+    maxElevationM: 430,
+    totalGainM: 260,
+    totalDistanceKm: 7.0,
+    points: [
+      { distanceKm: 0.0, elevationM: 201, landmark: '高尾山口駅' },
+      { distanceKm: 2.2, elevationM: 290, landmark: '林道分岐' },
+      { distanceKm: 4.5, elevationM: 430, landmark: '小下沢キャンプ場跡' },
+      { distanceKm: 6.0, elevationM: 310 },
+      { distanceKm: 7.0, elevationM: 201, landmark: '周回完了' },
+    ],
+  },
+
+  // 城山天狗トレイル 16.0km, ↑780m
+  trail_tengu: {
+    routeId: 'trail_tengu',
+    minElevationM: 280,
+    maxElevationM: 670,
+    totalGainM: 780,
+    totalDistanceKm: 16.0,
+    points: [
+      { distanceKm: 0.0, elevationM: 280, landmark: 'トレイル起点' },
+      { distanceKm: 3.5, elevationM: 520 },
+      { distanceKm: 6.0, elevationM: 670, landmark: '小仏城山天狗像' },
+      { distanceKm: 9.5, elevationM: 620, landmark: '奥高尾主稜線' },
+      { distanceKm: 13.0, elevationM: 450 },
+      { distanceKm: 16.0, elevationM: 280, landmark: '16km完走' },
+    ],
+  },
+
+  // 明王峠相模湖トレイル 10.0km, ↑450m
+  trail_meio: {
+    routeId: 'trail_meio',
+    minElevationM: 205,
+    maxElevationM: 738,
+    totalGainM: 450,
+    totalDistanceKm: 10.0,
+    points: [
+      { distanceKm: 0.0, elevationM: 738, landmark: '明王峠' },
+      { distanceKm: 2.5, elevationM: 620 },
+      { distanceKm: 5.0, elevationM: 450, landmark: '相模湖眺望' },
+      { distanceKm: 7.5, elevationM: 320, landmark: '与瀬神社' },
+      { distanceKm: 10.0, elevationM: 205, landmark: 'JR相模湖駅' },
+    ],
+  },
 };
 
 export function getElevationProfile(routeId: string): RouteElevationProfile {
