@@ -38,14 +38,6 @@ export function VoiceHUD({
   const isSpeaking     = status === 'speaking';
   const isIdle         = status === 'idle';
 
-  // Sample prompt chips for instant zero-friction voice interaction
-  const SAMPLE_QUESTIONS =
-    language === 'en'
-      ? ['Beginner trails?', 'Current weather & gear?', 'Famous snacks & shrines?']
-      : language === 'zh'
-      ? ['推荐初学者路线？', '山顶天气与穿搭？', '特色美食与景点？']
-      : ['初心者おすすめコースは？', '今日の天気とおすすめ服装は？', '名物天狗焼や茶屋はどこ？'];
-
   // Localized quote styling helper: English uses "", Chinese uses “”, Japanese uses 「」
   const formatQuote = (text: string) => {
     if (!text) return '';
@@ -79,7 +71,7 @@ export function VoiceHUD({
     ? (language === 'en' ? 'Processing your request...' : language === 'zh' ? '正在处理...' : '処理中...')
     : isSpeaking
     ? (language === 'en' ? 'Answering your question...' : language === 'zh' ? '正在回答您的问题…' : 'ご質問にお答えしています…')
-    : (language === 'en' ? 'Click here to speak or select quick questions below' : language === 'zh' ? '点击此处启动麦克风，或选择下方快捷提问' : 'ここをクリックしてマイクを起動（または下の質問をタップ）');
+    : (language === 'en' ? 'Click here to activate microphone' : language === 'zh' ? '点击此处启动麦克风对话' : 'ここをクリックしてマイクを起動');
 
   return (
     <div className="relative w-full md:w-auto">
@@ -114,27 +106,7 @@ export function VoiceHUD({
         </div>
       )}
 
-      {/* ── Quick Question Suggestions Chips (Always accessible for zero-friction interaction) ── */}
-      {isIdle && onSubmitQuestion && (
-        <div className="hidden sm:flex items-center gap-1.5 absolute -top-8 right-0 animate-fadeIn">
-          <span className="text-[10px] text-salomon-cyan font-bold flex items-center gap-1 mr-1">
-            <Sparkles className="w-3 h-3" />
-            {language === 'en' ? 'Quick AI Ask:' : language === 'zh' ? '快捷提问:' : 'ワンクリック質問:'}
-          </span>
-          {SAMPLE_QUESTIONS.map((q, idx) => (
-            <button
-              key={idx}
-              onClick={(e) => {
-                e.stopPropagation();
-                onSubmitQuestion(q);
-              }}
-              className="px-2.5 py-1 rounded-full bg-white/[0.08] hover:bg-salomon-cyan/25 border border-white/15 hover:border-salomon-cyan/50 text-[10px] text-slate-200 hover:text-white transition-all duration-200 shadow-sm whitespace-nowrap active:scale-95"
-            >
-              💬 {q}
-            </button>
-          ))}
-        </div>
-      )}
+
 
       {/* ── Active Conversation Floating Card (Shows BOTH User Question and AI Response) ── */}
       {(transcript || responseText || isThinking || isSpeaking) && (

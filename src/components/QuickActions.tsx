@@ -295,85 +295,13 @@ export function QuickActions() {
           </span>
         </div>
 
-        <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
-          {/* Night Mode Badge when disabled */}
-          {!periodicCalloutEnabled && (
+        {!periodicCalloutEnabled && (
+          <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
             <span className="px-2 py-0.5 rounded bg-black/40 border border-white/10 text-[10px] text-amber-300 font-medium flex items-center gap-1">
               <span>🌙 {language === 'en' ? 'Night Mode (Silent)' : language === 'zh' ? '夜间静音中' : '夜間停止中（完全無音）'}</span>
             </span>
-          )}
-
-          {/* Timing toggle: 60s or 120s (shown when in standby and callout is enabled) */}
-          {periodicCalloutEnabled && calloutMode === 'standby' && (
-            <div className="flex items-center bg-black/40 rounded-lg p-0.5 border border-white/10 text-[10px]">
-              <button
-                onClick={() => handleSetCalloutInterval(60)}
-                className={`px-2 py-0.5 rounded transition-colors ${
-                  calloutInterval === 60
-                    ? 'bg-salomon-cyan text-salomon-black font-bold shadow-sm'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-                title={language === 'en' ? 'Set periodic callout to 60 seconds' : '60秒ごとに自動呼びかけ'}
-              >
-                60s
-              </button>
-              <button
-                onClick={() => handleSetCalloutInterval(120)}
-                className={`px-2 py-0.5 rounded transition-colors ${
-                  calloutInterval === 120
-                    ? 'bg-salomon-cyan text-salomon-black font-bold shadow-sm'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-                title={language === 'en' ? 'Set periodic callout to 120 seconds' : '120秒ごとに自動呼びかけ'}
-              >
-                120s
-              </button>
-            </div>
-          )}
-
-          {/* Instant Test Callout */}
-          <button
-            onClick={() => {
-              unlockAudio();
-              triggerCallout(true);
-            }}
-            className="px-2 py-0.5 rounded bg-white/10 hover:bg-salomon-cyan/20 border border-white/15 hover:border-salomon-cyan/50 text-[10px] text-white transition-all flex items-center gap-1"
-            title={language === 'en' ? 'Play attract callout speech immediately' : '今すぐ呼びかけ音声を試聴再生'}
-          >
-            <Volume2 className="w-3 h-3 text-salomon-cyan" />
-            <span>{language === 'en' ? 'Play Intro' : language === 'zh' ? '试听呼出' : '今すぐ試聴'}</span>
-          </button>
-
-          {/* Audio Unlock indicator if browser blocked autoplay */}
-          {!unlocked && (
-            <button
-              onClick={() => unlockAudio()}
-              className="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/50 text-[10px] text-amber-300 font-medium transition-all animate-pulse flex items-center gap-1"
-              title="ブラウザの自動再生制限を解除"
-            >
-              <span>🔊 {language === 'en' ? 'Enable Sound' : language === 'zh' ? '启用声音' : '音声を有効化'}</span>
-            </button>
-          )}
-
-          {/* OpenAI API Key Status Badge */}
-          {openaiConfigured !== null && (
-            <span
-              className={`px-1.5 py-0.5 rounded text-[9px] font-mono border flex items-center gap-1 ${
-                openaiConfigured
-                  ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300'
-                  : 'bg-amber-950/60 border-amber-500/40 text-amber-300'
-              }`}
-              title={
-                openaiConfigured
-                  ? 'OpenAI Studio Neural Voice (alloy) & GPT-4o-mini active'
-                  : 'OpenAI API key not set in .env.local — using browser speech synthesis'
-              }
-            >
-              <span className={`w-1.5 h-1.5 rounded-full ${openaiConfigured ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-              {openaiConfigured ? 'OpenAI TTS' : 'Web Speech'}
-            </span>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Action cards and Push-to-Talk Voice Concierge Button */}
