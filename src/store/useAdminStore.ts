@@ -245,12 +245,12 @@ export const useAdminStore = create<AdminState>()(
           lastSavedAt: new Date().toISOString(),
         }),
 
-      // Periodic callout defaults to true (enabled), auto schedule mode, and 10:00-19:00 business hours
+      // Periodic callout defaults to true (enabled), manual mode for 24/7 kiosk attract, and active hours
       periodicCalloutEnabled: true,
       periodicCalloutInterval: 60,
-      calloutScheduleMode: 'auto',
-      businessHoursStart: '10:00',
-      businessHoursEnd: '19:00',
+      calloutScheduleMode: 'manual',
+      businessHoursStart: '08:00',
+      businessHoursEnd: '23:59',
       setPeriodicCalloutEnabled: (periodicCalloutEnabled) =>
         set({ periodicCalloutEnabled, lastSavedAt: new Date().toISOString() }),
       togglePeriodicCallout: (enabled) =>
@@ -396,8 +396,11 @@ export function isCalloutActiveNow(state: {
   businessHoursStart?: string;
   businessHoursEnd?: string;
 }, now = new Date()): boolean {
-  if (state.calloutScheduleMode === 'manual') {
-    return state.periodicCalloutEnabled ?? true;
+  if (state.periodicCalloutEnabled === false) {
+    return false;
   }
-  return isWithinBusinessHours(state.businessHoursStart || '10:00', state.businessHoursEnd || '19:00', now);
+  if (state.calloutScheduleMode === 'manual') {
+    return true;
+  }
+  return isWithinBusinessHours(state.businessHoursStart || '08:00', state.businessHoursEnd || '23:59', now);
 }

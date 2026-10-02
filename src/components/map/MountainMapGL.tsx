@@ -61,9 +61,11 @@ const ROUTE_COLOR_MAP: Record<string, string> = {
   route_6:          '#FACC15', // Yellow (Biwataki)
   inariyama:        '#00C8FF', // Ice blue (Inariyama)
   route_inariyama:  '#00C8FF',
-  route_3_traverse: '#FB923C', // Amber orange (Kagenobuyama)
-  route_kagenobu:   '#FB923C',
   route_jinba:      '#E8002D', // Salomon red (Jinba traverse)
+  route_iroha:      '#10B981', // Emerald green (Iroha forest)
+  route_jataki:     '#06B6D4', // Cyan (Jataki waterfall)
+  route_kobotoke:   '#F59E0B', // Amber gold (Kobotoke-Shiroyama)
+  route_momijidai:  '#EC4899', // Sakura rose (Momijidai & Itchodaira)
   path_segment:     'rgba(255,255,255,0.4)',
 };
 
@@ -78,9 +80,11 @@ const ROUTE_CAMERA_VIEWS: Record<string, { center: [number, number]; zoom: numbe
   route_6:          { center: [139.2558, 35.6266], zoom: 14.3, pitch: 58, bearing: -15 },
   route_inariyama:  { center: [139.2554, 35.6261], zoom: 14.3, pitch: 58, bearing: -22 },
   inariyama:        { center: [139.2554, 35.6261], zoom: 14.3, pitch: 58, bearing: -22 },
-  route_kagenobu:   { center: [139.2150, 35.6360], zoom: 12.8, pitch: 60, bearing: -30 },
-  route_3_traverse: { center: [139.2150, 35.6360], zoom: 12.8, pitch: 60, bearing: -30 },
   route_jinba:      { center: [139.2000, 35.6420], zoom: 11.8, pitch: 62, bearing: -35 },
+  route_iroha:      { center: [139.2495, 35.6315], zoom: 14.5, pitch: 56, bearing: -20 },
+  route_jataki:     { center: [139.2599, 35.6344], zoom: 14.6, pitch: 55, bearing: -18 },
+  route_kobotoke:   { center: [139.2330, 35.6323], zoom: 13.9, pitch: 58, bearing: -25 },
+  route_momijidai:  { center: [139.2385, 35.6261], zoom: 14.8, pitch: 54, bearing: -22 },
 
   // Surrounding trails
   trail_gongen:     { center: [139.262, 35.608], zoom: 13.2, pitch: 60, bearing: -10 },
@@ -130,11 +134,13 @@ function routeIdToGeoJsonId(routeId: string): string | null {
     route_4:          'route_4',
     route_5:          'route_5',
     route_6:          'route_6',
-    route_inariyama:  'inariyama',
-    inariyama:        'inariyama',
-    route_kagenobu:   'route_3_traverse',
-    route_3_traverse: 'route_3_traverse',
+    route_inariyama:  'route_inariyama',
+    inariyama:        'route_inariyama',
     route_jinba:      'route_jinba',
+    route_iroha:      'route_iroha',
+    route_jataki:     'route_jataki',
+    route_kobotoke:   'route_kobotoke',
+    route_momijidai:  'route_momijidai',
   };
   return idMap[routeId] ?? routeId;
 }
@@ -150,9 +156,11 @@ function geoJsonIdToAppRouteId(geoJsonId: string): string {
     route_6:          'route_6',
     inariyama:        'route_inariyama',
     route_inariyama:  'route_inariyama',
-    route_3_traverse: 'route_kagenobu',
-    route_kagenobu:   'route_kagenobu',
     route_jinba:      'route_jinba',
+    route_iroha:      'route_iroha',
+    route_jataki:     'route_jataki',
+    route_kobotoke:   'route_kobotoke',
+    route_momijidai:  'route_momijidai',
   };
   return reverseMap[geoJsonId] ?? geoJsonId;
 }

@@ -116,6 +116,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
   const listeningStartTimestampRef = useRef<number>(0);
 
   const stopSpeechRecognition = useCallback(() => {
+    isRecognitionRunningRef.current = false;
     if (recognitionRef.current) {
       try {
         recognitionRef.current.onend = null;
@@ -254,16 +255,32 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
   const setSelectedDifficulty = useStore((s) => s.setSelectedDifficulty);
   const setActiveModal = useStore((s) => s.setActiveModal);
 
+  const isRecognitionRunningRef = useRef<boolean>(false);
+
+  // AudioContext singleton to prevent exceeding the browser limit (max 6 hardware contexts)
+  const getOrCreateAudioContext = useCallback(() => {
+    if (typeof window === 'undefined') return null;
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return null;
+    if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
+      try {
+        audioContextRef.current = new AudioCtx();
+      } catch (e) {
+        console.warn('[useVoiceConversation] AudioContext creation error:', e);
+        return null;
+      }
+    }
+    if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+      audioContextRef.current.resume().catch(() => {});
+    }
+    return audioContextRef.current;
+  }, []);
+
   // Audio level visualizer loop — boosted high-sensitivity sensor
   const startLevelMeter = (stream: MediaStream) => {
     try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-      audioContextRef.current = ctx;
-      if (ctx.state === 'suspended') {
-        ctx.resume().catch(() => {});
-      }
+      const ctx = getOrCreateAudioContext();
+      if (!ctx) return;
       const analyser = ctx.createAnalyser();
       analyser.fftSize = 64;
       analyser.smoothingTimeConstant = 0.2;
@@ -332,10 +349,8 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       cancelAnimationFrame(animFrameRef.current);
       animFrameRef.current = null;
     }
-    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-      audioContextRef.current.close().catch(() => {});
-      audioContextRef.current = null;
-    }
+    // Do NOT close audioContextRef.current to prevent hitting browser hardware context limit (max 6).
+    // The AudioContext remains ready to be reused immediately.
     setAudioLevel(0);
   };
 
@@ -397,9 +412,9 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
 
           const utterance = new SpeechSynthesisUtterance(text);
           utterance.lang = targetLang;
-          utterance.rate = 0.98;
-          // Male mountain guide tone tuning: 0.80 pitch lowers the voice frequency into a resonant, calm male baritone
-          utterance.pitch = 0.80;
+          utterance.rate = 0.94;
+          // Male mountain guide tone tuning: 0.72 pitch lowers the voice frequency into a resonant, calm male baritone
+          utterance.pitch = 0.72;
           utterance.volume = 1.0;
           currentUtteranceRef.current = utterance;
 
@@ -440,9 +455,12 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
           // Generous watchdog based on realistic speaking duration (~300ms per character).
           const maxMs = Math.max(35000, text.length * 300);
           watchdog = setTimeout(() => {
-            if (typeof window !== 'undefined' && window.speechSynthesis && !window.speechSynthesis.speaking) {
-              finish();
-            }
+            try {
+              if (typeof window !== 'undefined' && window.speechSynthesis) {
+                window.speechSynthesis.cancel();
+              }
+            } catch {}
+            finish();
           }, maxMs);
 
           // Keep-alive timer for Chrome speech synthesis (strictly while active and NOT interrupted)
@@ -510,6 +528,11 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         const audio = new Audio(audioUrl);
         (audio as any).playsInline = true;
         audio.setAttribute('playsinline', 'true');
+        // Male mountain guide voice tuning: resonant baritone
+        (audio as any).preservesPitch = false;
+        (audio as any).mozPreservesPitch = false;
+        (audio as any).webkitPreservesPitch = false;
+        audio.playbackRate = 0.88;
         currentAudioRef.current = audio;
 
         await new Promise<void>((resolve) => {
@@ -535,9 +558,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
           audio.onerror = finish;
 
           watchdog = setTimeout(() => {
-            if (audio.ended || audio.paused) {
-              finish();
-            }
+            finish();
           }, Math.max(35000, textToSpeak.length * 300));
 
           audio.play().catch(finish);
@@ -591,11 +612,11 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     const currentLang = lang || useStore.getState().language;
 
     try {
-      // Always request authoritative, warm male mountain guide voice ('onyx')
+      // Always request authoritative, warm male mountain guide voice ('onyx') with forceAudio
       const res = await fetch('/api/voice/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, language: currentLang, voice: 'onyx' }),
+        body: JSON.stringify({ text, language: currentLang, voice: 'onyx', forceAudio: true }),
       });
 
       // Token check: if user interrupted or another speakText was called during network request
@@ -614,6 +635,11 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
         const audio = new Audio(audioUrl);
         (audio as any).playsInline = true;
         audio.setAttribute('playsinline', 'true');
+        // Authentic male mountain guide persona tuning: lowers pitch and adds deep resonance
+        (audio as any).preservesPitch = false;
+        (audio as any).mozPreservesPitch = false;
+        (audio as any).webkitPreservesPitch = false;
+        audio.playbackRate = 0.88;
         currentAudioRef.current = audio;
 
         await new Promise<void>((resolve) => {
@@ -658,9 +684,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
 
           // Generous playback watchdog (minimum 45 seconds or duration based)
           watchdog = setTimeout(() => {
-            if (audio.ended || audio.paused) {
-              finish();
-            }
+            finish();
           }, Math.max(45000, text.length * 300));
 
           audio.play().catch(async () => {
@@ -1178,6 +1202,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       } catch {}
       recognitionRef.current = null;
     }
+    isRecognitionRunningRef.current = false;
 
     try {
       const recognition = new SpeechRecognition();
@@ -1186,6 +1211,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       recognition.lang = targetLang;
 
       recognition.onstart = () => {
+        isRecognitionRunningRef.current = true;
         console.log('[WebSpeech] Speech recognition listening, lang:', targetLang);
       };
 
@@ -1232,6 +1258,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       };
 
       recognition.onerror = (e: any) => {
+        isRecognitionRunningRef.current = false;
         if (e.error === 'no-speech' || e.error === 'aborted') return;
         console.warn('[WebSpeech] Speech recognition error:', e.error);
         const currentLang = useStore.getState().language;
@@ -1255,35 +1282,38 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       };
 
       recognition.onend = () => {
+        isRecognitionRunningRef.current = false;
         if (
           autoLoopRef.current &&
-          statusRef.current === 'listening' &&
           !isSpeakingRef.current &&
-          !isAudioActivelyPlaying() &&
-          recognitionRef.current === recognition
+          !isAudioActivelyPlaying()
         ) {
-          try {
-            recognition.start();
-          } catch {
-            setTimeout(() => {
-              if (
-                autoLoopRef.current &&
-                statusRef.current === 'listening' &&
-                !isSpeakingRef.current &&
-                !isAudioActivelyPlaying()
-              ) {
-                startSpeechRecognition(targetLang);
-              }
-            }, 180);
-          }
+          setTimeout(() => {
+            if (
+              autoLoopRef.current &&
+              !isSpeakingRef.current &&
+              !isAudioActivelyPlaying()
+            ) {
+              startSpeechRecognition(targetLang);
+            }
+          }, 200);
         }
       };
 
       recognition.start();
+      isRecognitionRunningRef.current = true;
       recognitionRef.current = recognition;
-    } catch (e) {
-      console.warn('[WebSpeech] init exception:', e);
+    } catch (e: any) {
+      console.warn('[WebSpeech] init exception (scheduling auto-retry):', e?.message || e);
+      isRecognitionRunningRef.current = false;
       recognitionRef.current = null;
+      if (autoLoopRef.current && !isSpeakingRef.current && !isAudioActivelyPlaying()) {
+        setTimeout(() => {
+          if (autoLoopRef.current && !isSpeakingRef.current && !isAudioActivelyPlaying()) {
+            startSpeechRecognition(targetLang);
+          }
+        }, 400);
+      }
     }
   }, [commitCurrentSpeech, isAudioActivelyPlaying, isBusyResponding]);
 
@@ -1366,29 +1396,35 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
       setStatus('idle');
       const errName = err?.name || '';
       if (errName === 'NotAllowedError' || errName === 'PermissionDeniedError') {
-        setErrorMessage(
-          currentLang === 'en'
-            ? 'Microphone permission denied. Please allow microphone access in your browser or device settings.'
-            : currentLang === 'zh'
-            ? '麦克风权限被拒绝。请在浏览器或设备设置中允许麦克风访问。'
-            : 'マイクへのアクセスが拒否されました。ブラウザまたは端末の設定でマイクを許可してください。'
-        );
+        if (force) {
+          setErrorMessage(
+            currentLang === 'en'
+              ? 'Microphone permission denied. Please allow microphone access in your browser or device settings.'
+              : currentLang === 'zh'
+              ? '麦克风权限被拒绝。请在浏览器或设备设置中允许麦克风访问。'
+              : 'マイクへのアクセスが拒否されました。ブラウザまたは端末の設定でマイクを許可してください。'
+          );
+        }
       } else if (errName === 'NotFoundError' || errName === 'DevicesNotFoundError') {
-        setErrorMessage(
-          currentLang === 'en'
-            ? 'No microphone detected. Please connect an audio input device.'
-            : currentLang === 'zh'
-            ? '未检测到麦克风，请连接音频输入设备。'
-            : 'マイクが検出されませんでした。マイクを接続してください。'
-        );
+        if (force) {
+          setErrorMessage(
+            currentLang === 'en'
+              ? 'No microphone detected. Please connect an audio input device.'
+              : currentLang === 'zh'
+              ? '未检测到麦克风，请连接音频输入设备。'
+              : 'マイクが検出されませんでした。マイクを接続してください。'
+          );
+        }
       } else if (errName === 'NotReadableError' || errName === 'TrackStartError') {
-        setErrorMessage(
-          currentLang === 'en'
-            ? 'Microphone is already in use by another application.'
-            : currentLang === 'zh'
-            ? '麦克风正被其他应用占用，请关闭其他应用后重试。'
-            : 'マイクが他のアプリで使用中です。他のアプリを閉じてから再試行してください。'
-        );
+        if (force) {
+          setErrorMessage(
+            currentLang === 'en'
+              ? 'Microphone is already in use by another application.'
+              : currentLang === 'zh'
+              ? '麦克风正被其他应用占用，请关闭其他应用后重试。'
+              : 'マイクが他のアプリで使用中です。他のアプリを閉じてから再試行してください。'
+          );
+        }
       }
       return;
     }
@@ -1472,7 +1508,7 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     }
     audioChunksRef.current = [];
     isSpeakingRef.current = false;
-    if (streamRef.current) {
+    if (!autoLoopRef.current && streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     }
@@ -1585,6 +1621,58 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     };
   }, [enabled, cancelConversation]);
 
+  // ── Self-Healing Voice Engine Heartbeat Watchdog ──
+  // Automatically detects stuck/frozen speech synthesis, stalled audio playback,
+  // or dropped hands-free listening loops, restoring full voice functionality within seconds.
+  useEffect(() => {
+    if (!enabled) return;
+    const interval = setInterval(() => {
+      // 1. Recover if status is 'speaking' but no audio is actually outputting
+      if (statusRef.current === 'speaking' || isSpeakingRef.current) {
+        if (!isAudioActivelyPlaying()) {
+          console.log('[useVoiceConversation] Watchdog: speaking status detected without active audio output — self-healing to idle');
+          abortSpeaking();
+          if (autoLoopRef.current) {
+            setTimeout(() => {
+              if (autoLoopRef.current && statusRef.current === 'idle') {
+                startListeningRef.current?.(false).catch(() => {});
+              }
+            }, 300);
+          }
+        }
+      }
+
+      // 2. Recover if in 'listening' status but recognizer silently dropped or died
+      if (
+        statusRef.current === 'listening' &&
+        autoLoopRef.current &&
+        !isSpeakingRef.current &&
+        !isAudioActivelyPlaying() &&
+        !postSpeechGuardTimerRef.current
+      ) {
+        if (!recognitionRef.current || !isRecognitionRunningRef.current) {
+          console.log('[useVoiceConversation] Watchdog: in listening status but SpeechRecognition dropped — reviving recognition');
+          const currentLang = useStore.getState().language;
+          startSpeechRecognition(getTargetRecognitionLang(currentLang));
+        }
+      }
+
+      // 3. Ensure continuous listening loop is active during standby (only if stream already active)
+      if (
+        autoLoopRef.current &&
+        statusRef.current === 'idle' &&
+        !isSpeakingRef.current &&
+        !isAudioActivelyPlaying() &&
+        !postSpeechGuardTimerRef.current &&
+        streamRef.current?.active
+      ) {
+        startListeningRef.current?.(false).catch(() => {});
+      }
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [enabled, abortSpeaking, isAudioActivelyPlaying, startSpeechRecognition]);
+
   // ── One-Click Text Question Submission (Reliable on all devices regardless of mic permissions) ──
   const submitTextQuestion = useCallback(async (text: string) => {
     if (!text || !text.trim()) return;
@@ -1598,21 +1686,33 @@ export function useVoiceConversation(options?: { enabled?: boolean }): UseVoiceC
     await processRecordedAudioRef.current?.(null, query);
   }, [cancelConversation]);
 
-  // ── One-Click Speaker & Audio Output Test ──
+  // ── End-to-End Voice Checker & Speaker / Mic Health Test ──
   const testAudioOutput = useCallback(async () => {
     unlockAudio();
+    unmuteMicrophoneHardware();
     setErrorMessage(null);
     const activeLang = useStore.getState().language;
     const testMsg =
       activeLang === 'en'
-        ? 'Hello! Salomon AI Mountain Concierge is online and audio output is working properly. Feel free to ask about any course or gear recommendation!'
+        ? 'Salomon AI Voice Concierge is online and microphone standby is active. You can speak naturally anytime!'
         : activeLang === 'zh'
-        ? '您好！萨洛蒙AI向导语音播报正常运行。欢迎咨询高尾山登山路线、天气或装备建议！'
-        : 'こんにちは！サロモンAIコンシェルジュです。音声出力は正常に動作しています。高尾山のおすすめコースや天気など、何でもお尋ねください。';
+        ? '萨洛蒙AI向导语音系统运行正常，麦克风已开启免提待命，欢迎随时开口咨询！'
+        : 'サロモンAI音声案内・マイク待機ともに正常に動作しています。そのまま話しかけてください。';
     setResponseText(testMsg);
     setStatus('speaking');
-    await speakText(testMsg, activeLang);
-  }, [speakText]);
+    try {
+      await speakText(testMsg, activeLang);
+    } finally {
+      // Re-prime the continuous hands-free listening loop immediately
+      if (autoLoopRef.current) {
+        setTimeout(() => {
+          if (autoLoopRef.current && statusRef.current === 'idle') {
+            startListeningRef.current?.(true).catch(() => {});
+          }
+        }, 300);
+      }
+    }
+  }, [speakText, unmuteMicrophoneHardware]);
 
   return {
     status,

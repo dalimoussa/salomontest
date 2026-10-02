@@ -57,57 +57,100 @@ export const ELEVATION_PROFILES: Record<string, RouteElevationProfile> = {
     ],
   },
 
-  // 稲荷山コース 3.1km, ↑401m
+  // 2号路 (霞台ループ) 0.9km, ↑50m
   route_2: {
     routeId: 'route_2',
+    minElevationM: 450,
+    maxElevationM: 480,
+    totalGainM: 50,
+    totalDistanceKm: 0.9,
+    points: [
+      { distanceKm: 0.0, elevationM: 472, landmark: '霞台北側入口' },
+      { distanceKm: 0.3, elevationM: 480, landmark: '八王子JCT展望' },
+      { distanceKm: 0.6, elevationM: 465, landmark: '南側林道' },
+      { distanceKm: 0.9, elevationM: 472, landmark: '高尾山駅合流' },
+    ],
+  },
+
+  // 3号路 (かつら林コース) 2.4km, ↑180m
+  route_3: {
+    routeId: 'route_3',
+    minElevationM: 480,
+    maxElevationM: 599,
+    totalGainM: 180,
+    totalDistanceKm: 2.4,
+    points: [
+      { distanceKm: 0.0, elevationM: 515, landmark: '浄心門分岐' },
+      { distanceKm: 0.7, elevationM: 510, landmark: 'かしき谷園地' },
+      { distanceKm: 1.5, elevationM: 530, landmark: 'かつら巨木林' },
+      { distanceKm: 2.0, elevationM: 560 },
+      { distanceKm: 2.4, elevationM: 599, landmark: '山頂直下合流' },
+    ],
+  },
+
+  // 4号路 (吊り橋・みやま橋コース) 1.5km, ↑150m
+  route_4: {
+    routeId: 'route_4',
+    minElevationM: 470,
+    maxElevationM: 599,
+    totalGainM: 150,
+    totalDistanceKm: 1.5,
+    points: [
+      { distanceKm: 0.0, elevationM: 515, landmark: '浄心門分岐' },
+      { distanceKm: 0.5, elevationM: 485, landmark: 'みやま橋' },
+      { distanceKm: 1.0, elevationM: 520, landmark: 'ブナ原生林' },
+      { distanceKm: 1.5, elevationM: 599, landmark: '山頂下合流点' },
+    ],
+  },
+
+  // 5号路 (山頂ループ・江川杉コース) 0.9km, ↑40m
+  route_5: {
+    routeId: 'route_5',
+    minElevationM: 570,
+    maxElevationM: 599,
+    totalGainM: 40,
+    totalDistanceKm: 0.9,
+    points: [
+      { distanceKm: 0.0, elevationM: 580, landmark: '5号路入口' },
+      { distanceKm: 0.3, elevationM: 585, landmark: '江川杉' },
+      { distanceKm: 0.6, elevationM: 580, landmark: '北側巻き道' },
+      { distanceKm: 0.9, elevationM: 580, landmark: '周回完了' },
+    ],
+  },
+
+  // 稲荷山コース 3.1km, ↑401m
+  route_inariyama: {
+    routeId: 'route_inariyama',
     minElevationM: 205,
     maxElevationM: 599,
     totalGainM: 401,
     totalDistanceKm: 3.1,
     points: [
-      { distanceKm: 0.0, elevationM: 205, landmark: '登山口' },
-      { distanceKm: 0.7, elevationM: 290 },
+      { distanceKm: 0.0, elevationM: 205, landmark: '稲荷山登山口' },
+      { distanceKm: 0.6, elevationM: 270, landmark: '旭稲荷神社' },
       { distanceKm: 1.4, elevationM: 395, landmark: '展望東屋' },
-      { distanceKm: 2.0, elevationM: 460 },
-      { distanceKm: 2.6, elevationM: 510, landmark: '尾根分岐' },
-      { distanceKm: 2.9, elevationM: 560 },
+      { distanceKm: 2.2, elevationM: 460 },
+      { distanceKm: 2.7, elevationM: 510, landmark: '尾根見晴らし' },
       { distanceKm: 3.1, elevationM: 599, landmark: '山頂' },
     ],
   },
 
-  // 景信山縦走 8.5km, ↑727m
-  route_3: {
-    routeId: 'route_3',
+  // 高尾山・陣馬山縦走コース 15.3km, ↑857m
+  route_jinba: {
+    routeId: 'route_jinba',
     minElevationM: 520,
-    maxElevationM: 727,
-    totalGainM: 727,
-    totalDistanceKm: 8.5,
+    maxElevationM: 857,
+    totalGainM: 857,
+    totalDistanceKm: 15.3,
     points: [
       { distanceKm: 0.0, elevationM: 599, landmark: '高尾山頂' },
       { distanceKm: 1.1, elevationM: 550, landmark: 'もみじ台' },
       { distanceKm: 2.4, elevationM: 530, landmark: '一丁平' },
       { distanceKm: 4.2, elevationM: 670, landmark: '小仏城山' },
-      { distanceKm: 5.6, elevationM: 560, landmark: '小仏峠' },
-      { distanceKm: 7.2, elevationM: 680 },
-      { distanceKm: 8.5, elevationM: 727, landmark: '景信山頂' },
-    ],
-  },
-
-  // 陣馬山縦走 20.0km, ↑857m
-  route_4: {
-    routeId: 'route_4',
-    minElevationM: 520,
-    maxElevationM: 857,
-    totalGainM: 857,
-    totalDistanceKm: 20.0,
-    points: [
-      { distanceKm: 0.0, elevationM: 599, landmark: '高尾山頂' },
-      { distanceKm: 4.2, elevationM: 670, landmark: '城山' },
-      { distanceKm: 8.5, elevationM: 727, landmark: '景信山' },
-      { distanceKm: 12.0, elevationM: 690 },
-      { distanceKm: 15.5, elevationM: 738, landmark: '明王峠' },
-      { distanceKm: 18.0, elevationM: 790 },
-      { distanceKm: 20.0, elevationM: 857, landmark: '陣馬山頂' },
+      { distanceKm: 5.6, elevationM: 548, landmark: '小仏峠' },
+      { distanceKm: 7.2, elevationM: 727, landmark: '景信山' },
+      { distanceKm: 11.8, elevationM: 738, landmark: '明王峠' },
+      { distanceKm: 15.3, elevationM: 857, landmark: '陣馬山頂' },
     ],
   },
 
@@ -240,15 +283,99 @@ export const ELEVATION_PROFILES: Record<string, RouteElevationProfile> = {
       { distanceKm: 10.0, elevationM: 205, landmark: 'JR相模湖駅' },
     ],
   },
+
+  // ─── The 4 Specific Takao Courses ─────────────────────────
+  // いろはの森コース 1.5km, ↑280m
+  route_iroha: {
+    routeId: 'route_iroha',
+    minElevationM: 320,
+    maxElevationM: 599,
+    totalGainM: 280,
+    totalDistanceKm: 1.5,
+    points: [
+      { distanceKm: 0.0, elevationM: 320, landmark: '日影沢キャンプ場' },
+      { distanceKm: 0.4, elevationM: 390 },
+      { distanceKm: 0.8, elevationM: 470, landmark: 'いろは48文字学術林' },
+      { distanceKm: 1.2, elevationM: 535, landmark: '4号路合流点' },
+      { distanceKm: 1.5, elevationM: 599, landmark: '高尾山頂' },
+    ],
+  },
+
+  // 蛇滝コース 1.5km, ↑232m
+  route_jataki: {
+    routeId: 'route_jataki',
+    minElevationM: 240,
+    maxElevationM: 472,
+    totalGainM: 232,
+    totalDistanceKm: 1.5,
+    points: [
+      { distanceKm: 0.0, elevationM: 240, landmark: '蛇滝口・小仏川' },
+      { distanceKm: 0.5, elevationM: 310, landmark: '蛇滝水行道場' },
+      { distanceKm: 0.9, elevationM: 395, landmark: 'つづら折り見晴らし' },
+      { distanceKm: 1.3, elevationM: 450 },
+      { distanceKm: 1.5, elevationM: 472, landmark: '霞台・2号路合流' },
+    ],
+  },
+
+  // 小仏城山コース 4.5km, ↑380m
+  route_kobotoke: {
+    routeId: 'route_kobotoke',
+    minElevationM: 290,
+    maxElevationM: 670,
+    totalGainM: 380,
+    totalDistanceKm: 4.5,
+    points: [
+      { distanceKm: 0.0, elevationM: 290, landmark: '小仏バス停' },
+      { distanceKm: 1.2, elevationM: 420, landmark: '小仏峠登山口' },
+      { distanceKm: 2.2, elevationM: 548, landmark: '小仏峠' },
+      { distanceKm: 3.2, elevationM: 670, landmark: '小仏城山山頂' },
+      { distanceKm: 3.8, elevationM: 550, landmark: '一丁平展望デッキ' },
+      { distanceKm: 4.2, elevationM: 550, landmark: 'もみじ台' },
+      { distanceKm: 4.5, elevationM: 599, landmark: '高尾山頂' },
+    ],
+  },
+
+  // もみじ台・一丁平コース 2.5km, ↑150m
+  route_momijidai: {
+    routeId: 'route_momijidai',
+    minElevationM: 530,
+    maxElevationM: 599,
+    totalGainM: 150,
+    totalDistanceKm: 2.5,
+    points: [
+      { distanceKm: 0.0, elevationM: 599, landmark: '高尾山頂' },
+      { distanceKm: 0.6, elevationM: 550, landmark: 'もみじ台（細田屋茶屋）' },
+      { distanceKm: 1.4, elevationM: 530, landmark: '一丁平千本桜デッキ' },
+      { distanceKm: 2.0, elevationM: 550, landmark: '北側巻き道' },
+      { distanceKm: 2.5, elevationM: 599, landmark: '山頂周回完了' },
+    ],
+  },
+
+  // 全コース一括パノラマ表示 28.5km
+  all: {
+    routeId: 'all',
+    minElevationM: 201,
+    maxElevationM: 855,
+    totalGainM: 855,
+    totalDistanceKm: 28.5,
+    points: [
+      { distanceKm: 0.0, elevationM: 201, landmark: '清滝駅 (山麓)' },
+      { distanceKm: 3.8, elevationM: 599, landmark: '高尾山頂' },
+      { distanceKm: 7.2, elevationM: 670, landmark: '小仏城山' },
+      { distanceKm: 11.5, elevationM: 727, landmark: '景信山' },
+      { distanceKm: 18.5, elevationM: 855, landmark: '陣馬山頂' },
+    ],
+  },
+
+
 };
 
 export function getElevationProfile(routeId: string): RouteElevationProfile {
   const aliasMap: Record<string, string> = {
-    route_inariyama: 'route_2',
-    inariyama: 'route_2',
-    route_kagenobu: 'route_3',
-    route_jinba: 'route_4',
+    inariyama: 'route_inariyama',
+    all_routes: 'all',
   };
   const targetId = aliasMap[routeId] || routeId;
   return ELEVATION_PROFILES[targetId] || ELEVATION_PROFILES['route_1'];
 }
+

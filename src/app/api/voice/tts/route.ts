@@ -147,28 +147,26 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // 2. High-reliability fallback if client requested audio output (e.g. browser synth failed or unsupported device)
-  if (forceAudio) {
-    try {
-      const googleBuffer = await fetchGoogleTTSAudio(text, language);
-      if (googleBuffer) {
-        const uint8 = new Uint8Array(googleBuffer);
-        return new NextResponse(uint8, {
-          status: 200,
-          headers: {
-            'Content-Type': 'audio/mpeg',
-            'Content-Length': uint8.byteLength.toString(),
-            'Cache-Control': 'public, max-age=3600',
-            'X-TTS-Engine': 'google_tts_audio',
-          },
-        });
-      }
-    } catch (err) {
-      console.warn('[/api/voice/tts] Google TTS fallback failed:', err);
+  // 2. High-reliability real MP3 audio fallback
+  try {
+    const googleBuffer = await fetchGoogleTTSAudio(text, language);
+    if (googleBuffer) {
+      const uint8 = new Uint8Array(googleBuffer);
+      return new NextResponse(uint8, {
+        status: 200,
+        headers: {
+          'Content-Type': 'audio/mpeg',
+          'Content-Length': uint8.byteLength.toString(),
+          'Cache-Control': 'public, max-age=3600',
+          'X-TTS-Engine': 'google_tts_audio',
+        },
+      });
     }
+  } catch (err) {
+    console.warn('[/api/voice/tts] Google TTS fallback failed:', err);
   }
 
-  // 3. Client-side SpeechSynthesis fallback with male pitch tuning
+  // 3. Client-side SpeechSynthesis fallback with male pitch tuning (only if network audio completely unavailable)
   return NextResponse.json(
     { fallback: true, mode: 'browser_synth', preferredVoice: 'male' },
     {

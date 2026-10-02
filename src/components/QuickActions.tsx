@@ -295,13 +295,27 @@ export function QuickActions() {
           </span>
         </div>
 
-        {!periodicCalloutEnabled && (
-          <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
+        <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
+          {!periodicCalloutEnabled && (
             <span className="px-2 py-0.5 rounded bg-black/40 border border-white/10 text-[10px] text-amber-300 font-medium flex items-center gap-1">
               <span>🌙 {language === 'en' ? 'Night Mode (Silent)' : language === 'zh' ? '夜间静音中' : '夜間停止中（完全無音）'}</span>
             </span>
-          </div>
-        )}
+          )}
+
+          {/* Dedicated Voice Checker Button */}
+          <button
+            id="voice-checker-btn"
+            onClick={() => {
+              unlockAudio();
+              testAudioOutput();
+            }}
+            className="px-2.5 py-1 rounded-lg bg-[#081a29] hover:bg-salomon-cyan/20 border border-salomon-cyan/45 hover:border-salomon-cyan text-[10.5px] font-bold text-salomon-cyan transition-all flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
+            title={language === 'en' ? 'Test voice AI speech and reset microphone' : language === 'zh' ? '测试语音播报并重置麦克风' : '音声AI動作＆マイク待機のテスト・リセット'}
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>🎙️ {language === 'en' ? 'Voice Checker' : language === 'zh' ? '语音检测' : '音声チェッカー'}</span>
+          </button>
+        </div>
       </div>
 
       {/* Action cards and Push-to-Talk Voice Concierge Button */}

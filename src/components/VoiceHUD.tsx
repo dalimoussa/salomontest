@@ -311,6 +311,21 @@ export function VoiceHUD({
             })}
           </div>
 
+          {/* Quick Sound & Voice System Check Button */}
+          {onTestAudio && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onTestAudio();
+              }}
+              className="w-7 h-7 rounded-lg bg-[#091722] hover:bg-salomon-cyan/20 border border-[rgba(80,168,198,0.35)] hover:border-salomon-cyan text-salomon-cyan flex items-center justify-center transition-all cursor-pointer shadow-sm active:scale-90 shrink-0"
+              title={language === 'en' ? 'Voice system & speaker check' : language === 'zh' ? '语音与扬声器检测' : '音声・スピーカー動作確認'}
+            >
+              <Volume2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+
           {/* Stop / Cancel button (subtle) */}
           {(isListening || isSpeaking) && (
             <button

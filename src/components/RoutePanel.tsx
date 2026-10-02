@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { MapPin, Clock, TrendingUp, Sparkles, Mountain, Users, Star, MessageSquare } from 'lucide-react';
-import { ROUTES, getLocalizedRoute } from '@/data/routes';
+import { ROUTES, getLocalizedRoute, ALL_ROUTES_OVERVIEW } from '@/data/routes';
 import { useStore } from '@/store/useStore';
 import { useAdminStore } from '@/store/useAdminStore';
 import { ElevationProfileChart } from '@/components/ElevationProfileChart';
@@ -61,6 +61,11 @@ const ROUTE_BADGE_MAP: Record<string, { num: number; bg: string; text: string }>
   route_inariyama:    { num: 7, bg: 'bg-[#00C8FF]', text: 'text-black' },
   route_jinba:        { num: 8, bg: 'bg-[#FB923C]', text: 'text-black' },
   route_kagenobu:     { num: 8, bg: 'bg-[#FB923C]', text: 'text-black' },
+  // Additional Mt. Takao Courses
+  route_iroha:        { num: 9, bg: 'bg-[#10B981]', text: 'text-white' },
+  route_jataki:       { num: 10, bg: 'bg-[#0284C7]', text: 'text-white' },
+  route_kobotoke:     { num: 11, bg: 'bg-[#D97706]', text: 'text-white' },
+  route_momijidai:    { num: 12, bg: 'bg-[#EC4899]', text: 'text-white' },
 };
 
 export function RoutePanel() {
@@ -87,6 +92,7 @@ export function RoutePanel() {
     selectedRoute?.category ?? 'takao_course'
   );
   const [activeDifficultyFilter, setActiveDifficultyFilter] = useState<Difficulty | 'all'>('all');
+  const [expandedCardRouteId, setExpandedCardRouteId] = useState<string | null>(null);
 
   const categoryRoutes = ROUTES.filter(r => r.category === activeCategory);
   const filteredRoutes = activeDifficultyFilter === 'all'
@@ -124,41 +130,38 @@ export function RoutePanel() {
         </span>
       </div>
 
-      {/* Client Requirement [29/09/2026 06:38]: 標高プロファイルを全コース一気に見られるカード (TAKAO TRAIL HUB) */}
-      <button
-        onClick={() => setActiveModal('elevation')}
-        className="w-full py-1.5 px-3 rounded-xl bg-[#0c2330]/85 border border-cyan-400/35 hover:border-cyan-400/60 text-cyan-300 hover:text-white flex items-center justify-between transition-all duration-200 shadow-sm group active:scale-[0.99]"
-      >
-        <div className="flex items-center gap-2">
-          <TrendingUp className="w-3.5 h-3.5 text-cyan-400 group-hover:scale-110 transition-transform" />
-          <span className="text-xs font-black tracking-wide">
-            {language === 'en' ? 'All-Course Elevation Profile Hub' : language === 'zh' ? '全路线海拔高度剖面总览' : '全コース標高プロファイル（登山・トレラン）'}
-          </span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-400/20 text-cyan-300 border border-cyan-400/35 font-black font-mono">
+      {/* Client Requirement: 標高プロファイル & 難易度一覧 (2-Column Compact Row) */}
+      <div className="grid grid-cols-2 gap-1.5">
+        <button
+          onClick={() => setActiveModal('elevation')}
+          className="py-1.5 px-2 rounded-xl bg-[#0c2330]/90 border border-cyan-400/40 hover:border-cyan-400/80 text-cyan-300 hover:text-white flex items-center justify-between transition-all duration-200 shadow-sm group active:scale-[0.98]"
+        >
+          <div className="flex items-center gap-1.5 min-w-0">
+            <TrendingUp className="w-3.5 h-3.5 text-cyan-400 shrink-0 group-hover:scale-110 transition-transform" />
+            <span className="text-[10.5px] font-black tracking-tight truncate">
+              {language === 'en' ? 'Elevation Profile Hub' : language === 'zh' ? '全路线海拔剖面' : '全コース標高プロファイル'}
+            </span>
+          </div>
+          <span className="text-[8.5px] px-1.5 py-0.5 rounded-full bg-cyan-400/20 text-cyan-300 border border-cyan-400/35 font-black font-mono shrink-0">
             HUB
           </span>
-          <span className="text-xs text-cyan-400 font-bold group-hover:translate-x-0.5 transition-transform">›</span>
-        </div>
-      </button>
+        </button>
 
-      {/* Quick 20-Course Difficulty Modal Button (登山・トレラン) */}
-      <button
-        onClick={() => setActiveModal('difficulty')}
-        className="w-full py-1.5 px-3 rounded-xl bg-[#221c0e]/85 border border-yellow-400/35 hover:border-yellow-400/60 text-yellow-300 hover:text-white flex items-center justify-between transition-all duration-200 shadow-sm group active:scale-[0.99]"
-      >
-        <div className="flex items-center gap-2">
-          <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400 group-hover:scale-110 transition-transform" />
-          <span className="text-xs font-black tracking-wide">
-            {language === 'en' ? 'All 20 Courses Difficulty Guide (Hiking & Trail)' : language === 'zh' ? '全20条路线难易度一览（登山・越野跑）' : '全20コース難易度一覧（登山・トレラン）'}
+        <button
+          onClick={() => setActiveModal('difficulty')}
+          className="py-1.5 px-2 rounded-xl bg-[#221c0e]/90 border border-yellow-400/40 hover:border-yellow-400/80 text-yellow-300 hover:text-white flex items-center justify-between transition-all duration-200 shadow-sm group active:scale-[0.98]"
+        >
+          <div className="flex items-center gap-1.5 min-w-0">
+            <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400 shrink-0 group-hover:scale-110 transition-transform" />
+            <span className="text-[10.5px] font-black tracking-tight truncate">
+              {language === 'en' ? '20-Course Difficulty' : language === 'zh' ? '20条路线难易度' : '全20コース難易度一覧'}
+            </span>
+          </div>
+          <span className="text-[8.5px] px-1.5 py-0.5 rounded-full bg-[#E5F952] text-black font-black shrink-0">
+            ★1〜6
           </span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#E5F952] text-black font-black">★1〜6</span>
-          <span className="text-xs text-yellow-400 font-bold group-hover:translate-x-0.5 transition-transform">›</span>
-        </div>
-      </button>
+        </button>
+      </div>
 
       {/* Primary Category Tabs */}
       <div className="grid grid-cols-2 gap-1 p-1 bg-[#081520]/90 rounded-xl border border-[rgba(80,168,198,0.30)]">
@@ -167,8 +170,9 @@ export function RoutePanel() {
           return (
             <button
               key={tab.value}
+              id={`category-tab-${tab.value}`}
               onClick={() => handleCategoryChange(tab.value)}
-              className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all duration-200 min-h-[36px] flex items-center justify-center text-center leading-tight ${
+              className={`py-1.5 px-2 rounded-lg text-xs font-bold transition-all duration-200 min-h-[34px] flex items-center justify-center text-center leading-tight ${
                 isActive
                   ? 'bg-salomon-cyan text-salomon-black shadow-glow-cyan font-black'
                   : 'text-slate-300 hover:text-white hover:bg-white/5'
@@ -186,7 +190,7 @@ export function RoutePanel() {
           <button
             key={tab.value}
             onClick={() => setActiveDifficultyFilter(tab.value)}
-            className={`flex-1 py-1 rounded-lg text-[10px] font-bold transition-all duration-200 min-h-[30px] ${
+            className={`flex-1 py-1 rounded-lg text-[10px] font-bold transition-all duration-200 min-h-[28px] ${
               activeDifficultyFilter === tab.value
                 ? 'bg-salomon-cyan/25 text-salomon-cyan border border-salomon-cyan/60 shadow-glow-cyan/20'
                 : 'bg-[#091722] text-slate-300 hover:text-white border border-[rgba(80,168,198,0.30)] hover:border-salomon-cyan/50'
@@ -197,32 +201,106 @@ export function RoutePanel() {
         ))}
       </div>
 
-      {/* Visual Instruction Callout Banner (Client Requirement: Visually show people they can learn about each route by selecting this place) */}
-      <div className="relative overflow-hidden rounded-xl p-2 bg-gradient-to-r from-cyan-500/20 via-blue-600/15 to-cyan-500/15 border-2 border-cyan-400/50 shadow-[0_0_16px_rgba(6,182,212,0.25)] flex items-center gap-2 group">
-        <div className="w-7 h-7 rounded-lg bg-salomon-cyan flex items-center justify-center shrink-0 shadow-glow-cyan text-salomon-black">
-          <span className="text-sm font-black animate-bounce">👆</span>
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[9px] font-black uppercase tracking-wider text-salomon-cyan bg-cyan-400/20 px-1.5 py-0.5 rounded border border-cyan-400/40">
-              {language === 'en' ? 'Touch & Explore' : language === 'zh' ? '点击体验' : 'タッチして体験'}
-            </span>
-            <span className="text-[10.5px] font-black text-white truncate">
-              {language === 'en' ? 'Select Route to View 3D Path' : language === 'zh' ? '选择路线联动3D全景' : 'コースを選んで3Dルート体験'}
+      {/* Route list */}
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2.5 pr-1">
+
+        {/* General Paths & Trails Panoramic Overview Card (Client Requirement: Click to see whole trails with numbers, and click any trail number to check trails in map) */}
+        <div
+          id="route-card-all-overview"
+          onClick={() => handleSelectRoute(ALL_ROUTES_OVERVIEW)}
+          className={`p-3 rounded-xl border transition-all duration-200 cursor-pointer relative group ${
+            selectedRoute?.id === 'all'
+              ? 'bg-gradient-to-r from-[#072438] via-[#09324c] to-[#062134] border-salomon-cyan shadow-[0_0_26px_rgba(6,182,212,0.45)] ring-2 ring-salomon-cyan/80 scale-[1.01]'
+              : 'bg-gradient-to-r from-[#071626]/95 via-[#0b2034]/90 to-[#071626]/95 border-cyan-400/40 hover:border-salomon-cyan hover:bg-[#0c2438] shadow-md hover:shadow-[0_0_16px_rgba(6,182,212,0.25)]'
+          }`}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <span className="w-7 h-7 rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 text-salomon-black font-black text-sm flex items-center justify-center shrink-0 shadow-glow-cyan">
+                🌐
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-cyan-400/25 text-cyan-300 border border-cyan-400/50 font-mono">
+                    PANORAMIC 3D
+                  </span>
+                  <h3 className="font-black text-xs sm:text-[13px] text-white truncate group-hover:text-cyan-300 transition-colors">
+                    {language === 'en'
+                      ? 'General Paths & Trails Overview'
+                      : language === 'zh'
+                      ? '全路线3D全景总览（全トレイル）'
+                      : '全コース一括表示（全体トレイル・全域網羅）'}
+                  </h3>
+                </div>
+                <p className="text-[10px] text-cyan-200/90 leading-tight mt-0.5 truncate">
+                  {language === 'en'
+                    ? 'View all trail lines & numbered badges simultaneously on 3D map'
+                    : language === 'zh'
+                    ? '在3D地图上同时呈现全线轨迹与各コース番号，点击任意番号可直接查看'
+                    : '全トレイルの軌跡と番号を3Dマップ上に同時展開・番号タップで即座に確認'}
+                </p>
+              </div>
+            </div>
+            <span className={`text-[10.5px] px-2.5 py-1 rounded-lg font-black shrink-0 transition-all ${
+              selectedRoute?.id === 'all'
+                ? 'bg-cyan-400 text-black shadow-glow-cyan animate-pulse'
+                : 'bg-cyan-950/80 text-cyan-300 border border-cyan-400/50 group-hover:bg-cyan-500/25 group-hover:text-white'
+            }`}>
+              {selectedRoute?.id === 'all' ? '表示中 ✓' : '全体表示 ›'}
             </span>
           </div>
-          <p className="text-[9.5px] text-slate-300 leading-tight mt-0.5">
-            {language === 'en'
-              ? 'Tap any course to inspect 3D flight, elevation profile & advice'
-              : language === 'zh'
-              ? '点击下方任意路线即在3D地图联动呈现・包含标高剖面与建议'
-              : '各コースをタップすると3Dマップが連動し、詳細情報・標高を表示'}
-          </p>
-        </div>
-      </div>
 
-      {/* Route list */}
-      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 pr-1 space-y-0.5">
+          {/* Interactive Trail Numbers Grid (Client Requirement: Click any trail number to check that trail in map) */}
+          <div className="mt-2.5 pt-2 border-t border-cyan-400/20" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[9.5px] font-bold text-cyan-300 flex items-center gap-1">
+                <span>📍</span>
+                <span>
+                  {language === 'en'
+                    ? 'Click any trail number to inspect in map:'
+                    : language === 'zh'
+                    ? '点击任意路线编号直接在地图中查看：'
+                    : '各コース番号をタップして3Dマップで確認:'}
+                </span>
+              </span>
+              <span className="text-[9px] text-slate-400 font-mono">
+                {activeCategory === 'takao_course' ? '12 コース' : '8 コース'}
+              </span>
+            </div>
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
+              {ROUTES.filter(r => r.category === activeCategory).slice(0, activeCategory === 'takao_course' ? 12 : 8).map((r) => {
+                const badge = ROUTE_BADGE_MAP[r.id];
+                const isThisSelected = selectedRoute?.id === r.id;
+                const rNameShort = r.name.split('（')[0].replace('コース', '');
+                return (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSelectRoute(r);
+                    }}
+                    className={`flex items-center gap-1.5 p-1 rounded-lg border text-left transition-all ${
+                      isThisSelected
+                        ? 'bg-cyan-500/30 border-cyan-400 text-white shadow-glow-cyan/40 scale-[1.03]'
+                        : 'bg-[#061422]/90 border-white/10 hover:border-cyan-400/60 hover:bg-[#0c263c] text-slate-200'
+                    }`}
+                    title={`${r.name} を3Dマップで確認`}
+                  >
+                    {badge && (
+                      <span className={`w-4 h-4 rounded-full ${badge.bg} ${badge.text} flex items-center justify-center text-[9px] font-black shrink-0 shadow-sm border border-white/80`}>
+                        {badge.num}
+                      </span>
+                    )}
+                    <span className="text-[9.5px] font-bold truncate leading-none">
+                      {rNameShort}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
         {filteredRoutes.map((rawRoute) => {
           const route = getLocalizedRoute(rawRoute, language);
           const isSelected = selectedRoute?.id === route.id;
@@ -249,6 +327,7 @@ export function RoutePanel() {
           return (
             <div
               key={route.id}
+              id={`route-card-${rawRoute.id}`}
               onClick={() => handleSelectRoute(rawRoute)}
               className={`p-2.5 rounded-xl border transition-all duration-200 cursor-pointer relative group ${
                 isSelected
@@ -257,36 +336,34 @@ export function RoutePanel() {
               }`}
             >
               {/* Route Title & Badges */}
-              <div className="flex items-start justify-between gap-1.5 mb-1">
+              <div className="flex items-center justify-between gap-1.5 mb-1">
                 <div className="flex items-center gap-2 min-w-0">
                   {/* Colored Number Badge matching 3D Map */}
                   {badge && (
-                    <span className={`w-5 h-5 rounded-full ${badge.bg} ${badge.text} flex items-center justify-center text-[10px] font-black shrink-0 shadow-sm border border-white/50`}>
+                    <span className={`w-5 h-5 rounded-full ${badge.bg} ${badge.text} flex items-center justify-center text-[10.5px] font-black shrink-0 shadow-md border-2 border-white/80 ring-1 ring-black/20`}>
                       {badge.num}
                     </span>
                   )}
-                  {/* Glowing Focus Beacon ⭕ for selected route */}
+                  {/* Glowing Focus Beacon for selected route */}
                   {isSelected && (
-                    <div className="relative w-4 h-4 flex items-center justify-center shrink-0">
+                    <div className="relative w-3.5 h-3.5 flex items-center justify-center shrink-0">
                       <span className="absolute inset-0 rounded-full bg-salomon-cyan/50 animate-beaconRing" />
-                      <span className="w-3.5 h-3.5 rounded-full border-2 border-salomon-cyan animate-pulseBeacon shadow-glow-cyan flex items-center justify-center text-[8px] font-black text-salomon-cyan">
-                        ⭕
-                      </span>
+                      <span className="w-2.5 h-2.5 rounded-full bg-salomon-cyan animate-pulseBeacon shadow-glow-cyan" />
                     </div>
                   )}
-                  <span className={`text-xs font-bold leading-snug ${isSelected ? 'text-white font-black' : 'text-salomon-text group-hover:text-white'}`}>
+                  <span className={`text-xs font-bold leading-snug truncate ${isSelected ? 'text-white font-black' : 'text-salomon-text group-hover:text-white'}`}>
                     {route.name}
                   </span>
                 </div>
 
                 <div className="flex items-center gap-1 shrink-0">
                   {isSelected ? (
-                    <span className="text-[9px] font-black text-salomon-cyan bg-salomon-cyan/25 px-2 py-0.5 rounded-full border border-salomon-cyan/60 flex items-center gap-1 shadow-glow-cyan/30 animate-pulse">
-                      <span className="w-1.5 h-1.5 rounded-full bg-salomon-cyan animate-ping" />
+                    <span className="text-[9px] font-black text-black bg-salomon-cyan px-2 py-0.5 rounded-full flex items-center gap-1 shadow-glow-cyan animate-pulse">
+                      <span className="w-1.5 h-1.5 rounded-full bg-black animate-ping" />
                       {language === 'en' ? '3D Active' : language === 'zh' ? '3D联动中' : '3D表示中'}
                     </span>
                   ) : (
-                    <span className="text-[9px] font-bold text-salomon-cyan/80 group-hover:text-salomon-cyan bg-salomon-cyan/10 group-hover:bg-salomon-cyan/20 px-1.5 py-0.5 rounded border border-salomon-cyan/30 flex items-center gap-0.5 transition-all">
+                    <span className="text-[9px] font-bold text-salomon-cyan group-hover:text-white bg-salomon-cyan/15 group-hover:bg-salomon-cyan/40 px-2 py-0.5 rounded-full border border-salomon-cyan/50 flex items-center gap-0.5 transition-all shadow-sm">
                       {language === 'en' ? 'View 3D ›' : language === 'zh' ? '查看3D ›' : '3Dで見る ›'}
                     </span>
                   )}
@@ -298,8 +375,8 @@ export function RoutePanel() {
                 </div>
               </div>
 
-              {/* Specs: Distance, Duration (Ascent/Descent), Cumulative Gain, Max Elevation */}
-              <div className="flex items-center gap-2 text-[10px] text-salomon-muted pl-3.5 flex-wrap">
+              {/* Specs: Distance, Duration, Cumulative Gain, Max Elevation */}
+              <div className="flex items-center gap-2 text-[10px] text-salomon-muted pl-7 flex-wrap">
                 <span className="flex items-center gap-0.5 font-bold text-white/90">
                   <MapPin className="w-3 h-3 text-salomon-cyan" />
                   {route.distanceKm}km
@@ -327,31 +404,47 @@ export function RoutePanel() {
               </div>
 
               {/* Ratings: Row 1 Difficulty & 6-Star Rating, Row 2 Crowding */}
-              <div className="text-[10px] pl-3.5 mt-1.5 pt-1.5 border-t border-white/5 space-y-1">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-white/60">{t('route.difficulty')}:</span>
-                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${diffBadge.bg}`}>
-                      {diffBadge.label}
-                    </span>
-                  </div>
+              <div className="text-[10px] pl-7 mt-1 pt-1 border-t border-white/5 flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-white/60">{t('route.difficulty')}:</span>
+                  <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${diffBadge.bg}`}>
+                    {diffBadge.label}
+                  </span>
                   {renderDifficultyStars(effStars, 6)}
                 </div>
-                <div className="flex items-center justify-between text-white/60 text-[9.5px]">
-                  <span className="flex items-center gap-1">
-                    <Users className="w-3 h-3 text-salomon-cyan" /> {t('route.weekday')}:
-                    {renderCrowdStars(route.crowdWeekday ?? 1)}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    {t('route.weekend')}:
-                    {renderCrowdStars(route.crowdWeekend ?? 2)}
-                  </span>
+                <div className="text-white/60 text-[9px] flex items-center gap-1">
+                  <Users className="w-2.5 h-2.5 text-salomon-cyan" />
+                  <span>{renderCrowdStars(route.crowdWeekday ?? 1)}</span>
                 </div>
               </div>
 
-              {/* Expanded Route Description & Elevation Profile */}
+              {/* Optional Collapsible Detail Toggle for Selected Route */}
               {isSelected && (
-                <div className="mt-2 pt-2 border-t border-white/10 text-[11px] text-slate-300 leading-relaxed space-y-2.5">
+                <div className="mt-1.5 pt-1 border-t border-white/10">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setExpandedCardRouteId(expandedCardRouteId === route.id ? null : route.id);
+                    }}
+                    className="w-full py-1 px-2.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/25 border border-cyan-400/35 text-cyan-300 flex items-center justify-between text-[10px] font-bold transition-all active:scale-[0.99] cursor-pointer"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <TrendingUp className="w-3 h-3 text-cyan-400" />
+                      {expandedCardRouteId === route.id
+                        ? (language === 'en' ? 'Hide Details & Elevation Profile ▲' : language === 'zh' ? '收起详情与海拔图 ▲' : '詳細・標高グラフを閉じる ▲')
+                        : (language === 'en' ? 'Show Details & Elevation Profile ▼' : language === 'zh' ? '展開して詳細・標高グラフを見る ▼' : '詳細・標高グラフを展開 ▼')}
+                    </span>
+                    <span className="text-[9px] text-cyan-200/70 font-mono font-semibold bg-cyan-400/15 px-1.5 py-0.2 rounded border border-cyan-400/30">
+                      {expandedCardRouteId === route.id ? 'CLOSE' : 'EXPAND'}
+                    </span>
+                  </button>
+                </div>
+              )}
+
+              {/* Expanded Route Description & Elevation Profile */}
+              {isSelected && expandedCardRouteId === route.id && (
+                <div className="mt-2 pt-2 border-t border-white/10 text-[11px] text-slate-300 leading-relaxed space-y-2.5 animate-fadeIn">
                   {/* Staff Advice Card (Client Requirement) */}
                   {effComment && (
                     <div className="ml-3.5 mr-1 p-2.5 rounded-xl bg-gradient-to-r from-cyan-500/15 to-blue-500/10 border border-cyan-500/30 shadow-glow-cyan/15 space-y-1">

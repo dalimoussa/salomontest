@@ -1,24 +1,35 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import {
   LayoutDashboard, MessageSquare, Package, Settings,
   ExternalLink, ChevronRight, Clock,
   Menu, X, PanelLeftClose, PanelLeftOpen, Mountain, Globe, CloudRain,
   Sun, CloudSun, Cloud, CloudSnow, Wind, Droplets, Eye,
   RefreshCw, SlidersHorizontal, CheckCircle2, AlertCircle, ArrowUpRight,
-  Volume2, VolumeX, Moon, Layers, LogOut, AlertTriangle, Megaphone,
+  Volume2, VolumeX, Moon, Layers, LogOut, AlertTriangle, Megaphone, Loader2,
 } from 'lucide-react';
-import { HeroMessageEditor } from '@/admin/HeroMessageEditor';
-import { ProductEditor } from '@/admin/ProductEditor';
-import { RouteEditor } from '@/admin/RouteEditor';
-import { WeatherEditor } from '@/admin/WeatherEditor';
-import { CalloutEditor } from '@/admin/CalloutEditor';
-import { EmergencyNoticeEditor } from '@/admin/EmergencyNoticeEditor';
+// ── Lazy-load heavy editor panels so they don't block the initial admin page render ──
+const HeroMessageEditor   = lazy(() => import('@/admin/HeroMessageEditor').then(m => ({ default: m.HeroMessageEditor })));
+const ProductEditor       = lazy(() => import('@/admin/ProductEditor').then(m => ({ default: m.ProductEditor })));
+const RouteEditor         = lazy(() => import('@/admin/RouteEditor').then(m => ({ default: m.RouteEditor })));
+const WeatherEditor       = lazy(() => import('@/admin/WeatherEditor').then(m => ({ default: m.WeatherEditor })));
+const CalloutEditor       = lazy(() => import('@/admin/CalloutEditor').then(m => ({ default: m.CalloutEditor })));
+const EmergencyNoticeEditor = lazy(() => import('@/admin/EmergencyNoticeEditor').then(m => ({ default: m.EmergencyNoticeEditor })));
 import { SalomonLogo } from '@/components/SalomonLogo';
 import { useAdminStore } from '@/store/useAdminStore';
 import { useStore } from '@/store/useStore';
 import type { WeatherCode, WeatherData } from '@/types';
+
+/* ── Loading skeleton shown while a lazy editor panel is fetching ─────── */
+function SectionLoader() {
+  return (
+    <div className="flex flex-col items-center justify-center py-24 gap-4">
+      <Loader2 className="w-9 h-9 text-cyan-400 animate-spin" />
+      <p className="text-sm text-slate-400 font-medium animate-pulse">読み込み中...</p>
+    </div>
+  );
+}
 
 type Section = 'dashboard' | 'callout' | 'weather' | 'routes' | 'messages' | 'products' | 'emergency';
 
@@ -846,12 +857,12 @@ export function AdminApp({ onLogout }: { onLogout?: () => void }) {
   const renderContent = () => {
     switch (activeSection) {
       case 'dashboard': return <Dashboard onNavigate={setActiveSection} />;
-      case 'callout':   return <CalloutEditor onNavigate={setActiveSection} />;
-      case 'weather':   return <WeatherEditor />;
-      case 'messages':  return <HeroMessageEditor />;
-      case 'products':  return <ProductEditor />;
-      case 'routes':    return <RouteEditor />;
-      case 'emergency': return <EmergencyNoticeEditor />;
+      case 'callout':   return <Suspense fallback={<SectionLoader />}><CalloutEditor onNavigate={setActiveSection} /></Suspense>;
+      case 'weather':   return <Suspense fallback={<SectionLoader />}><WeatherEditor /></Suspense>;
+      case 'messages':  return <Suspense fallback={<SectionLoader />}><HeroMessageEditor /></Suspense>;
+      case 'products':  return <Suspense fallback={<SectionLoader />}><ProductEditor /></Suspense>;
+      case 'routes':    return <Suspense fallback={<SectionLoader />}><RouteEditor /></Suspense>;
+      case 'emergency': return <Suspense fallback={<SectionLoader />}><EmergencyNoticeEditor /></Suspense>;
     }
   };
 
